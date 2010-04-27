@@ -7,7 +7,7 @@ the R language. Similarly to lapply-like functions, foreach maps functions to
 data and aggregates results. Even better, foreach lets you do this in parallel
 across multiple CPU cores and computers.  And even better yet, foreach
 abstracts the parallel computing details into modular back-end code. Code
-written using foreach works sequentially in the absense of a parallel back-end,
+written using foreach works sequentially in the absence of a parallel back-end,
 and works uniformly across a growing variety of different back-ends. Think
 of foreach as the lingua Franca of parallel computing for R.
 
@@ -93,11 +93,11 @@ running on a host called "Cazart" with the default Redis port 6379:
 
 redisWorker('jobs', host='Cazart', port=6379)
 
-The registerDoRedis function also contains host and port paramters. Neither
+The registerDoRedis function also contains host and port parameters. Neither
 the worker nor master R session needs to be running on the same machine as
 the Redis server.
 
-Although Redis is a *nix-only database (for now), the doRedis pacakge may
+Although Redis is a *nix-only database (for now), the doRedis package may
 be used on Windows computers to run workers. In fact, users are free to set
 up hybrid mixtures of workers.
 
