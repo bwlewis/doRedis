@@ -1,0 +1,11 @@
+Package: doRedis
+Type: Package
+Title: doRedis
+Version: 0.0.1
+Date: 2010-04-22
+Author: B. W. Lewis <blewis@illposed.net>
+Maintainer: B. W. Lewis <blewis@illposed.net>
+Description: A simple Redis parallel backend for the %dopar% function
+Depends: R (>= 2.5), rredis, foreach(>= 1.0.0), iterators(>= 0.1.0), utils
+License: Apache License 2.0
+LazyLoad: yes

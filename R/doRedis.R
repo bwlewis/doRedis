@@ -1,0 +1,176 @@
+registerDoRedis <- function(queue, host="localhost", port=6379)
+{
+  redisConnect(host,port)
+  setDoPar(fun=doRedis, data=queue, info=.info)
+}
+
+# We don't know the number of workers, so we return NULL.
+.info <- function(data, item) {
+  switch(item,
+         workers=NULL,
+         name='doRedis',
+         version=packageDescription('doRedis', fields='Version'),
+         NULL)
+}
+
+.makeDotsEnv <- function(...) {
+  list(...)
+  function() NULL
+}
+
+.doRedisGlobals <- new.env(parent=emptyenv())
+
+doRedis <- function(obj, expr, envir, data)
+{
+  queue <- data
+  queueEnv <- paste(queue,"env",sep=".")
+  queueOut <- paste(queue,"out",sep=".")
+
+  if (!inherits(obj, 'foreach'))
+    stop('obj must be a foreach object')
+
+  it <- iter(obj)
+  argsList <- as.list(it)
+  accumulator <- makeAccum(it)
+
+  # setup the parent environment by first attempting to create an environment
+  # that has '...' defined in it with the appropriate values
+  exportenv <- tryCatch({
+    qargs <- quote(list(...))
+    args <- eval(qargs, envir)
+    environment(do.call(.makeDotsEnv, args))
+  },
+  error=function(e) {
+    new.env(parent=emptyenv())
+  })
+  noexport <- union(obj$noexport, obj$argnames)
+  getexports(expr, exportenv, envir, bad=noexport)
+  vars <- ls(exportenv)
+  if (obj$verbose) {
+    if (length(vars) > 0) {
+      cat('automatically exporting the following variables',
+          'from the local environment:\n')
+      cat(' ', paste(vars, collapse=', '), '\n')
+    } else {
+      cat('no variables are automatically exported\n')
+    }
+  }
+
+  # compute list of variables to export
+  export <- unique(obj$export)
+  ignore <- intersect(export, vars)
+  if (length(ignore) > 0) {
+    warning(sprintf('already exporting variable(s): %s',
+            paste(ignore, collapse=', ')))
+    export <- setdiff(export, ignore)
+  }
+
+  # add explicitly exported variables to exportenv
+  if (length(export) > 0) {
+    if (obj$verbose)
+      cat(sprintf('explicitly exporting variables(s): %s\n',
+                  paste(export, collapse=', ')))
+
+    for (sym in export) {
+      if (!exists(sym, envir, inherits=TRUE))
+        stop(sprintf('unable to find variable "%s"', sym))
+      assign(sym, get(sym, envir, inherits=TRUE),
+             pos=exportenv, inherits=FALSE)
+    }
+  }
+
+# Create a job environment for the workers to use
+  redisSet(queueEnv, list(expr=expr, 
+                         exportenv=exportenv, packages=obj$packages))
+# Generate a job ID (XXX not really satisfactory, improve)
+# The job ID associates this work with a job environment in queueEnv. If
+# the workers current job environment does not match job ID, they retrieve
+# the new job environment data from queueEnv and run workerInit.
+  ID <- tempfile("",tmpdir="")
+  results <- NULL
+
+# foreach lest one pass options to a backend with the .options.<label>
+# argument. We check for a user-supplied chunkSize option.
+# Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
+  chunkSize <- 0
+  if(!is.null(obj$options$redis$chunkSize))
+   {
+    tryCatch(
+      chunkSize <- obj$options$redis$chunkSize - 1,
+      error=function(e) {chunkSize <<- 0; warning(e)}
+    )
+   }
+  chunkSize <- max(chunkSize,0)
+
+# Queue the job(s)
+# We encode the job order in names(argsList) XXX This is perhaps not optimal.
+  njobs <- length(argsList)
+  nout <- 1
+  j <- 1
+  while(j <= njobs)
+   {
+    k <- min(j+chunkSize,njobs)
+    block <- argsList[j:k]
+    names(block) <- j:k
+    redisLPush(queue, list(ID=ID, argsList=block))
+    j <- k + 1
+    nout <- nout + 1
+   }
+
+# Collect nout results:
+# XXX Presently, we collect *all* the results in a list (in order), and then
+# run them through the accumulator. We will change this soon so that the
+# results are accumulated on the fly.
+  j <- 1
+  results <- vector('list',njobs)
+  names(results) <- 1:njobs
+  while(j < nout)
+   {
+    x <- redisBLPop(queueOut)
+    results[names(x[[1]])] <- x[[1]]
+    j <- j + 1
+   }
+
+  # call the accumulator with all of the results
+  tryCatch(accumulator(results, seq(along=results)), error=function(e) {
+    cat('error calling combine function:\n')
+    print(e)
+  })
+ 
+  # check for errors
+  errorValue <- getErrorValue(it)
+  errorIndex <- getErrorIndex(it)
+
+  # throw an error or return the combined results
+  if (identical(obj$errorHandling, 'stop') && !is.null(errorValue)) {
+    msg <- sprintf('task %d failed - "%s"', errorIndex,
+                   conditionMessage(errorValue))
+    stop(simpleError(msg, call=expr))
+  } else {
+    getResult(it)
+  }
+}
+
+as.list.iter <- function(x, ...) {
+  n <- 64
+  a <- vector('list', length=n)
+  i <- 0
+  tryCatch({
+    repeat {
+      if (i >= n) {
+        n <- 2 * n
+        length(a) <- n
+      }
+      a[i + 1] <- list(nextElem(x))
+      i <- i + 1
+    }
+  },
+  error=function(e) {
+    if (!identical(conditionMessage(e), 'StopIteration'))
+      stop(e)
+  })
+  length(a) <- i
+  a
+}
+
+# Register the 'doRedis' function with %dopar%.
