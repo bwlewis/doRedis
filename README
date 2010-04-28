@@ -64,10 +64,7 @@ DISCUSSION
 The "jobs" parameter of the redisWorker and registerDoRedis function specifies
 a Redis "list" that will be used to transfer data between the master and worker
 processes. Think of this name as a reference to a job queue. You are free to
-configure multiple queues with different sets of workers. In the above example,
-at least three Redis key names are actually used: "jobs," "jobs.env," and
-"jobs.out." The "jobs.env" and "jobs.out" lists are used internally by doRedis
-to transfer job environment and results data. 
+configure multiple queues with different sets of workers.
 
 Unlike many other parallel computing packages for R, doRedis does *not* provide
 process management functions, although basic worker spawning scripts will

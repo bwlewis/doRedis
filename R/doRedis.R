@@ -33,8 +33,10 @@ doRedis <- function(obj, expr, envir, data)
   argsList <- as.list(it)
   accumulator <- makeAccum(it)
 
-  # setup the parent environment by first attempting to create an environment
-  # that has '...' defined in it with the appropriate values
+# The environment initialization code is adapted (with only minor changes)
+# from the doSNOW package from REvolution computing.
+# Setup the parent environment by first attempting to create an environment
+# that has '...' defined in it with the appropriate values
   exportenv <- tryCatch({
     qargs <- quote(list(...))
     args <- eval(qargs, envir)
@@ -55,7 +57,6 @@ doRedis <- function(obj, expr, envir, data)
       cat('no variables are automatically exported\n')
     }
   }
-
   # compute list of variables to export
   export <- unique(obj$export)
   ignore <- intersect(export, vars)
@@ -64,13 +65,11 @@ doRedis <- function(obj, expr, envir, data)
             paste(ignore, collapse=', ')))
     export <- setdiff(export, ignore)
   }
-
   # add explicitly exported variables to exportenv
   if (length(export) > 0) {
     if (obj$verbose)
       cat(sprintf('explicitly exporting variables(s): %s\n',
                   paste(export, collapse=', ')))
-
     for (sym in export) {
       if (!exists(sym, envir, inherits=TRUE))
         stop(sprintf('unable to find variable "%s"', sym))
@@ -78,18 +77,18 @@ doRedis <- function(obj, expr, envir, data)
              pos=exportenv, inherits=FALSE)
     }
   }
-
 # Create a job environment for the workers to use
   redisSet(queueEnv, list(expr=expr, 
                          exportenv=exportenv, packages=obj$packages))
-# Generate a job ID (XXX not really satisfactory, improve)
 # The job ID associates this work with a job environment in queueEnv. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
-  ID <- tempfile("",tmpdir="")
+  ID <- tempfile("doRedis")
+  zz <- file(ID,"w")
+  close(zz)
   results <- NULL
 
-# foreach lest one pass options to a backend with the .options.<label>
+# foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
 # Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
   chunkSize <- 0
@@ -131,6 +130,7 @@ doRedis <- function(obj, expr, envir, data)
     j <- j + 1
    }
 
+  unlink(ID)
   # call the accumulator with all of the results
   tryCatch(accumulator(results, seq(along=results)), error=function(e) {
     cat('error calling combine function:\n')
