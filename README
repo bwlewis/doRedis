@@ -6,10 +6,10 @@ Steve Weston's foreach package is a remarkable parametric evaluation device for
 the R language. Similarly to lapply-like functions, foreach maps functions to
 data and aggregates results. Even better, foreach lets you do this in parallel
 across multiple CPU cores and computers.  And even better yet, foreach
-abstracts the parallel computing details into modular back-end code. Code
+abstracts the parallel computing details away into modular back-end code. Code
 written using foreach works sequentially in the absence of a parallel back-end,
-and works uniformly across a growing variety of different back-ends. Think
-of foreach as the lingua Franca of parallel computing for R.
+and works uniformly across a growing variety of back ends. Think of foreach as
+the lingua Franca of parallel computing for R.
 
 Please examine the foreach package documentation for more information about it.
 
