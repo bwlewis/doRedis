@@ -1,7 +1,13 @@
+# Register the 'doRedis' function with %dopar%.
 registerDoRedis <- function(queue, host="localhost", port=6379)
 {
   redisConnect(host,port)
   setDoPar(fun=doRedis, data=queue, info=.info)
+}
+
+removeQueue(queue)
+{
+  redisDelete(queue)
 }
 
 # We don't know the number of workers, so we return NULL.
@@ -34,7 +40,7 @@ doRedis <- function(obj, expr, envir, data)
   accumulator <- makeAccum(it)
 
 # The environment initialization code is adapted (with only minor changes)
-# from the doSNOW package from REvolution computing.
+# from the doMPI package from REvolution computing.
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
   exportenv <- tryCatch({
@@ -57,7 +63,7 @@ doRedis <- function(obj, expr, envir, data)
       cat('no variables are automatically exported\n')
     }
   }
-  # compute list of variables to export
+# Compute list of variables to export
   export <- unique(obj$export)
   ignore <- intersect(export, vars)
   if (length(ignore) > 0) {
@@ -65,7 +71,7 @@ doRedis <- function(obj, expr, envir, data)
             paste(ignore, collapse=', ')))
     export <- setdiff(export, ignore)
   }
-  # add explicitly exported variables to exportenv
+# Add explicitly exported variables to exportenv
   if (length(export) > 0) {
     if (obj$verbose)
       cat(sprintf('explicitly exporting variables(s): %s\n',
@@ -80,7 +86,7 @@ doRedis <- function(obj, expr, envir, data)
 # Create a job environment for the workers to use
   redisSet(queueEnv, list(expr=expr, 
                          exportenv=exportenv, packages=obj$packages))
-# The job ID associates this work with a job environment in queueEnv. If
+# ID associates this work with a job environment in queueEnv. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
   ID <- tempfile("doRedis")
@@ -102,7 +108,8 @@ doRedis <- function(obj, expr, envir, data)
   chunkSize <- max(chunkSize,0)
 
 # Queue the job(s)
-# We encode the job order in names(argsList) XXX This is perhaps not optimal.
+# We encode the job order in names(argsList) XXX This is perhaps not optimal
+# since the accumulator requires numeric job tags for ordering.
   njobs <- length(argsList)
   nout <- 1
   j <- 1
@@ -111,37 +118,33 @@ doRedis <- function(obj, expr, envir, data)
     k <- min(j+chunkSize,njobs)
     block <- argsList[j:k]
     names(block) <- j:k
-    redisLPush(queue, list(ID=ID, argsList=block))
+    redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
    }
 
-# Collect nout results:
-# XXX Presently, we collect *all* the results in a list (in order), and then
-# run them through the accumulator. We will change this soon so that the
-# results are accumulated on the fly.
+# Collect the results and pass through the accumulator
   j <- 1
-  results <- vector('list',njobs)
-  names(results) <- 1:njobs
   while(j < nout)
    {
-    x <- redisBLPop(queueOut)
-    results[names(x[[1]])] <- x[[1]]
+    results <- redisBRPop(queueOut)
+print(results)
     j <- j + 1
+    tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))), 
+      error=function(e) {
+        cat('error calling combine function:\n')
+        print(e)
+    })
    }
 
+# Clean up the session ID
   unlink(ID)
-  # call the accumulator with all of the results
-  tryCatch(accumulator(results, seq(along=results)), error=function(e) {
-    cat('error calling combine function:\n')
-    print(e)
-  })
  
-  # check for errors
+# check for errors
   errorValue <- getErrorValue(it)
   errorIndex <- getErrorIndex(it)
 
-  # throw an error or return the combined results
+# throw an error or return the combined results
   if (identical(obj$errorHandling, 'stop') && !is.null(errorValue)) {
     msg <- sprintf('task %d failed - "%s"', errorIndex,
                    conditionMessage(errorValue))
@@ -173,4 +176,3 @@ as.list.iter <- function(x, ...) {
   a
 }
 
-# Register the 'doRedis' function with %dopar%.
