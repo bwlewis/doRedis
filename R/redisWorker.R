@@ -23,7 +23,7 @@
   )
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, timeout=60)
+`redisWorker` <- function(queue, host="localhost", port=6379, timeout=60, log=stdout())
 {
   redisConnect(host,port)
   assign(".jobID", "0", envir=.doRedisGlobals)
@@ -33,6 +33,7 @@
    }
   queueEnv <- paste(queue,"env",sep=".")
   queueOut <- paste(queue,"out",sep=".")
+  cat("Waiting for doRedis jobs.\n", file=log)
   while(TRUE) {
     work <- redisBRPop(queue,timeout=timeout)
 # We terminate the worker loop after a timeout when all specified work 
@@ -45,6 +46,7 @@
      }
     else
      {
+      cat("Processing job",names(work[[1]]$argsList),"from queue",names(work),"\n",file=log)
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
@@ -61,5 +63,8 @@
       redisLPush(queueOut, result)
     }
   }
+# If we get here, our queues were deleted. Clean up as required.
+  redisDelete(queueOut)
+  redisDelete(queueEnv)
   redisClose()
 }

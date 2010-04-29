@@ -2,12 +2,19 @@
 registerDoRedis <- function(queue, host="localhost", port=6379)
 {
   redisConnect(host,port)
-  setDoPar(fun=doRedis, data=queue, info=.info)
+  setDoPar(fun=.doRedis, data=queue, info=.info)
 }
 
-removeQueue(queue)
+removeQueue <- function(queue)
 {
   redisDelete(queue)
+}
+
+setChunkSize <- function(value=1)
+{
+  if(!is.numeric(value)) stop("setChunkSize requires a numeric argument")
+  value <- max(round(value - 1),0)
+  assign('chunkSize', value, envir=.doRedisGlobals)
 }
 
 # We don't know the number of workers, so we return NULL.
@@ -19,14 +26,14 @@ removeQueue(queue)
          NULL)
 }
 
+.doRedisGlobals <- new.env(parent=emptyenv())
+
 .makeDotsEnv <- function(...) {
   list(...)
   function() NULL
 }
 
-.doRedisGlobals <- new.env(parent=emptyenv())
-
-doRedis <- function(obj, expr, envir, data)
+.doRedis <- function(obj, expr, envir, data)
 {
   queue <- data
   queueEnv <- paste(queue,"env",sep=".")
@@ -36,7 +43,7 @@ doRedis <- function(obj, expr, envir, data)
     stop('obj must be a foreach object')
 
   it <- iter(obj)
-  argsList <- as.list(it)
+  argsList <- .to.list(it)
   accumulator <- makeAccum(it)
 
 # The environment initialization code is adapted (with only minor changes)
@@ -98,6 +105,8 @@ doRedis <- function(obj, expr, envir, data)
 # argument. We check for a user-supplied chunkSize option.
 # Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
   chunkSize <- 0
+  if(exists('chunkSize',envir=.doRedisGlobals))
+    chunkSize <- get('chunkSize',envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$chunkSize))
    {
     tryCatch(
@@ -128,7 +137,6 @@ doRedis <- function(obj, expr, envir, data)
   while(j < nout)
    {
     results <- redisBRPop(queueOut)
-print(results)
     j <- j + 1
     tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))), 
       error=function(e) {
@@ -154,7 +162,8 @@ print(results)
   }
 }
 
-as.list.iter <- function(x, ...) {
+# Convert the iterator to a list
+.to.list <- function(x) {
   n <- 64
   a <- vector('list', length=n)
   i <- 0
@@ -175,4 +184,3 @@ as.list.iter <- function(x, ...) {
   length(a) <- i
   a
 }
-

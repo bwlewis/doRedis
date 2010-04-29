@@ -70,11 +70,9 @@ Unlike many other parallel computing packages for R, doRedis does *not* provide
 process management functions, although basic worker spawning scripts will
 eventually be added. Right now, one must start worker processes manually.
 
-Worker processes may come and go at will.  The master process does not care
-about the number of available worker processes.  Worker processes may be
-scheduled to run dynamically, for example by a batch job scheduler or resource
-scavenger like Condor. Similarly, if a job is running too slow, more worker
-processes may be added dynamically any time to pick up slack.
+The doRedis parallel  backend supports dynamic pools of back-end workers.  New
+workers may be added to work queues at any time and can be immediately used by
+in-flight foreach computations.
 
 The doRedis backend accepts a parameter called "chunkSize" that sets the
 number of function evaluations to be doled out per job. The default value
