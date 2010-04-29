@@ -26,37 +26,24 @@ Here is a quick example procedure for experimenting with doRedis:
 2. Install foreach, rredis and doRedis packages.
 3. Start the redis server running (see the redis documentation). We assume
    that the server is running on the host "localhost" and port 6379 (the
-   default Redis port).
-4. Open an R session that will act as a back-end worker process. Run the
-   following:
+   default Redis port). We assume in the examples below that the worker R
+   processes and the master are running on the same machine.
+4. Open one or more R sessions that will act as back-end worker processes. 
+   Run the following in each session:
 
    require('doRedis')
    redisWorker('jobs')
 
-   (The R session will freeze, blocking for work.)
+   (The R session will display status messages but otherwise block for work.)
 
 5. Open another R session that will act as the master process. Run the
-   following example:
+   following example (a simple sampling approximation of pi):
 
    require('doRedis')
    registerDoRedis('jobs')
-   foreach(j=1:5) %dopar% sqrt(j)
-
-   You should see the following results:
-      [[1]]
-      [1] 1
-
-      [[2]]
-      [1] 1.414214
-
-      [[3]]
-      [1] 1.732051
-
-      [[4]]
-      [1] 2
-
-      [[5]]
-      [1] 2.236068
+   foreach(j=1:10,.combine=sum,.multicombine=TRUE) %dopar%
+            4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
+   removeQueue('jobs')
 
 
 DISCUSSION
@@ -95,5 +82,3 @@ the Redis server.
 Although Redis is a *nix-only database (for now), the doRedis package may
 be used on Windows computers to run workers. In fact, users are free to set
 up hybrid mixtures of workers.
-
-We'll add documentation and some internal package improvements soon...
