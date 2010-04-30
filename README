@@ -1,6 +1,12 @@
 doRedis: A simple parallel backend for foreach using Redis.
 
-WARNING: doRedis is in an early alpha state.
+NOTE
+
+Set the following parameter in your redis.conf file before using doRedis:
+
+timeout 0
+
+DESCRIPTION
 
 Steve Weston's foreach package is a remarkable parametric evaluation device for
 the R language. Similarly to lapply-like functions, foreach maps functions to
@@ -10,8 +16,6 @@ abstracts the parallel computing details away into modular back-end code. Code
 written using foreach works sequentially in the absence of a parallel back-end,
 and works uniformly across a growing variety of back ends. Think of foreach as
 the lingua Franca of parallel computing for R.
-
-Please examine the foreach package documentation for more information about it.
 
 Redis is a powerful, fast networked database with many innovative features,
 among them a blocking stack-like data structure (Redis "lists"). This feature
@@ -35,6 +39,9 @@ Here is a quick example procedure for experimenting with doRedis:
    redisWorker('jobs')
 
    (The R session will display status messages but otherwise block for work.)
+   Note: You can add more workers to a work queue at any time. Also note
+   that each back-end worker may advertise for work on multiple queues
+   simultaneously (see the documentation and examples).
 
 5. Open another R session that will act as the master process. Run the
    following example (a simple sampling approximation of pi):
@@ -51,7 +58,7 @@ DISCUSSION
 The "jobs" parameter of the redisWorker and registerDoRedis function specifies
 a Redis "list" that will be used to transfer data between the master and worker
 processes. Think of this name as a reference to a job queue. You are free to
-configure multiple queues with different sets of workers.
+configure multiple queues.
 
 Unlike many other parallel computing packages for R, doRedis does *not* provide
 process management functions, although basic worker spawning scripts will
@@ -68,8 +75,11 @@ function evaluations. Here is an example that sets the chunkSize to 100:
 
 foreach(j=1:5, .options.redis=list(chunkSize=100)) %dopar%  ...
 
+Setting chunkSize too large will adversely impact load-balancing across the
+workers.
+
 The redisWorker function is used to manually invoke worker processes that
-listen for jobs on a specified queue. The function also has parameters
+advertise for jobs on one or more queues. The function also has parameters
 for a Redis host and port number. For example, if the Redis server is
 running on a host called "Cazart" with the default Redis port 6379:
 
@@ -78,7 +88,3 @@ redisWorker('jobs', host='Cazart', port=6379)
 The registerDoRedis function also contains host and port parameters. Neither
 the worker nor master R session needs to be running on the same machine as
 the Redis server.
-
-Although Redis is a *nix-only database (for now), the doRedis package may
-be used on Windows computers to run workers. In fact, users are free to set
-up hybrid mixtures of workers.
