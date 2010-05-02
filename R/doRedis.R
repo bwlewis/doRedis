@@ -48,7 +48,8 @@ setChunkSize <- function(value=1)
                n <- redisGet(
                        paste(foreach:::.foreachGlobals$data,'count',sep='.'))
                if(length(n)==0) n <- 0
-             }, error=function(e) 1),
+               else n <- as.numeric(n)
+             }, error=function(e) 0),
          name='doRedis',
          version=packageDescription('doRedis', fields='Version'),
          NULL)

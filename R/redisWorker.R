@@ -36,6 +36,17 @@
   if(!vcheck) stop("doRedis requires Redis >= 1.3.0")
 }
 
+`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stderr(), Rbin=paste(R.home(component='bin'),"/R --slave",sep=""))
+{
+  m <- match.call()
+  f <- formals()
+  l <- m$log
+  if(is.null(l)) l <- f$log 
+  cmd <- paste("require(doRedis);redisWorker(queue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
+  for(j in 1:n) 
+    system(Rbin,input=cmd,intern=FALSE,wait=FALSE,ignore.stderr=TRUE)
+}
+
 `redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout())
 {
   redisConnect(host,port)
@@ -74,7 +85,7 @@
     else
      {
       k <- k + 1
-      cat("Processing job",names(work[[1]]$argsList),"from queue",names(work),"\n",file=log)
+      cat("Processing task",names(work[[1]]$argsList),"from queue",names(work),"ID",work[[1]]$ID,"\n",file=log)
   flush.console()
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
@@ -95,5 +106,6 @@
 # Either the queue has been deleted, or we've exceeded the number of
 # specified work iterations.
   for(j in queueCount) if(redisExists(j)) redisDecr(j)
+  cat("Worker exit.\n", file=log)
   redisClose()
 }
