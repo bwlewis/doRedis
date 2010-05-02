@@ -38,10 +38,14 @@ setChunkSize <- function(value=1)
   assign('chunkSize', value, envir=.doRedisGlobals)
 }
 
-# We don't know the number of workers, so we return NULL.
+# The number of workers should be considered an estimate that may change.
 .info <- function(data, item) {
   switch(item,
-         workers=NULL,
+         workers=
+           tryCatch(
+             as.numeric(
+               redisGet(paste(foreach:::.foreachGlobals$data,'count',sep='.'))),
+              error=function(e) 1),
          name='doRedis',
          version=packageDescription('doRedis', fields='Version'),
          NULL)

@@ -23,7 +23,7 @@
   )
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, timeout=60, log=stdout())
+`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout())
 {
   redisConnect(host,port)
   assign(".jobID", "0", envir=.doRedisGlobals)
@@ -32,10 +32,14 @@
    {
     if(!redisExists(j)) redisSet(j,NULL)
    }
+  queueCount <- paste(queue,"count",sep=".")
+  for(j in queueCount)
+    tryCatch(redisIncr(j),error=function(e) invisible())
   queueEnv <- paste(queue,"env",sep=".")
   queueOut <- paste(queue,"out",sep=".")
   cat("Waiting for doRedis jobs.\n", file=log)
-  while(TRUE) {
+  k <- 0
+  while(k < iter) {
     work <- redisBRPop(queue,timeout=timeout)
 # We terminate the worker loop after a timeout when all specified work 
 # queues have been deleted.
@@ -43,10 +47,18 @@
      {
       ok <- FALSE
       for(j in queueLive) ok <- ok || redisExists(j)
-      if(!ok) break
+      if(!ok) {
+# If we get here, our queues were deleted. Clean up and exit worker loop.
+        for(j in queueOut) if(redisExists(j)) redisDelete(j)
+        for(j in queueEnv) if(redisExists(j)) redisDelete(j)
+        for(j in queueCount) if(redisExists(j)) redisDelete(j)
+        for(j in queue) if(redisExists(j)) redisDelete(j)
+        break
+      }
      }
     else
      {
+      k <- k + 1
       cat("Processing job",names(work[[1]]$argsList),"from queue",names(work),"\n",file=log)
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
@@ -64,9 +76,8 @@
       redisLPush(queueOut, result)
     }
   }
-# If we get here, our queues were deleted. Clean up as required.
-  redisDelete(queueOut)
-  redisDelete(queueEnv)
-  redisDelete(queue)
+# Either the queue has been deleted, or we've exceeded the number of
+# specified work iterations.
+  for(j in queueCount) if(redisExists(j)) redisDecr(j)
   redisClose()
 }

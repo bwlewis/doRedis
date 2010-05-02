@@ -7,7 +7,7 @@ redisWorker
 Initialize a doRedis worker R process.
 }
 \usage{
-redisWorker(queue, host = "localhost", port = 6379, timeout = 60, log = stdout())
+redisWorker(queue, host = "localhost", port = 6379, iter = Inf, timeout = 60, log = stdout())
 }
 \arguments{
   \item{queue}{
@@ -18,6 +18,10 @@ The Redis server host name or (character) I. P. address.
 }
   \item{port}{
 The Redis server port number.
+}
+  \item{iter}{
+The maximum number of jobs to execute before exiting the worker loop (defaults
+to infinity).
 }
   \item{timeout}{
 The worker loop terminates if the work queue is deleted after the
