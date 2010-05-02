@@ -27,9 +27,10 @@
 {
   redisConnect(host,port)
   assign(".jobID", "0", envir=.doRedisGlobals)
-  for(j in queue)
+  queueLive <- paste(queue,"live",sep=".")
+  for(j in queueLive)
    {
-    if(!redisExists(j)) redisLPush(j,NULL)
+    if(!redisExists(j)) redisSet(j,NULL)
    }
   queueEnv <- paste(queue,"env",sep=".")
   queueOut <- paste(queue,"out",sep=".")
@@ -41,7 +42,7 @@
     if(is.null(work[[1]]))
      {
       ok <- FALSE
-      for(j in queue) ok <- ok || redisExists(j)
+      for(j in queueLive) ok <- ok || redisExists(j)
       if(!ok) break
      }
     else
@@ -66,5 +67,6 @@
 # If we get here, our queues were deleted. Clean up as required.
   redisDelete(queueOut)
   redisDelete(queueEnv)
+  redisDelete(queue)
   redisClose()
 }

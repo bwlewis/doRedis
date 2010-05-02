@@ -1,3 +1,24 @@
+#
+# Copyright (c) 2010 by Bryan W. Lewis.
+#
+# This is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
+# USA
+
+# The environment initialization code is adapted (with minor changes)
+# from the doMPI package from Steve Weston.
+
 # Register the 'doRedis' function with %dopar%.
 registerDoRedis <- function(queue, host="localhost", port=6379)
 {
@@ -7,7 +28,7 @@ registerDoRedis <- function(queue, host="localhost", port=6379)
 
 removeQueue <- function(queue)
 {
-  redisDelete(queue)
+  redisDelete(paste(queue,"live",sep="."))
 }
 
 setChunkSize <- function(value=1)
@@ -46,8 +67,6 @@ setChunkSize <- function(value=1)
   argsList <- .to.list(it)
   accumulator <- makeAccum(it)
 
-# The environment initialization code is adapted (with only minor changes)
-# from the doMPI package from REvolution computing.
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
   exportenv <- tryCatch({
