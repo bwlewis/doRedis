@@ -52,6 +52,7 @@
   queueEnv <- paste(queue,"env",sep=".")
   queueOut <- paste(queue,"out",sep=".")
   cat("Waiting for doRedis jobs.\n", file=log)
+  flush.console()
   k <- 0
   while(k < iter) {
     work <- redisBRPop(queue,timeout=timeout)
@@ -74,6 +75,7 @@
      {
       k <- k + 1
       cat("Processing job",names(work[[1]]$argsList),"from queue",names(work),"\n",file=log)
+  flush.console()
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
