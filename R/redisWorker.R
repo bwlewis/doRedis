@@ -23,9 +23,23 @@
   )
 }
 
+`.redisVersionCheck` <- function()
+{
+  vcheck <- TRUE
+  tryCatch(
+   {
+    rv <- redisInfo()$redis_version
+    rv <- strsplit(rv,'\\.')[[1]]
+    vcheck <- vcheck && rv[[1]] >= 1
+    vcheck <- vcheck && rv[[2]] >= 2
+   }, error = function(e) vcheck <<- FALSE)
+  if(!vcheck) stop("doRedis requires Redis >= 1.3.0")
+}
+
 `redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout())
 {
   redisConnect(host,port)
+  .redisVersionCheck()
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue,"live",sep=".")
   for(j in queueLive)

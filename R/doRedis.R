@@ -23,6 +23,7 @@
 registerDoRedis <- function(queue, host="localhost", port=6379)
 {
   redisConnect(host,port)
+  .redisVersionCheck()
   setDoPar(fun=.doRedis, data=queue, info=.info)
 }
 
@@ -43,9 +44,11 @@ setChunkSize <- function(value=1)
   switch(item,
          workers=
            tryCatch(
-             as.numeric(
-               redisGet(paste(foreach:::.foreachGlobals$data,'count',sep='.'))),
-              error=function(e) 1),
+             {
+               n <- redisGet(
+                       paste(foreach:::.foreachGlobals$data,'count',sep='.'))
+               if(length(n)==0) n <- 0
+             }, error=function(e) 1),
          name='doRedis',
          version=packageDescription('doRedis', fields='Version'),
          NULL)
@@ -124,6 +127,7 @@ setChunkSize <- function(value=1)
   close(zz)
   results <- NULL
 
+  njobs <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
 # Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
@@ -142,7 +146,6 @@ setChunkSize <- function(value=1)
 # Queue the job(s)
 # We encode the job order in names(argsList) XXX This is perhaps not optimal
 # since the accumulator requires numeric job tags for ordering.
-  njobs <- length(argsList)
   nout <- 1
   j <- 1
   while(j <= njobs)
