@@ -79,9 +79,9 @@ Steve Weston's {\tt foreach} package is a remarkable parallel computing
 framework for the R language. Similarly to lapply-like functions, foreach maps
 functions to data and aggregates results. Even better, foreach lets you do this
 in parallel across multiple CPU cores and computers.  And even better yet,
-foreach abstracts the parallel computing details away into modular back-end
+foreach abstracts the parallel computing details away into modular back end
 code. Code written using foreach works sequentially in the absence of a
-parallel back-end, and works uniformly across different back ends, allowing
+parallel back end, and works uniformly across different back ends, allowing
 programmers to write code largely independent of specific parallel
 implementations. The {\tt foreach} package has many other wonderful features
 outlined in its package documentation.
@@ -97,7 +97,7 @@ Why write a {\tt doRedis} package? After all, the {\tt foreach} package already
 has available many parallel back-end packages, including {\tt doMC}, 
 {\tt doSNOW} and {\tt doMPI}.
 
-The {\tt doRedis} package allows for dynamic pools of back-end workers. New
+The {\tt doRedis} package allows for dynamic pools of workers. New
 workers may be added at any time, even in the middle of running computations.
 This feature is relevant, for example, to modern cloud computing environments.
 Users can make an economic decision to ``turn on'' more computing resources at
@@ -236,10 +236,10 @@ The next lines actually run our Monte Carlo code:
 
 \noindent \verb+foreach(icount(10),.combine=sum,.multicombine=TRUE,.inorder=FALSE) %dopar%+
 \\
-$\phantom{xxxxxx}$\verb_4*sum((runif(1000000)\^2 + runif(1000000)\^2)<1)/10000000_
+$\phantom{xxxxxx}$\verb_4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000_
 
 \noindent
-Thus, this parallel loop consists of 10 iterations (tasks) using the 
+This parallel loop consists of 10 iterations (tasks) using the 
 {\tt icount} iterator function. (It's also possible to use more traditional
 loop variables in {\tt foreach} loops.)
 We specify that the results from each task should be passed to
@@ -250,8 +250,8 @@ functions only work on two arguments). The {\tt .inorder=FALSE} option tells
 foreach that results may be passed to the {\tt .combine} function as they 
 arrive, in any order. The {\tt \%dopar\%} operator instructs
 {\tt foreach} to use the {\tt doRedis} back end that we previously registered
-to place each task in the work queue.  Finally, each iteration runs the Monte
-Carlo estimation for 1,000,000 points.
+to place each task in the work queue.  Finally, each iteration runs the scaled
+estimation of $\pi$ using 1,000,000 points.
 
 \subsection{Dynamic Worker Pools and Heterogeneous Workers}
 It's pretty simple to run parallel jobs across computers with {\tt doRedis},
@@ -308,13 +308,14 @@ queue. Setting this value can significantly improve performance, especially
 for short-running tasks. Setting the chunk size too large will adversely
 affect load balancing across the workers, however. The chunk size value
 may alternatively be set using the {\tt .options.redis} options list 
-directly in the {\tt foreach} function.
+directly in the {\tt foreach} function as described in the documentation.
 
 Once the above example is running, the workers update the total number of tasks
 taken in a Redis value called ``count'' at the start of each loop iteration. We
 can use another R process to visualize a moving average of computational rate.
-We ran the following R code on the ``master'' workstation after starting
-the bootstrapping example (it requires the {\tt xts} time-series package:
+We ran the performance visualization R code in Listing 3
+on the ``master'' workstation after starting
+the bootstrapping example (it requires the {\tt xts} time-series package).
 \begin{lstlisting}[frame=single,float=ht,caption=Performance Visualization]
 library('xts')
 library('rredis')
@@ -363,8 +364,8 @@ consideration, especially when running simulations in parallel. Each {\tt
 foreach} loop iteration (task) is assigned a number in order from the sequence
 $1, 2, \ldots$. By default, {\tt doRedis} workers initialize the seed of their
 random number generator with a multiple  of the first task number they receive.
-The multiple is chosen to separate seed initialization values as widely as
-possible. This simple scheme is sufficient for many problems, and comparable to
+The multiple is chosen to very widely separate seed initialization values.
+This simple scheme is sufficient for many problems, and comparable to
 the initialization scheme used by many other parallel back ends.
 
 The {\tt doRedis} package includes a mechanism to define an arbitrary
@@ -373,8 +374,8 @@ example, with the {\tt SPRNG} library.
 
 The user-defined random seed initialization function must be called
 {\tt set.seed.worker}, take one argument and must be exported to the
-workers explicitly in the {\tt foreach} loop. The following example
-illustrates its use.
+workers explicitly in the {\tt foreach} loop. The example shown in
+Listing 5 illustrates a simple user-defined seed function.
 \begin{lstlisting}[frame=single,float=ht,caption=User-defined RNG initialization]
 # First, use the default initialization:
 
