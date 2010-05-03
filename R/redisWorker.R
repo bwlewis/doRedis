@@ -1,14 +1,27 @@
 .doRedisGlobals <- new.env(parent=emptyenv())
 
-`.workerInit` <- function(expr, exportenv, packages)
+`.workerInit` <- function(expr, exportenv, packages, seed, log)
 {
+# Overried the function set.seed.worker in the exportenv to change!
   assign('expr', expr, .doRedisGlobals)
   assign('exportenv', exportenv, .doRedisGlobals)
+# XXX This use of parent.env should be changed. It's used here to
+# set up a valid search path above the working evironment, but its use
+# is fraglie as this may function be dropped in a future release of R.
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
   tryCatch(
     {for (p in packages)
       library(p, character.only=TRUE)
-    }, error=function(e) conditionMessage(e)
+    }, error=function(e) cat(as.character(e),'\n',file=log)
+  )
+  tryCatch(
+   {
+    if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
+      do.call('set.seed.worker',list(seed),envir=.doRedisGlobals$exportenv)
+    else
+      set.seed((log10(as.numeric(seed))/308)*2^31)
+   },
+   error=function(e) cat(as.character(e),'\n',file=log)
   )
 }
 
@@ -86,14 +99,15 @@
      {
       k <- k + 1
       cat("Processing task",names(work[[1]]$argsList),"from queue",names(work),"ID",work[[1]]$ID,"\n",file=log)
-  flush.console()
+      flush.console()
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
       if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
        {
         initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$packages)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
+                    names(work[[1]]$argsList)[[1]],log)
         assign(".redisWorkerEnvironmentID", work$ID, envir=.doRedisGlobals)
        }
 # Now do the work:

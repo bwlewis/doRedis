@@ -90,25 +90,25 @@ setChunkSize <- function(value=1)
   vars <- ls(exportenv)
   if (obj$verbose) {
     if (length(vars) > 0) {
-      cat('automatically exporting the following variables',
+      cat('automatically exporting the following objects',
           'from the local environment:\n')
       cat(' ', paste(vars, collapse=', '), '\n')
     } else {
-      cat('no variables are automatically exported\n')
+      cat('no objects are automatically exported\n')
     }
   }
 # Compute list of variables to export
   export <- unique(obj$export)
   ignore <- intersect(export, vars)
   if (length(ignore) > 0) {
-    warning(sprintf('already exporting variable(s): %s',
+    warning(sprintf('already exporting objects(s): %s',
             paste(ignore, collapse=', ')))
     export <- setdiff(export, ignore)
   }
 # Add explicitly exported variables to exportenv
   if (length(export) > 0) {
     if (obj$verbose)
-      cat(sprintf('explicitly exporting variables(s): %s\n',
+      cat(sprintf('explicitly exporting objects(s): %s\n',
                   paste(export, collapse=', ')))
     for (sym in export) {
       if (!exists(sym, envir, inherits=TRUE))

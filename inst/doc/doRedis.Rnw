@@ -1,0 +1,416 @@
+% \VignetteIndexEntry{doRedis Manual}
+% \VignetteDepends{doRedis}
+% \VignettePackage{doRedis}
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage[pdftex]{graphicx}
+\usepackage{color}
+\usepackage{xspace}
+\usepackage{fancyvrb}
+\usepackage{fancyhdr}
+\usepackage[
+     colorlinks=true,
+     linkcolor=blue,
+     citecolor=blue,
+     urlcolor=blue]
+     {hyperref}
+\usepackage{lscape}
+\usepackage{Sweave}
+\usepackage{tabularx}
+\usepackage{listings}
+\usepackage{mdwlist}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% define new colors for use
+\definecolor{darkgreen}{rgb}{0,0.6,0}
+\definecolor{darkred}{rgb}{0.6,0.0,0}
+\definecolor{lightbrown}{rgb}{1,0.9,0.8}
+\definecolor{brown}{rgb}{0.6,0.3,0.3}
+\definecolor{darkblue}{rgb}{0,0,0.8}
+\definecolor{darkmagenta}{rgb}{0.5,0,0.5}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\bld}[1]{\mbox{\boldmath $#1$}}
+\newcommand{\shell}[1]{\mbox{$#1$}}
+\renewcommand{\vec}[1]{\mbox{\bf {#1}}}
+\newcommand{\ReallySmallSpacing}{\renewcommand{\baselinestretch}{.6}\Large\normalsize}
+\newcommand{\SmallSpacing}{\renewcommand{\baselinestretch}{1.1}\Large\normalsize}
+\def\tm{\leavevmode\hbox{$\rm {}^{TM}$}}
+
+
+\setlength{\oddsidemargin}{-.25 truein}
+\setlength{\evensidemargin}{0truein}
+\setlength{\topmargin}{-0.2truein}
+\setlength{\textwidth}{7 truein}
+\setlength{\textheight}{8.5 truein}
+\setlength{\parindent}{0.20truein}
+\setlength{\parskip}{0.10truein}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagestyle{fancy}
+\lhead{}
+\chead{The {\tt doRedis} Package}
+\rhead{}
+\lfoot{}
+\cfoot{}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{1pt}
+\renewcommand{\footrulewidth}{1pt}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Introduction to the {\tt doRedis} Package}
+\author{Bryan W. Lewis \\ 
+blewis@illposed.net}
+
+\begin{document}
+
+\maketitle
+
+\thispagestyle{empty}
+
+\section{Introduction}
+
+The {\tt doRedis} package provides a parallel back end for {\tt foreach} using
+Redis and the corresponding {\tt rredis} package. It lets users easily run
+parallel jobs across multiple R sessions.
+
+Steve Weston's {\tt foreach} package is a remarkable parallel computing
+framework for the R language. Similarly to lapply-like functions, foreach maps
+functions to data and aggregates results. Even better, foreach lets you do this
+in parallel across multiple CPU cores and computers.  And even better yet,
+foreach abstracts the parallel computing details away into modular back-end
+code. Code written using foreach works sequentially in the absence of a
+parallel back-end, and works uniformly across different back ends, allowing
+programmers to write code largely independent of specific parallel
+implementations. The {\tt foreach} package has many other wonderful features
+outlined in its package documentation.
+
+Redis is a fast, persistent, networked database with many innovative features,
+among them a blocking stack-like data structure (Redis ``lists''). This feature
+makes Redis useful as a lightweight back end for parallel computing, similar to
+REvolution Computing's NetWorkSpaces. The {\tt rredis} package provides a 
+native R interface to Redis used by {\tt doRedis}.
+
+\subsection{Why doRedis?}
+Why write a {\tt doRedis} package? After all, the {\tt foreach} package already
+has available many parallel back-end packages, including {\tt doMC}, 
+{\tt doSNOW} and {\tt doMPI}.
+
+The {\tt doRedis} package allows for dynamic pools of back-end workers. New
+workers may be added at any time, even in the middle of running computations.
+This feature is relevant, for example, to modern cloud computing environments.
+Users can make an economic decision to ``turn on'' more computing resources at
+any time in order to accelerate running computations. Similarly, modern cluster
+resource allocation systems can dynamically schedule R workers as cluster
+resources become available.
+
+The {\tt doRedis} package makes it particularly easy to run parallel jobs
+across different operating systems. Although Redis itself is not yet supported
+on Microsoft Windows systems, the {\tt doRedis} package works on Windows as long
+as there is a Redis server available to connect to.
+
+Unlike the {\tt doSNOW} back end, {\tt doRedis} can aggregate results
+incrementally, significantly reducing required memory overhead for problems that
+return large data (RandomForest with importance matrices, for example).
+
+Redis is a fast-developing, state of the art system with  features in
+development that will make {\tt doRedis} even faster and more efficient in the
+near future.
+
+\section{Obtaining and Installing the Redis server}\label{install}
+
+{\bf NOTE:} The {\tt doRedis} package requires a Redis version $\ge 1.3.1$. At
+the time of this writing, the official Redis Google project website hosts an
+older version of Redis--obtain Redis from the Github source tree shown below.
+
+Redis is an open-source project available from 
+\htmladdnormallink{http://github.com/antirez/redis/tarball/1.3.6}{http://github.com/antirez/redis/tarball/1.3.6}, with source code available from Github at
+\htmladdnormallink{http://github.com/antirez/redis}{http://github.com/antirez/redis}.
+
+It is not necessary to ``install'' Redis to use it. One may download the code,
+compile it, and run it in place. We include an example command-line
+procedure applicable to most POSIX operating systems for completeness.
+\lstset{columns=flexible, basicstyle={\ttfamily\slshape}}
+\begin{lstlisting}
+wget http://github.com/antirez/redis/tarball/1.3.6
+tar xf antirez-redis-1.3.6*.tar.gz
+cd antirez-redis-<<version>>
+make
+# <<Some output from your C compiler>>
+\end{lstlisting}
+At this point, unless an error occurred, you have a working copy of Redis.
+The Redis server is completely configured by the file
+\verb+redis.conf+. In order to run the Redis server as a background process,
+edit this file and change the lines:
+
+\noindent \verb+daemonize no+
+\\[-2pt]
+\noindent \verb+timeout 300+
+
+\noindent to:
+
+\noindent \verb+daemonize yes+
+\\[-2pt]
+\noindent \verb+timeout 0+
+
+\noindent You may wish to peruse the rest of the configuration file and 
+experiment with the other server settings as well. Finally, start up the 
+Redis server with
+\lstset{columns=flexible, basicstyle={\ttfamily\slshape}}
+\begin{lstlisting}
+./redis-server ./redis.conf
+\end{lstlisting}
+
+\subsection{Supported Platforms}
+The Redis server is written in ANSI C and supported on most POSIX systems
+including GNU/Linux, Solaris, *BSD, and Mac OS X. The server is not officially
+supported on Windows systems at the time of this writing (March, 2010).
+
+The doRedis package for R is available for all supported R platforms, including
+Microsoft Windows, and can connect to a Redis server running on a POSIX system.
+
+
+\section{doRedis Examples}
+
+We explore operation of many {\tt doRedis} features through a few examples.
+Unless otherwise noted, we assume that Redis is installed and running on
+the local machine (``localhost'') as outlined in Section \ref{install} above.
+
+\subsection{A Simple Example}
+The simple example below is one version of a Monte Carlo
+approximation of $\pi$. Variations on this example are often used to
+illustrate parallel programming ideas. 
+\begin{lstlisting}[frame=single,float=ht,caption=Monte Carlo Example]
+> library('doRedis')
+> registerDoRedis('jobs')
+> startLocalWorkers(n=2, queue='jobs')
+> foreach(icount(10),.combine=sum,.multicombine=TRUE,.inorder=FALSE) %dopar%
+          4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
+[1] 3.144212
+> removeQueue('jobs')
+\end{lstlisting}
+\begin{center}
+\resizebox{0.75\textwidth}{!}{\rotatebox{0}{\includegraphics{circle}}}
+\end{center}
+The figure illustrates how the method works. We randomly choose points
+in the unit square. The ratio of points that lie inside the arc of the
+unit circle (green) to the total number of points provides an approximation of
+the area of $1/4$ the area of the unit circle--that is, an approximation
+of $\pi/4$.  
+Each one of the 10 iterations of the loop computes a scaled 
+approximation using 1,000,000 such points.
+We then sum up each of the 10 results to get an
+approximation of $\pi$ using all 10,000,000 points.
+
+The {\tt doRedis} package uses the idea of a ``work queue'' to dole out jobs
+to available resources. A set of jobs are placed in the queue which are then
+consumed by workers. The line
+
+\noindent \verb+registerDoRedis('jobs')+
+
+\noindent registers the {\tt doRedis} back end with {\tt foreach} using the
+user-specified work queue name ``jobs'' (you are free to use any name you wish
+for the work queue).
+
+The next line:
+
+\noindent \verb+startLocalWorkers(n=2, queue='jobs')+
+
+\noindent starts up two worker R sessions on the local machine, both listening
+for work on the queue ``jobs.'' The worker sessions don't display any 
+output by default. The {\tt startLocalWorkers} function can instruct the
+workers to log messages to output files or stdout if desired.
+
+You can verify that workers are in fact waiting for work from the ``jobs''
+queue with:
+
+\noindent \verb+getDoParWorkers()+
+
+which should return 2, for the two workers we just started. Note that the
+number of workers may change over time (unlike most other parallel back ends
+for {\tt foreach}). The {\tt getDoParWorkers} function returns the current
+number of workers in the pool.
+
+The next lines actually run our Monte Carlo code:
+
+\noindent \verb+foreach(icount(10),.combine=sum,.multicombine=TRUE,.inorder=FALSE) %dopar%+
+\\
+$\phantom{xxxxxx}$\verb_4*sum((runif(1000000)\^2 + runif(1000000)\^2)<1)/10000000_
+
+\noindent
+Thus, this parallel loop consists of 10 iterations (tasks) using the 
+{\tt icount} iterator function. (It's also possible to use more traditional
+loop variables in {\tt foreach} loops.)
+We specify that the results from each task should be passed to
+the {\tt sum} function with {\tt .combine=sum}.  Setting the {\tt
+.multicombine} option to {\tt TRUE} tells {\tt foreach} that the {\tt .combine}
+function accepts an arbitrary number of function arguments (many aggregation
+functions only work on two arguments). The {\tt .inorder=FALSE} option tells
+foreach that results may be passed to the {\tt .combine} function as they 
+arrive, in any order. The {\tt \%dopar\%} operator instructs
+{\tt foreach} to use the {\tt doRedis} back end that we previously registered
+to place each task in the work queue.  Finally, each iteration runs the Monte
+Carlo estimation for 1,000,000 points.
+
+\subsection{Dynamic Worker Pools and Heterogeneous Workers}
+It's pretty simple to run parallel jobs across computers with {\tt doRedis},
+even if the computers have heterogeneous operating systems (as long as one
+of them is running a Redis server). It's also very straightforward to add
+more parallel workers during a running computation. We do both in this
+section.
+
+We'll use the bootstrapping example from the {\tt foreach} documentation
+to illustrate the ideas of this section. The results presented here were
+run on the following systems:
+\begin{itemize}
+\item A GNU/Linux dual-core Opteron workstation, host name {\it master}.
+\item A Windows Server 2003 quad-core Opteron system.
+\end{itemize}
+We installed R version 2.11.0 (2010-04-22) and the {\tt doRedis} package on
+each system. The Redis server ran on the {\it master} GNU/Linux machine, as
+did our master R session.
+
+The example bootstrapping code is show in in the listing below.
+\begin{lstlisting}[frame=single,float=ht,caption=Bootstrapping Example]
+library('doRedis')
+registerDoRedis('jobs')
+redisDelete('count')
+
+# Set up some data
+data(iris)
+x <- iris[which(iris[,5] != 'setosa'), c(1,5)]
+trials <- 100000
+chunkSize <- 100
+
+# Start some local workers
+startLocalWorkers(n=2, queue='jobs')
+setChunkSize(chunkSize)
+
+# Run the example
+r <- foreach(icount(trials), .combine=cbind, .inorder=FALSE) %dopar% {
+  redisIncrBy('count',chunkSize)
+  ind <- sample(100, 100, replace=TRUE)
+  estimate <- glm(x[ind,2]~x[ind,1], family=binomial(logit))
+  coefficients(estimate)
+}
+
+removeQueue('jobs')
+\end{lstlisting}
+We use the Redis ``count'' key and the {\tt redisIncrBy} function to track the 
+total number of jobs run so far, as described below. We set the number of
+bootstrap trials to a ridiculously large number in order to get a long-running
+example for the purposes of illustration.
+
+We use a new function called {\tt setChunkSize} in the above example to
+instruct the workers to pull {\tt chunkSize} tasks at a time from their work
+queue. Setting this value can significantly improve performance, especially
+for short-running tasks. Setting the chunk size too large will adversely
+affect load balancing across the workers, however. The chunk size value
+may alternatively be set using the {\tt .options.redis} options list 
+directly in the {\tt foreach} function.
+
+Once the above example is running, the workers update the total number of tasks
+taken in a Redis value called ``count'' at the start of each loop iteration. We
+can use another R process to visualize a moving average of computational rate.
+We ran the following R code on the ``master'' workstation after starting
+the bootstrapping example (it requires the {\tt xts} time-series package:
+\begin{lstlisting}[frame=single,float=ht,caption=Performance Visualization]
+library('xts')
+library('rredis')
+redisConnect()
+l <- 50
+t1 <- Sys.time()
+redisIncrBy('count',0)
+x0 <- as.numeric(redisGet('count'))
+r <- as.xts(0,order.by=t1)
+while(TRUE)
+ {
+   Sys.sleep(2)
+   x <- as.numeric(redisGet('count'))
+   t2 <- Sys.time()
+   d <- (x-x0)/(difftime(t2,t1,units="secs")[[1]])
+   r <- rbind(r, as.xts(d, order.by=t2))
+   t1 <- t2
+   x0 <- x
+   if(nrow(r)>l) r <- r[(nrow(r)-l):nrow(r),]
+   plot(as.zoo(r),type='l',lwd=2,col=4, ylab='Tasks/second', xlab='Time')
+ }
+\end{lstlisting}
+
+It is straightforward to add new workers to the work queue at any time.
+The following example R code illustrates adding four workers to the
+``jobs'' work queue available on the host system ``master'':
+\begin{lstlisting}[frame=single,float=ht,caption=Adding Additional Workers]
+library('doRedis')
+startLocalWorkers(n=4, queue='jobs', host='master')
+\end{lstlisting}
+
+We started the example bootstrap code running on the ``master'' system and
+the logged in to the much more powerful Windows Server 2003 system and
+added four additional workers using the above code. The performance plot
+clearly illustrates the dramatic increase in computational rate when the
+new workers were added:
+\begin{center}
+\resizebox{0.85\textwidth}{!}{\rotatebox{0}{\includegraphics{stripchart}}}
+\end{center}
+
+
+\section{A Few Technical Details}
+\subsection{Random Number Generator Seeds}
+The initialization of pseudorandom number generators is an important
+consideration, especially when running simulations in parallel. Each {\tt
+foreach} loop iteration (task) is assigned a number in order from the sequence
+$1, 2, \ldots$. By default, {\tt doRedis} workers initialize the seed of their
+random number generator with a multiple  of the first task number they receive.
+The multiple is chosen to separate seed initialization values as widely as
+possible. This simple scheme is sufficient for many problems, and comparable to
+the initialization scheme used by many other parallel back ends.
+
+The {\tt doRedis} package includes a mechanism to define an arbitrary
+random seed initialization function. Such a function could be used, for
+example, with the {\tt SPRNG} library.
+
+The user-defined random seed initialization function must be called
+{\tt set.seed.worker}, take one argument and must be exported to the
+workers explicitly in the {\tt foreach} loop. The following example
+illustrates its use.
+\begin{lstlisting}[frame=single,float=ht,caption=User-defined RNG initialization]
+# First, use the default initialization:
+
+> startLocalWorkers(n=5,queue='jobs')
+> registerDoRedis('jobs')
+> foreach(j=1:5,.combine='c') %dopar% runif(1)
+ [1] 0.27572951 0.62581389 0.90845008 0.49669130 0.06106442 
+
+# Now, let's make all the workers use the same random seed initialization:
+
+> set.seed.worker <- function(n) set.seed(55)
+> foreach(j=1:5,.combine='c',.export='set.seed.worker') %dopar% runif(1)
+[1] 0.5478135 0.5478135 0.5478135 0.5478135 0.5478135
+\end{lstlisting}
+
+\subsection{Redis Keys Used}
+The ``job queue'' name specified in the {\tt registerDoRedis} and
+{\tt redisWorker} functions is used as the root name for a set of Redis
+keys. The keys are defined by {\tt <queue name>.*}--thus, every
+Redis key beginning with the queue name followed by period should be
+considered reserved.
+The keys have various uses, for example the {\tt <queue>.count}
+key keeps a count of currently registered worker processes.
+
+Back-end worker processes run a worker loop that blocks on work from one
+or more job queues. Periodically, the worker process checks for existence
+of a {\tt <queue>.live} key. If the worker finds this key missing, it
+terminates the worker loop and deletes all Redis variables associated
+with the queue. A master R process may terminate workers and force the
+key cleanup using the {\tt removeQueue} command.
+
+\subsection{Miscellaneous Details}
+If CTRL+C is pressed while a {\tt foreach} loop is running, connection
+to the Redis server may be lost or in an undefined state. An R session 
+can reset connection to a Redis server at any time
+by issuing \verb+redisClose()+ followed
+by re-registering the {\tt doRedis} back end.
+
+\end{document}
