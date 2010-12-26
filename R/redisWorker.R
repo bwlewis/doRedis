@@ -18,8 +18,10 @@
    {
     if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
       do.call('set.seed.worker',list(seed),envir=.doRedisGlobals$exportenv)
-    else
+    else if(!exists('initRNG', envir=.doRedisGlobals)) {
       set.seed((log10(as.numeric(seed))/308)*2^31)
+      assign('initRNG', TRUE, envir=.doRedisGlobals)
+    }
    },
    error=function(e) cat(as.character(e),'\n',file=log)
   )
