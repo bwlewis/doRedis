@@ -163,7 +163,7 @@ setChunkSize <- function(value=1)
   j <- 1
   while(j < nout)
    {
-    results <- redisBRPop(queueOut)
+    results <- redisBLPop(queueOut)
     j <- j + 1
     tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))), 
       error=function(e) {

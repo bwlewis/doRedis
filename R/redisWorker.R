@@ -82,7 +82,7 @@
   flush.console()
   k <- 0
   while(k < iter) {
-    work <- redisBRPop(queue,timeout=timeout)
+    work <- redisBLPop(queue,timeout=timeout)
 # We terminate the worker loop after a timeout when all specified work 
 # queues have been deleted.
     if(is.null(work[[1]]))
