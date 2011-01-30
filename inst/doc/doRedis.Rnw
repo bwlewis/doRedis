@@ -88,13 +88,12 @@ outlined in its package documentation.
 
 Redis is a fast, persistent, networked database with many innovative features,
 among them a blocking stack-like data structure (Redis ``lists''). This feature
-makes Redis useful as a lightweight back end for parallel computing, similar to
-REvolution Computing's NetWorkSpaces. The {\tt rredis} package provides a 
-native R interface to Redis used by {\tt doRedis}.
+makes Redis useful as a lightweight back end for parallel computing.  The {\tt
+rredis} package provides a native R interface to Redis used by {\tt doRedis}.
 
 \subsection{Why doRedis?}
 Why write a {\tt doRedis} package? After all, the {\tt foreach} package already
-has available many parallel back-end packages, including {\tt doMC}, 
+has available many parallel back end packages, including {\tt doMC}, 
 {\tt doSNOW} and {\tt doMPI}.
 
 The {\tt doRedis} package allows for dynamic pools of workers. New
@@ -116,19 +115,14 @@ Unlike the {\tt doSNOW} back end, {\tt doRedis} can aggregate results
 incrementally, significantly reducing required memory overhead for problems that
 return large data.
 
-Redis is a fast-developing, state of the art system with  features in
-development that will make {\tt doRedis} even faster and more efficient in the
-near future.
-
 \section{Obtaining and Installing the Redis server}\label{install}
 
-Redis is an open-source project available from 
+Redis is an open source project available from 
 \htmladdnormallink{http://redis.io}{http://redis.io}, with development 
 versions and source code available from Github at
-\htmladdnormallink{http://github.com/antirez/redis/tarball/1.3.6}{http://github.com/antirez/redis/tarball/1.3.6}, with source code available from Github at
-\htmladdnormallink{http://github.com/antirez/redis/tarball/1.3.6}{http://github.com/antirez/redis/tarball/1.3.6}, with source code available from Github at
-\htmladdnormallink{http://github.com/antirez/redis}{http://github.com/antirez/redis}. A Windows version of Redis is available from:
-\htmladdnormallink{https://github.com/dmajkic/redis}{https://github.com/dmajkic/redis}.
+\htmladdnormallink{http://github.com/antirez/redis/tarball/1.3.6}{http://github.com/antirez/redis/tarball/1.3.6} and \break
+\htmladdnormallink{http://github.com/antirez/redis}{http://github.com/antirez/redis}. A Windows version of Redis is available from: \break
+\htmladdnormallink{http://github.com/dmajkic/redis}{http://github.com/dmajkic/redis}.
 
 It is not necessary to ``install'' Redis to use it. One may download the code,
 compile it, and run it in place. We include an example command-line
@@ -169,7 +163,7 @@ The Redis server is written in ANSI C and supported on most POSIX systems
 including GNU/Linux, Solaris, *BSD, and Mac OS X. A MinGW version is available
 for Windows systems.
 
-The doRedis package for R is available for all supported R platforms.
+The doRedis package for R is available for all R platforms.
 
 \section{doRedis Examples}
 
@@ -451,14 +445,15 @@ Listing 6 illustrates a simple user-defined seed function.
 
 \subsection{Redis Keys Used}
 The ``job queue'' name specified in the {\tt registerDoRedis} and
-{\tt redisWorker} functions is used as the root name for a set of Redis
+{\tt redisWorker} functions is used as the root name for a family of Redis
 keys. The keys are defined by {\tt <queue name>.*}--thus, every
 Redis key beginning with the queue name followed by period should be
 considered reserved.
 The keys have various uses, for example the {\tt <queue>.count}
-key keeps a count of currently registered worker processes.
+key keeps an estimate of the number of active worker processes
+registered to take work from the queue.
 
-Back-end worker processes run a worker loop that blocks on work from one
+Back end worker processes run a worker loop that blocks on work from one
 or more job queues. Periodically, the worker process checks for existence
 of a {\tt <queue>.live} key. If the worker finds this key missing, it
 terminates the worker loop and deletes all Redis variables associated
