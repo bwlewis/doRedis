@@ -107,15 +107,14 @@ resources become available.
 
 The {\tt doRedis} package makes it particularly easy to run parallel jobs
 across different operating systems. Although {\tt doRedis} was developed on
-GNU/Linux systems, it works equally well on Mac OS X and other Unix systems and
-we even have available installers that configure Redis and {\tt doRedis} as
-Microsoft Windows services. Back end parallel R worker processes are
-effectively anonymous--they will run as long as all the R package dependencies
-required by the task at hand are available.
+GNU/Linux systems, it works equally well on other Unix systems like Mac OS X
+and even on Windows systems.  Back end parallel R worker processes are
+effectively anonymous--they may run anywhere as long as all the R package
+dependencies required by the task at hand are available.
 
 Unlike the {\tt doSNOW} back end, {\tt doRedis} can aggregate results
 incrementally, significantly reducing required memory overhead for problems that
-return large data (RandomForest with importance matrices, for example).
+return large data.
 
 Redis is a fast-developing, state of the art system with  features in
 development that will make {\tt doRedis} even faster and more efficient in the
@@ -123,11 +122,10 @@ near future.
 
 \section{Obtaining and Installing the Redis server}\label{install}
 
-{\bf NOTE:} The {\tt doRedis} package requires a Redis version $\ge 1.3.1$. At
-the time of this writing, the official Redis Google project website hosts an
-older version of Redis--obtain Redis from the Github source tree shown below.
-
 Redis is an open-source project available from 
+\htmladdnormallink{http://redis.io}{http://redis.io}, with development 
+versions and source code available from Github at
+\htmladdnormallink{http://github.com/antirez/redis/tarball/1.3.6}{http://github.com/antirez/redis/tarball/1.3.6}, with source code available from Github at
 \htmladdnormallink{http://github.com/antirez/redis/tarball/1.3.6}{http://github.com/antirez/redis/tarball/1.3.6}, with source code available from Github at
 \htmladdnormallink{http://github.com/antirez/redis}{http://github.com/antirez/redis}. A Windows version of Redis is available from:
 \htmladdnormallink{https://github.com/dmajkic/redis}{https://github.com/dmajkic/redis}.
@@ -171,9 +169,7 @@ The Redis server is written in ANSI C and supported on most POSIX systems
 including GNU/Linux, Solaris, *BSD, and Mac OS X. A MinGW version is available
 for Windows systems.
 
-The doRedis package for R is available for all supported R platforms, including
-Microsoft Windows, and can connect to a Redis server running on a POSIX system.
-
+The doRedis package for R is available for all supported R platforms.
 
 \section{doRedis Examples}
 
@@ -234,7 +230,8 @@ queue with:
 which should return 2, for the two workers we just started. Note that the
 number of workers may change over time (unlike most other parallel back ends
 for {\tt foreach}). The {\tt getDoParWorkers} function returns the current
-number of workers in the pool.
+number of workers in the pool. Note that the number returned should only
+be considered to be an estimate of the actual number of available workers.
 
 The next lines actually run our Monte Carlo code:
 
@@ -249,7 +246,7 @@ loop variables in {\tt foreach} loops.)
 We specify that the results from each task should be passed to
 the {\tt sum} function with {\tt .combine=sum}.  Setting the {\tt
 .multicombine} option to {\tt TRUE} tells {\tt foreach} that the {\tt .combine}
-function accepts an arbitrary number of function arguments (many aggregation
+function accepts an arbitrary number of function arguments (some aggregation
 functions only work on two arguments). The {\tt .inorder=FALSE} option tells
 foreach that results may be passed to the {\tt .combine} function as they 
 arrive, in any order. The {\tt \%dopar\%} operator instructs
@@ -275,7 +272,7 @@ We installed R version 2.11.0 (2010-04-22) and the {\tt doRedis} package on
 each system. The Redis server ran on the {\it master} GNU/Linux machine, as
 did our master R session.
 
-The example bootstrapping code is show in in the listing below.
+The example bootstrapping code is shown in in the listing below.
 \begin{lstlisting}[frame=single,float=ht,caption=Bootstrapping Example]
 library('doRedis')
 registerDoRedis('jobs')
@@ -413,7 +410,7 @@ key cleanup using the {\tt removeQueue} command.
 
 \subsection{Miscellaneous Details}
 If CTRL+C is pressed while a {\tt foreach} loop is running, connection
-to the Redis server may be lost or in an undefined state. An R session 
+to the Redis server may be lost or enter an undefined state. An R session 
 can reset connection to a Redis server at any time
 by issuing \verb+redisClose()+ followed
 by re-registering the {\tt doRedis} back end.
