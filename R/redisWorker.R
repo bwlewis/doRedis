@@ -59,8 +59,10 @@
   l <- m$log
   if(is.null(l)) l <- f$log 
   cmd <- paste("require(doRedis);redisWorker(queue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
-  for(j in 1:n) 
+  for(j in 1:n) {
     system(Rbin,input=cmd,intern=FALSE,wait=FALSE,ignore.stderr=TRUE)
+    Sys.sleep(1)
+  }
 }
 
 `redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout())
@@ -76,13 +78,13 @@
   queueCount <- paste(queue,"count",sep=".")
   for(j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
-  queueEnv <- paste(queue,"env",sep=".")
-  queueOut <- paste(queue,"out",sep=".")
   cat("Waiting for doRedis jobs.\n", file=log)
   flush.console()
   k <- 0
   while(k < iter) {
     work <- redisBLPop(queue,timeout=timeout)
+    queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
+    queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
 # We terminate the worker loop after a timeout when all specified work 
 # queues have been deleted.
     if(is.null(work[[1]]))

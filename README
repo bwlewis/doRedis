@@ -1,6 +1,6 @@
 doRedis: A simple parallel backend for foreach using Redis.
 
-NOTE
+IMPORTANT NOTE
 
 Set the following parameter in your redis.conf file before using doRedis:
 
@@ -26,12 +26,13 @@ foreach that uses Redis.
 
 Here is a quick example procedure for experimenting with doRedis:
 
-1. Install Redis on your *nix machine (not available for Windows).
+1. Install Redis on your computer.
 2. Install foreach, rredis and doRedis packages.
 3. Start the redis server running (see the redis documentation). We assume
    that the server is running on the host "localhost" and port 6379 (the
    default Redis port). We assume in the examples below that the worker R
-   processes and the master are running on the same machine.
+   processes and the master are running on the same machine. In practice,
+   they can of course run across a network.
 4. Open one or more R sessions that will act as back-end worker processes. 
    Run the following in each session:
 

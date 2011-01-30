@@ -64,9 +64,15 @@ setChunkSize <- function(value=1)
 
 .doRedis <- function(obj, expr, envir, data)
 {
+# ID associates the work with a job environment <queue>.env.<ID>. If
+# the workers current job environment does not match job ID, they retrieve
+# the new job environment data from queueEnv and run workerInit.
+  ID <- tempfile("doRedis")
+  zz <- file(ID,"w")
+  close(zz)
   queue <- data
-  queueEnv <- paste(queue,"env",sep=".")
-  queueOut <- paste(queue,"out",sep=".")
+  queueEnv <- paste(queue,"env", ID, sep=".")
+  queueOut <- paste(queue,"out", ID, sep=".")
 
   if (!inherits(obj, 'foreach'))
     stop('obj must be a foreach object')
@@ -120,14 +126,7 @@ setChunkSize <- function(value=1)
 # Create a job environment for the workers to use
   redisSet(queueEnv, list(expr=expr, 
                          exportenv=exportenv, packages=obj$packages))
-# ID associates this work with a job environment in queueEnv. If
-# the workers current job environment does not match job ID, they retrieve
-# the new job environment data from queueEnv and run workerInit.
-  ID <- tempfile("doRedis")
-  zz <- file(ID,"w")
-  close(zz)
   results <- NULL
-
   njobs <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
@@ -172,8 +171,9 @@ setChunkSize <- function(value=1)
     })
    }
 
-# Clean up the session ID
+# Clean up the session ID and session environment
   unlink(ID)
+  redisDelete(queueEnv)
  
 # check for errors
   errorValue <- getErrorValue(it)
