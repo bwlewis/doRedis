@@ -7,5 +7,6 @@ Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
 Description: A Redis parallel backend for the %dopar% function
 Depends: R (>= 2.5), rredis, foreach(>= 1.3.0), iterators(>= 1.0.0), utils
+Suggests: boot
 License: GPL-2
 LazyLoad: yes

@@ -261,7 +261,7 @@ of them is running a Redis server). It's also very straightforward to add
 more parallel workers during a running computation. We do both in this
 section.
 
-We'll use the bootstrapping example from the {\tt foreach} documentation
+We'll use the simple bootstrapping example from the {\tt foreach} documentation
 to illustrate the ideas of this section. The results presented here were
 run on the following systems:
 \begin{itemize}
@@ -273,7 +273,7 @@ each system. The Redis server ran on the {\it master} GNU/Linux machine, as
 did our master R session.
 
 The example bootstrapping code is shown in in the listing below.
-\begin{lstlisting}[frame=single,float=ht,caption=Bootstrapping Example]
+\begin{lstlisting}[frame=single,float=ht,caption=Simple Bootstrapping Example]
 library('doRedis')
 registerDoRedis('jobs')
 redisDelete('count')
@@ -358,6 +358,63 @@ new workers were added:
 \end{center}
 
 
+\subsection{A Parallel boot Function}
+Listing 5 presents a parallel capable variation of the {\tt boot} function in
+the {\tt boot} package. The {\tt bootForEach} function uses {\tt foreach} to
+distributed bootstrap processing to available workers. It has two more
+arguments than the standard {\tt boot} function: {\tt chunks} and {\tt
+verbose}. Set {\tt verbose=TRUE} to enabled back end worker process debugging.
+The bootstrap resampling replicates will be divided into {\tt chunks} tasks for
+processing by {\tt foreach}.
+
+The example also illustrates the use of a custom combine function in the
+{\tt foreach} loop.
+
+\begin{lstlisting}[frame=single,float=!ht,caption=Parallel boot Function]
+`bootForEach` <- function (data, statistic, R, sim = "ordinary", stype = "i",
+                 strata = rep(1, n), L = NULL, m = 0, weights = NULL,
+                 ran.gen = function(d, p) d, mle = NULL, simple=FALSE,
+                 chunks = 1, verbose=FALSE, ...)
+{
+  thisCall <- match.call()
+  n <- if (length(dim(data)) == 2) nrow(data)
+  else length(data)
+  RB <- floor(R/chunks)
+
+  combo <- function(...)
+  {
+    al <- list(...)
+    out <- al[[1]]
+    t <- lapply(al, "[[", "t")
+    out$t <- do.call("rbind", t)
+    out$R <- R
+    out$call <- thisCall
+    class(out) <- "boot"
+    out
+  }
+  
+  # We define an initial bootstrap replicate locally. We use this
+  # to set up all the components of the bootstrap output object
+  # that don't vary from run to run. This is more efficient for
+  # large data sets than letting the workers retun this information.
+  binit <- boot(data, statistic, 1, sim = sim, stype = stype, 
+                strata = strata, L = L, m = m, weights = weights,
+                ran.gen = ran.gen, mle=mle, ...)
+  
+  foreach(j=icount(chunks), .inorder=FALSE, .combine=combo, .init=binit,
+          .packages=c("boot","foreach"), .multicombine=TRUE, .verbose=verbose)
+  %dopar%
+  {
+    if(j==chunks) RB <- RB + R %% chunks
+    res <- boot(data, statistic, RB, sim = sim, stype = stype,
+                strata = strata, L = L, m = m, weights = weights,
+                ran.gen = ran.gen, mle=mle, ...)
+    list(t=res$t)
+  }
+}
+\end{lstlisting}
+
+
 \section{A Few Technical Details}
 \subsection{Random Number Generator Seeds}
 The initialization of pseudorandom number generators is an important
@@ -376,7 +433,7 @@ example, with the {\tt SPRNG} library.
 The user-defined random seed initialization function must be called
 {\tt set.seed.worker}, take one argument and must be exported to the
 workers explicitly in the {\tt foreach} loop. The example shown in
-Listing 5 illustrates a simple user-defined seed function.
+Listing 6 illustrates a simple user-defined seed function.
 \begin{lstlisting}[frame=single,float=ht,caption=User-defined RNG initialization]
 # First, use the default initialization:
 
