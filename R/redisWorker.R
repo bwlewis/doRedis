@@ -38,18 +38,10 @@
   )
 }
 
+# this is obsolete
 `.redisVersionCheck` <- function()
 {
   return(TRUE)
-# vcheck <- TRUE
-# tryCatch(
-#  {
-#   rv <- redisInfo()$redis_version
-#   rv <- strsplit(rv,'\\.')[[1]]
-#   vcheck <- vcheck && rv[[1]] >= 1
-#   vcheck <- vcheck && rv[[2]] >= 1
-#  }, error = function(e) vcheck <<- FALSE)
-# if(!vcheck) stop("doRedis requires Redis >= 1.3.0")
 }
 
 `startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stderr(), Rbin=paste(R.home(component='bin'),"/R --slave",sep=""))

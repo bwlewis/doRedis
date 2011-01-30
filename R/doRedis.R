@@ -162,18 +162,25 @@ setChunkSize <- function(value=1)
   j <- 1
   while(j < nout)
    {
-    results <- redisBLPop(queueOut)
-    j <- j + 1
-    tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))), 
-      error=function(e) {
-        cat('error calling combine function:\n')
-        print(e)
-    })
+    results <- redisBRPop(queueOut, timeout=100)
+    if(is.null(results)) {
+# Check for worker fault and re-submit tasks if required...
+# XXX XXX XXX
+    }
+    else {
+      j <- j + 1
+      tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
+        error=function(e) {
+          cat('error calling combine function:\n')
+          print(e)
+      })
+    }
    }
 
 # Clean up the session ID and session environment
   unlink(ID)
   redisDelete(queueEnv)
+  if(redisExists(queueOut)) redisDelete(queueOut)
  
 # check for errors
   errorValue <- getErrorValue(it)
