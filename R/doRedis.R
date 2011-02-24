@@ -23,7 +23,6 @@
 registerDoRedis <- function(queue, host="localhost", port=6379)
 {
   redisConnect(host,port)
-  .redisVersionCheck()
   setDoPar(fun=.doRedis, data=queue, info=.info)
 }
 
@@ -67,12 +66,19 @@ setChunkSize <- function(value=1)
 # ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
-  ID <- tempfile("doRedis")
-  zz <- file(ID,"w")
+  ID_file <- tempfile("doRedis")
+  zz <- file(ID_file,"w")
   close(zz)
+  ID <- ID_file
+# The backslash escape charater present in Windows paths causes problems.
+  ID <- gsub("\\\\","_",ID)
   queue <- data
   queueEnv <- paste(queue,"env", ID, sep=".")
   queueOut <- paste(queue,"out", ID, sep=".")
+  queueStart <- paste(queue,"start",ID, sep=".")
+  queueStart <- paste(queueStart, "*", sep="")
+  queueAlive <- paste(queue,"alive",ID, sep=".")
+  queueAlive <- paste(queueAlive, "*", sep="")
 
   if (!inherits(obj, 'foreach'))
     stop('obj must be a foreach object')
@@ -125,7 +131,7 @@ setChunkSize <- function(value=1)
   }
 # Create a job environment for the workers to use
   redisSet(queueEnv, list(expr=expr, 
-                         exportenv=exportenv, packages=obj$packages))
+                          exportenv=exportenv, packages=obj$packages))
   results <- NULL
   njobs <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
@@ -142,6 +148,16 @@ setChunkSize <- function(value=1)
     )
    }
   chunkSize <- max(chunkSize,0)
+# We also check for a fault-tolerance check interval (in seconds):
+  ftinterval <- 30
+  if(!is.null(obj$options$redis$ftinterval))
+   {
+    tryCatch(
+      ftinterval <- obj$options$redis$ftinterval,
+      error=function(e) {ftinterval <<- 30; warning(e)}
+    )
+   }
+  ftinterval <- max(ftinterval,1)
 
 # Queue the job(s)
 # We encode the job order in names(argsList) XXX This is perhaps not optimal
@@ -162,10 +178,27 @@ setChunkSize <- function(value=1)
   j <- 1
   while(j < nout)
    {
-    results <- redisBRPop(queueOut, timeout=100)
+    results <- redisBRPop(queueOut, timeout=ftinterval)
     if(is.null(results)) {
 # Check for worker fault and re-submit tasks if required...
-# XXX XXX XXX
+    started <- redisKeys(queueStart)
+    started <- sub(paste(queue,"start","",sep="."),"",started)
+    alive <- redisKeys(queueAlive)
+    alive <- sub(paste(queue,"alive","",sep="."),"",alive)
+    fault <- setdiff(started,alive)
+    if(length(fault)>0) {
+# One or more worker faults have occurred. Re-sumbit the work.
+      fault <- paste(queue, "start", fault, sep=".")
+      fjobs <- redisMGet(fault)
+      redisDelete(fault)
+      for(resub in fjobs) {
+        block <- argsList[unlist(resub)]
+        names(block) <- unlist(resub)
+        if (obj$verbose)
+          cat("Worker fault: resubmitting jobs", names(block), "\n")
+        redisRPush(queue, list(ID=ID, argsList=block))
+      }
+    }
     }
     else {
       j <- j + 1
@@ -178,7 +211,7 @@ setChunkSize <- function(value=1)
    }
 
 # Clean up the session ID and session environment
-  unlink(ID)
+  unlink(ID_file)
   redisDelete(queueEnv)
   if(redisExists(queueOut)) redisDelete(queueOut)
  
@@ -217,4 +250,14 @@ setChunkSize <- function(value=1)
   })
   length(a) <- i
   a
+}
+
+.onLoad <- function(libname, pkgname)
+{
+  library.dynam('doRedis', pkgname, libname)
+}
+
+.onUnload <- function (libpath)
+{
+  library.dynam.unload('doRedis', libpath)
 }

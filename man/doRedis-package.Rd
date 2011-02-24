@@ -3,20 +3,34 @@
 \alias{doRedis}
 \docType{package}
 \title{
-A Redis-based backend for parallel computing with foreach.
+A Redis-based back end for parallel computing with foreach.
 }
 \description{
-The doRedis package supplies a simple and lightweight 
-parallel backend for the foreach \code{\%dopar\%} function.
+The doRedis package supplies a lightweight, cross-platform 
+parallel back end for the foreach \code{\%dopar\%} function.
 }
 \details{
-The foreach package for R defines a modular interface for backend
-parallel processing implementations. The doRedis imlpements a simple
-but very flexible parallel backend that uses Redis for inter-process
+The foreach package for R defines a modular interface for back end
+parallel processing implementations. The doRedis package imlpements a simple
+but very flexible parallel back end that uses Redis for inter-process
 communication.
 
 The doRedis package requires a connection to an available Redis
 server (not included with the package).
+
+Two foreach parameters are specific to the doRedis back end:
+\code{chunkSize} (default value 1), and
+\code{ftinterval} (default value 30).
+The \code{chunkSize} option sets the default number of jobs that
+are doled out to each worker process. Jobs are doled out one
+at a time by default.
+Setting the chunk size larger for shorter-running jobs can
+substantially improve performance. Setting this value too high can
+negatively impact load-balancing across workers, however.
+
+The \code{ftinterval} option sets the number of seconds between checks
+for back end worker failures. Failed jobs will be re-submitted after
+this interval.
 }
 \author{
 B. W. Lewis <blewis@illposed.net>

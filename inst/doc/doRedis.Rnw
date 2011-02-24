@@ -353,7 +353,7 @@ new workers were added:
 
 
 \subsection{A Parallel boot Function}
-Listing 5 presents a parallel capable variation of the {\tt boot} function in
+Listing 5 presents a parallel capable variation of the {\tt boot} function from
 the {\tt boot} package. The {\tt bootForEach} function uses {\tt foreach} to
 distributed bootstrap processing to available workers. It has two more
 arguments than the standard {\tt boot} function: {\tt chunks} and {\tt
@@ -373,7 +373,9 @@ The example also illustrates the use of a custom combine function in the
   thisCall <- match.call()
   n <- if (length(dim(data)) == 2) nrow(data)
   else length(data)
-  RB <- floor(R/chunks)
+  if(R<2) stop("R must be greater than 1")
+  Rm1 <- R - 1
+  RB <- floor(Rm1/chunks)
 
   combo <- function(...)
   {
@@ -399,7 +401,7 @@ The example also illustrates the use of a custom combine function in the
           .packages=c("boot","foreach"), .multicombine=TRUE, .verbose=verbose)
   %dopar%
   {
-    if(j==chunks) RB <- RB + R %% chunks
+    if(j==chunks) RB <- RB + Rm1 %% chunks
     res <- boot(data, statistic, RB, sim = sim, stype = stype,
                 strata = strata, L = L, m = m, weights = weights,
                 ran.gen = ran.gen, mle=mle, ...)

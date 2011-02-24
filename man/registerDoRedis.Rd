@@ -5,7 +5,7 @@ Register the doRedis parallel back end for foreach.
 }
 \description{
 The doRedis package supplies a simple and lightweight
-parallel backend for the foreach \code{\%dopar\%} function.
+parallel back end for the foreach \code{\%dopar\%} function.
 }
 \usage{
 registerDoRedis(queue, host = "localhost", port = 6379)
@@ -22,7 +22,7 @@ The Redis server port number.
 }
 }
 \details{
-The doRedis package imlpements a simple but flexible parallel backend 
+The doRedis package imlpements a simple but flexible parallel back end 
 for foreach that uses Redis for inter-process communication. The work 
 queue name specifies the base name of a small set of Redis keys that the master
 and worker processes use to exchange data.
@@ -30,10 +30,12 @@ and worker processes use to exchange data.
 Back-end worker R processes  advertise their availablility for work
 with the \code{\link{redisWorker}} function.
 
-The doRedis parallel  backend supports dynamic pools of back-end workers. 
-New workers may be added
-to work queues at any time and can be immediately used by in-flight
-foreach computations.
+The doRedis parallel back end tolerates faults among the worker processes and
+automatically resubmits failed tasks. It is also portable and supports
+heterogeneous sets of workers, even across operative systems.  The back end
+supports dynamic pools of worker processes.  New workers may be added to work
+queues at any time and can be immediately used by in-flight foreach
+computations.
 }
 \value{
 Nothing is returned.

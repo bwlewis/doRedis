@@ -1,5 +1,18 @@
 .doRedisGlobals <- new.env(parent=emptyenv())
 
+# .setOK and .delOK support worker fault tolerance
+`.setOK` <- function(port, host, key)
+{
+  .Call("setOK", as.integer(port), as.character(host), as.character(key))
+  invisible()
+}
+
+`.delOK` <- function()
+{
+  .Call("delOK")
+  invisible()
+}
+
 `.workerInit` <- function(expr, exportenv, packages, seed, log)
 {
 # Overried the function set.seed.worker in the exportenv to change!
@@ -38,12 +51,6 @@
   )
 }
 
-# this is obsolete
-`.redisVersionCheck` <- function()
-{
-  return(TRUE)
-}
-
 `startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stderr(), Rbin=paste(R.home(component='bin'),"/R --slave",sep=""))
 {
   m <- match.call()
@@ -53,14 +60,15 @@
   cmd <- paste("require(doRedis);redisWorker(queue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
   for(j in 1:n) {
     system(Rbin,input=cmd,intern=FALSE,wait=FALSE,ignore.stderr=TRUE)
-    Sys.sleep(1)
+# XXX Workers are not always reliably started, not sure why
+# XXX but this helps. ?
+    if(j<n) Sys.sleep(4) 
   }
 }
 
 `redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout())
 {
   redisConnect(host,port)
-  .redisVersionCheck()
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue,"live",sep=".")
   for(j in queueLive)
@@ -107,11 +115,24 @@
                     names(work[[1]]$argsList)[[1]],log)
         assign(".redisWorkerEnvironmentID", work$ID, envir=.doRedisGlobals)
        }
-# Now do the work:
+# XXX FT support
+      fttag <- paste(names(work[[1]]$argsList),collapse="_")
+      fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
+      fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
+# fttag.start is a permanent key
+# fttag.alive is a matching ephemeral key that is regularly kept alive by the
+# setOK helper thread. Upon disruption of the thread (for example, a crash),
+# the resulting Redis state will be an unmatched start tag, which may be used
+# by fault tolerant code to resubmit the associated jobs.
+      redisSet(fttag.start,as.integer(names(work[[1]]$argsList)))
+      .setOK(port, host, fttag.alive)
+# Now do the work.
 # XXX We assume that job order is encoded in names(argsList), cf. doRedis.
       result <- lapply(work[[1]]$argsList, .evalWrapper)
       names(result) <- names(work[[1]]$argsList)
       redisLPush(queueOut, result)
+      tryCatch(redisDelete(fttag.start), error=function(e) invisible())
+      .delOK()
     }
   }
 # Either the queue has been deleted, or we've exceeded the number of
