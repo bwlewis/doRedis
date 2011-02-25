@@ -104,16 +104,20 @@ any time in order to accelerate running computations. Similarly, modern cluster
 resource allocation systems can dynamically schedule R workers as cluster
 resources become available.
 
-The {\tt doRedis} package makes it particularly easy to run parallel jobs
-across different operating systems. Although {\tt doRedis} was developed on
-GNU/Linux systems, it works equally well on other Unix systems like Mac OS X
-and even on Windows systems.  Back end parallel R worker processes are
-effectively anonymous--they may run anywhere as long as all the R package
-dependencies required by the task at hand are available.
+Computations are fault tolerant. Failure of back-end worker R processes
+(for example, due to a machine crash), are automatically detected and the
+affected tasks are re-submitted.
 
-Unlike the {\tt doSNOW} back end, {\tt doRedis} can aggregate results
-incrementally, significantly reducing required memory overhead for problems that
-return large data.
+The {\tt doRedis} package makes it particularly easy to run parallel jobs
+across different operating systems. It works equally well on GNU/Linux, Mac OS
+X, and Windows systems, and should work well on most POSIX systems.  Back end
+parallel R worker processes are effectively anonymous--they may run anywhere as
+long as all the R package dependencies required by the task at hand are
+available.
+
+Intermediate results may be aggregated incrementally, significantly reducing
+required memory overhead for problems that return large data (unlike many other
+parallel back ends).
 
 \section{Obtaining and Installing the Redis server}\label{install}
 
@@ -185,7 +189,7 @@ illustrate parallel programming ideas.
 > removeQueue('jobs')
 \end{lstlisting}
 \begin{center}
-\resizebox{0.75\textwidth}{!}{\rotatebox{0}{\includegraphics{circle}}}
+\resizebox{0.6\textwidth}{!}{\rotatebox{0}{\includegraphics{circle}}}
 \end{center}
 The figure illustrates how the method works. We randomly choose points
 in the unit square. The ratio of points that lie inside the arc of the
@@ -227,7 +231,7 @@ for {\tt foreach}). The {\tt getDoParWorkers} function returns the current
 number of workers in the pool. Note that the number returned should only
 be considered to be an estimate of the actual number of available workers.
 
-The next lines actually run our Monte Carlo code:
+The next lines actually run the Monte Carlo code:
 
 \noindent \verb+foreach(icount(10),.combine=sum,.multicombine=TRUE,.inorder=FALSE) %dopar%+
 \\
@@ -248,6 +252,60 @@ arrive, in any order. The {\tt \%dopar\%} operator instructs
 to place each task in the work queue.  Finally, each iteration runs the scaled
 estimation of $\pi$ using 1,000,000 points.
 
+\subsection{Fault tolerance}
+
+Parallel computations managed by {\tt doRedis} tolerate failures among the back
+end worker R processes. Examples of failures include crashed back end R
+sessions, operating system failure or lock-up, and power outages. When a
+failure is detected, affected tasks are automatically re-submitted to the work
+queue. The option {\tt ftinterval} controls how frequently {\tt doRedis} checks
+for failure. The default value is 30 seconds, and the minimum allowed value is
+one second. (Very frequent checks for failure increase overhead and will slow
+computations down--the default value is reasonable.)
+
+Listing 2 presents a contrived, but entirely self-contained
+example of fault tolerance. Verbose logging output is enabled to help document
+the inner workings of the example.
+\begin{lstlisting}[frame=single,float=ht,caption=Fault Tolerance Example]
+require('doRedis')
+registerDoRedis('jobs')
+startLocalWorkers(n=4,queue='jobs',timeout=1)
+cat("Workers started.\n")
+start=Sys.time()
+x=foreach(j=1:4, .combine=sum, .verbose=TRUE,
+          .options.redis=list(ftinterval=5, chunkSize=2)) %dopar%
+  {
+    if(difftime(Sys.time(),start) < 5) quit(save="no")
+    j
+  }
+print(x)
+removeQueue('jobs')
+\end{lstlisting}
+
+The example starts up four local worker processes and submits two tasks
+to the work queue ``jobs.'' The parallel code block in the {\tt foreach}
+loop instructs worker processes to quit if less than 5 seconds have elapsed
+since the start of the program. This will affect the first two workers that
+get tasks, resulting in their immediate exit, simulating crasheded R
+sessions.
+
+Meanwhile, the master process has a fault check period set to 5 seconds
+(the {\tt ftinterval=5} parameter), and after that interval will detect
+the fault and re-submit the failed tasks.
+
+The remaining two back end worker processes will pick up the re-submitted
+tasks, and since the time interval will be sufficiently past the start, they
+will finish the tasks and return their results.
+
+The fault detection method is a very simple one. When a worker process receives
+a task, it creates two Redis keys that indicate the task is in process.  The
+first key remains until it is deleted. The second key is ephemeral, and is set
+to expire after a short interval. The worker process starts up a simple refresh
+function whose only job is to keep the ephemeral key active. If the worker
+process fails for some reason, the ephemeral key will expire, allowing the
+master R process to detect the imbalance among active task keys.  Whenever such
+an imbalance is detected, the affected tasks are re-submitted.
+
 \subsection{Dynamic Worker Pools and Heterogeneous Workers}
 It's pretty simple to run parallel jobs across computers with {\tt doRedis},
 even if the computers have heterogeneous operating systems (as long as one
@@ -266,7 +324,7 @@ We installed R version 2.11.0 (2010-04-22) and the {\tt doRedis} package on
 each system. The Redis server ran on the {\it master} GNU/Linux machine, as
 did our master R session.
 
-The example bootstrapping code is shown in in the listing below.
+The example bootstrapping code is shown in Listing 3 below.
 \begin{lstlisting}[frame=single,float=ht,caption=Simple Bootstrapping Example]
 library('doRedis')
 registerDoRedis('jobs')
@@ -294,7 +352,7 @@ removeQueue('jobs')
 \end{lstlisting}
 We use the Redis ``count'' key and the {\tt redisIncrBy} function to track the 
 total number of jobs run so far, as described below. We set the number of
-bootstrap trials to a ridiculously large number in order to get a long-running
+bootstrap trials to a very large number in order to get a long-running
 example for the purposes of illustration.
 
 We use a new function called {\tt setChunkSize} in the above example to
@@ -308,7 +366,7 @@ directly in the {\tt foreach} function as described in the documentation.
 Once the above example is running, the workers update the total number of tasks
 taken in a Redis value called ``count'' at the start of each loop iteration. We
 can use another R process to visualize a moving average of computational rate.
-We ran the performance visualization R code in Listing 3
+We ran the performance visualization R code in Listing 4
 on the ``master'' workstation after starting
 the bootstrapping example (it requires the {\tt xts} time-series package).
 \begin{lstlisting}[frame=single,float=ht,caption=Performance Visualization]
@@ -343,8 +401,8 @@ startLocalWorkers(n=4, queue='jobs', host='master')
 \end{lstlisting}
 
 We started the example bootstrap code running on the ``master'' system and
-the logged in to the much more powerful Windows Server 2003 system and
-added four additional workers using the above code. The performance plot
+the logged in to the much more powerful Windows Server system and
+added four additional workers using code in Listing 5. The performance plot
 clearly illustrates the dramatic increase in computational rate when the
 new workers were added:
 \begin{center}
@@ -353,7 +411,7 @@ new workers were added:
 
 
 \subsection{A Parallel boot Function}
-Listing 5 presents a parallel capable variation of the {\tt boot} function from
+Listing 6 presents a parallel capable variation of the {\tt boot} function from
 the {\tt boot} package. The {\tt bootForEach} function uses {\tt foreach} to
 distributed bootstrap processing to available workers. It has two more
 arguments than the standard {\tt boot} function: {\tt chunks} and {\tt
@@ -429,7 +487,7 @@ example, with the {\tt SPRNG} library.
 The user-defined random seed initialization function must be called
 {\tt set.seed.worker}, take one argument and must be exported to the
 workers explicitly in the {\tt foreach} loop. The example shown in
-Listing 6 illustrates a simple user-defined seed function.
+Listing 7 illustrates a simple user-defined seed function.
 \begin{lstlisting}[frame=single,float=ht,caption=User-defined RNG initialization]
 # First, use the default initialization:
 
