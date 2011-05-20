@@ -1,7 +1,7 @@
 \name{registerDoRedis}
 \alias{registerDoRedis}
 \title{
-Register the doRedis parallel back end for foreach.
+Register the doRedis parallel back end with foreach.
 }
 \description{
 The doRedis package supplies a simple and lightweight

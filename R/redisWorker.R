@@ -51,18 +51,19 @@
   )
 }
 
-`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stderr(), Rbin=paste(R.home(component='bin'),"/R --slave",sep=""))
+`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout(), Rbin=paste(R.home(component='bin'),"R",sep="/"))
 {
   m <- match.call()
   f <- formals()
   l <- m$log
   if(is.null(l)) l <- f$log 
   cmd <- paste("require(doRedis);redisWorker(queue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
-  for(j in 1:n) {
-    system(Rbin,input=cmd,intern=FALSE,wait=FALSE,ignore.stderr=TRUE)
-# XXX Workers are not always reliably started, not sure why
-# XXX but this helps. ?
-    if(j<n) Sys.sleep(4) 
+  j=0
+  args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
+  while(j<n) { 
+#      system2(Rbin,args=args,wait=FALSE,stdout=NULL)
+    system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
+    j = j + 1
   }
 }
 

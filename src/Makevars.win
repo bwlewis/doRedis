@@ -1,2 +1,2 @@
-PKG_CPPFLAGS = -DWin32  -D_R_ 
+PKG_CPPFLAGS = -DWin32  -D_R_  -D_WIN32_WINNT=0x0501
 PKG_LIBS = -lWs2_32 -lMswsock -lAdvApi32 -luser32 -lkernel32
