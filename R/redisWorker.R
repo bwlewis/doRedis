@@ -3,13 +3,13 @@
 # .setOK and .delOK support worker fault tolerance
 `.setOK` <- function(port, host, key)
 {
-  .Call("setOK", as.integer(port), as.character(host), as.character(key))
+  .Call("setOK", as.integer(port), as.character(host), as.character(key),PACKAGE="doRedis")
   invisible()
 }
 
 `.delOK` <- function()
 {
-  .Call("delOK")
+  .Call("delOK",PACKAGE="doRedis")
   invisible()
 }
 

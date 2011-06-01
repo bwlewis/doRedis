@@ -178,7 +178,7 @@ setOK(SEXP PORT, SEXP HOST, SEXP KEY)
   WSADATA wsaData;
   DWORD dw_thread_id;
 #endif
-  const char *host = CHAR(STRING_ELT(HOST, 0));
+  char *host = (char *)CHAR(STRING_ELT(HOST, 0));
   int port = *(INTEGER(PORT));
   const char *key = CHAR(STRING_ELT(KEY, 0));
   if(go>0) return(R_NilValue);

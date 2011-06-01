@@ -46,7 +46,7 @@ SCRIPTNAME=/etc/init.d/doRedis
 #
 do_start()
 {
-  /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
+  sudo -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
 }
 
 #
