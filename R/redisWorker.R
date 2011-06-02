@@ -15,7 +15,7 @@
 
 `.workerInit` <- function(expr, exportenv, packages, seed, log)
 {
-# Overried the function set.seed.worker in the exportenv to change!
+# Override the function set.seed.worker in the exportenv to change!
   assign('expr', expr, .doRedisGlobals)
   assign('exportenv', exportenv, .doRedisGlobals)
 # XXX This use of parent.env should be changed. It's used here to
@@ -67,7 +67,7 @@
   }
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout())
+`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout())
 {
   redisConnect(host,port)
   assign(".jobID", "0", envir=.doRedisGlobals)
@@ -114,7 +114,7 @@
         initdata <- redisGet(queueEnv)
         .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
                     names(work[[1]]$argsList)[[1]],log)
-        assign(".redisWorkerEnvironmentID", work$ID, envir=.doRedisGlobals)
+        assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
 # XXX FT support
       fttag <- paste(names(work[[1]]$argsList),collapse="_")
