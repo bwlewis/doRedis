@@ -175,7 +175,6 @@ setChunkSize <- function(value=1)
     redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
-if(nout %% 10 == 0) cat("nout = ",nout, "\n")
    }
    redisExec()
    redisGetResponse(all=TRUE)
