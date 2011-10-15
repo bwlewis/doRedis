@@ -104,9 +104,9 @@ any time in order to accelerate running computations. Similarly, modern cluster
 resource allocation systems can dynamically schedule R workers as cluster
 resources become available.
 
-Computations are fault tolerant. Failure of back-end worker R processes
-(for example, due to a machine crash), are automatically detected and the
-affected tasks are re-submitted.
+Computations are partially fault tolerant. Failure of back-end worker R
+processes (for example, due to a machine crash), are automatically detected and
+the affected tasks are re-submitted.
 
 The {\tt doRedis} package makes it particularly easy to run parallel jobs
 across different operating systems. It works equally well on GNU/Linux, Mac OS
@@ -116,8 +116,8 @@ long as all the R package dependencies required by the task at hand are
 available.
 
 Intermediate results may be aggregated incrementally, significantly reducing
-required memory overhead for problems that return large data (unlike many other
-parallel back ends).
+required memory overhead for problems that return large data (unlike some other
+parallel computing schemes for R).
 
 \section{Obtaining and Installing the Redis server}\label{install}
 
