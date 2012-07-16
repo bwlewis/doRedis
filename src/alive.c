@@ -75,7 +75,6 @@ tcpconnect(char *host, int port)
   h = gethostbyname(host);
   if (!h)
     {
-      fprintf (stderr, "%s: bad host\n", host);
       s = -1;
     }
   else

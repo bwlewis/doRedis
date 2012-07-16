@@ -45,13 +45,14 @@
   tryCatch({
       lapply(names(args), function(n) 
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
-      eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+#      eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+      evalq(eval(doRedis:::.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
   )
 }
 
-`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=60, log=stdout(), Rbin=paste(R.home(component='bin'),"R",sep="/"))
+`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), Rbin=paste(R.home(component='bin'),"R",sep="/"))
 {
   m <- match.call()
   f <- formals()
