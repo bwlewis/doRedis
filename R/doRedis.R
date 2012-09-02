@@ -43,6 +43,11 @@ setExport <- function(names=c())
   assign('export', names, envir=.doRedisGlobals)
 }
 
+setPackages <- function(packages=c())
+{
+  assign('packages', packages, envir=.doRedisGlobals)
+}
+
 # The number of workers should be considered an estimate that may change.
 .info <- function(data, item) {
   switch(item,
@@ -134,9 +139,12 @@ setExport <- function(names=c())
              pos=exportenv, inherits=FALSE)
     }
   }
+	# export packages
+	packages <- unique(c(obj$packages, .doRedisGlobals$packages))
+	
 # Create a job environment for the workers to use
   redisSet(queueEnv, list(expr=expr, 
-                          exportenv=exportenv, packages=obj$packages))
+                          exportenv=exportenv, packages=packages))
   results <- NULL
   njobs <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
