@@ -52,7 +52,9 @@
   )
 }
 
-`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), Rbin=paste(R.home(component='bin'),"R",sep="/"))
+`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, 
+  iter=Inf, timeout=30, log=stdout(), 
+  Rbin=paste(R.home(component='bin'),"R",sep="/"))
 {
   m <- match.call()
   f <- formals()
@@ -68,9 +70,10 @@
   }
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout())
+`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE)
 {
-  redisConnect(host,port)
+  if (!connected)
+    redisConnect(host,port)
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue,"live",sep=".")
   for(j in queueLive)
@@ -141,5 +144,57 @@
 # specified work iterations.
   for(j in queueCount) if(redisExists(j)) redisDecr(j)
   cat("Worker exit.\n", file=log)
+  if (!connected)
+    redisClose()
+}
+
+`startLocalDeployableWorkers` <- function(n, queue, host="localhost", 
+  port=6379, iter=Inf, timeout=30, log=stdout(), 
+  Rbin=paste(R.home(component='bin'),"R",sep="/"))
+{
+  m <- match.call()
+  f <- formals()
+  l <- m$log
+  if(is.null(l)) l <- f$log 
+  cmd <- paste("require(doRedis);redisDeployableWorker(resourceQueue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
+  j=0
+  args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
+  while(j<n) { 
+#      system2(Rbin,args=args,wait=FALSE,stdout=NULL)
+    system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
+    j = j + 1
+  }
+}
+
+`redisDeployableWorker` <- function(resourceQueue, host="localhost", 
+  port=6379, iter=Inf, timeout=30, log=stdout())
+{
+  redisConnect(host,port)
+  while (TRUE) {
+    newJob <- redisBLPop(resourceQueue, timeout)
+    print("new job is")
+    print(newJob)
+    if ( is.null(newJob) ) {
+      cat("No jobs in the resource queue\n", file=log)
+      redisClose()
+      return(invisible(NULL))
+    }
+    newJob <- newJob[[resourceQueue]]
+    print(newJob)
+    if ( newJob$type == "shutdown" ) {
+      cat("Shutdown request received from the resource queue\n", file=log)
+      redisClose()
+      return(invisible(NULL))
+    }
+    
+    if (newJob$type != "resource request") {
+      cat("Unknown request type from resource queue.\n", file=log)
+    }
+    cat("Request, going to", newJob$queue, "\n")
+    queue <- newJob$queue
+    redisWorker(newJob$queue, host=host, port=port, iter=iter, timeout=timeout,
+      log=log, connected=TRUE)
+  }
   redisClose()
 }
+
