@@ -54,13 +54,22 @@
 
 `startLocalWorkers` <- function(n, queue, host="localhost", port=6379, 
   iter=Inf, timeout=30, log=stdout(), 
-  Rbin=paste(R.home(component='bin'),"R",sep="/"))
+  Rbin=paste(R.home(component='bin'),"R",sep="/"), deployable=FALSE)
 {
   m <- match.call()
   f <- formals()
   l <- m$log
   if(is.null(l)) l <- f$log 
-  cmd <- paste("require(doRedis);redisWorker(queue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
+
+  if (!deployable) {
+    cmd <- paste("require(doRedis);redisWorker(queue='",
+      queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
+      timeout,", log=",deparse(l),")",sep="")
+  } else {
+    cmd <- paste("require(doRedis);redisDeployableWorker(resourceQueue='",
+      queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
+      timeout,", log=",deparse(l),")",sep="")
+  }
   j=0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
   while(j<n) { 
@@ -148,32 +157,12 @@
     redisClose()
 }
 
-`startLocalDeployableWorkers` <- function(n, queue, host="localhost", 
-  port=6379, iter=Inf, timeout=30, log=stdout(), 
-  Rbin=paste(R.home(component='bin'),"R",sep="/"))
-{
-  m <- match.call()
-  f <- formals()
-  l <- m$log
-  if(is.null(l)) l <- f$log 
-  cmd <- paste("require(doRedis);redisDeployableWorker(resourceQueue='",queue,"', host='",host,"', port=",port,", iter=",iter,", timeout=",timeout,", log=",deparse(l),")",sep="")
-  j=0
-  args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
-  while(j<n) { 
-#      system2(Rbin,args=args,wait=FALSE,stdout=NULL)
-    system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
-    j = j + 1
-  }
-}
-
-`redisDeployableWorker` <- function(resourceQueue, host="localhost", 
+redisDeployableWorker <- function(resourceQueue, host="localhost", 
   port=6379, iter=Inf, timeout=30, log=stdout())
 {
-  redisConnect(host,port)
+  redisConnect(host, port)
   while (TRUE) {
     newJob <- redisBLPop(resourceQueue, timeout)
-    print("new job is")
-    print(newJob)
     if ( is.null(newJob) ) {
       cat("No jobs in the resource queue\n", file=log)
       redisClose()
@@ -185,15 +174,14 @@
       cat("Shutdown request received from the resource queue\n", file=log)
       redisClose()
       return(invisible(NULL))
-    }
-    
-    if (newJob$type != "resource request") {
+    } else if (newJob$type == "resource request") {
+      cat("Resource request, listening on", newJob$queue, "\n", file=log)
+      queue <- newJob$queue
+      redisWorker(newJob$queue, host=host, port=port, iter=iter, 
+        timeout=timeout, log=log, connected=TRUE)
+    } else {
       cat("Unknown request type from resource queue.\n", file=log)
     }
-    cat("Request, going to", newJob$queue, "\n")
-    queue <- newJob$queue
-    redisWorker(newJob$queue, host=host, port=port, iter=iter, timeout=timeout,
-      log=log, connected=TRUE)
   }
   redisClose()
 }

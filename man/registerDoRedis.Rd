@@ -8,7 +8,7 @@ The doRedis package supplies a simple and lightweight
 parallel back end for the foreach \code{\%dopar\%} function.
 }
 \usage{
-registerDoRedis(queue, host = "localhost", port = 6379)
+registerDoRedis(queue, host = "localhost", port = 6379, deployable=FALSE)
 }
 \arguments{
   \item{queue}{
@@ -19,6 +19,9 @@ The Redis server host or (character) I. P. address.
 }
   \item{port}{
 The Redis server port number.
+}
+  \item{deployable}{
+Is this a deployable worker set-up?
 }
 }
 \details{

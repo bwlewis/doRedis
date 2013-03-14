@@ -20,23 +20,18 @@
 # from the doMPI package from Steve Weston.
 
 # Register the 'doRedis' function with %dopar%.
-registerDoRedis <- function(queue, host="localhost", port=6379)
+registerDoRedis <- function(queue, host="localhost", port=6379, 
+  deployable=FALSE)
 {
   redisConnect(host,port)
-  setDoPar(fun=.doRedis, data=queue, info=.info)
+  setDoPar(fun=ifelse(!deployable, .doRedis, .doDeployRedis), 
+    data=queue, info=.info)
 }
 
 dcat <- function(...) {
   if (!is.null(options('debug')) && (options('debug')==TRUE)) {
     cat(...)
   }
-}
-
-registerDoDeployRedis <- function(queue, host="localhost", port=6379)
-{
-  redisConnect(host,port)
-  setDoPar(fun=.doDeployRedis, data=queue, info=.info)
-#  assign('resourceQueue', queue, envir=.doRedisGlobals)
 }
 
 removeQueue <- function(queue)
@@ -253,8 +248,8 @@ setExport <- function(names=c())
   }
 }
 
-uuid <- function(length=5) {
-  paste(sample(c(letters[1:6],0:9), length,replace=TRUE),collapse="")
+uuid <- function(uuidLength=10) {
+  paste(sample(c(letters[1:6],0:9), uuidLength, replace=TRUE),collapse="")
 
 #  paste(
 #      substr(baseuuid,1,8),
@@ -288,7 +283,7 @@ uuid <- function(length=5) {
   
   #  queue <- data
   # Create the queue for this foreach task.
-  queue <- uuid(len=5)
+  queue <- uuid()
   dcat("New queue name create with name", queue, "\n")
   
   # Now request the resources from the resource allocator. 

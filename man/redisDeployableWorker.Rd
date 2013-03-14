@@ -1,17 +1,17 @@
 \name{redisWorker}
 \alias{redisWorker}
 \title{
-redisWorker
+redisDeployableWorker
 }
 \description{
-Initialize a doRedis worker R process.
+Initialize a doRedis deployable worker R process.
 }
 \usage{
-redisWorker(queue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout(), connected=FALSE)
+redisWorker(resourceQueue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout())
 }
 \arguments{
-  \item{queue}{
-A (character) work queue name, or a list or character vector of queue names.
+  \item{resourceQueue}{
+A (character) resource queue name.
 }
   \item{host}{
 The Redis server host name or (character) I. P. address.
@@ -30,22 +30,21 @@ specified timeout interval.
   \item{log}{
 Log messages to the specified destination (defaults to stdout()).
 }
-  \item{connected}{
-Is the R session creating the worker already connected to Redis?
-}
 }
 \details{
-The redisWorker function enrolls the current R session in one or
-more doRedis worker pools specified by the work queue names. The worker
-loop takes over the R session until either the work queue(s) are deleted
-or the worker times out waiting for a new task.
+The redisDeployableWorker function enrolls the current R session in a 
+resource worker pool specified by the resource queue name. The worker waits
+for the location of work queue and, upon receiving it, deploys to the
+work queue, performing tasks until either the work queue is deleted or the 
+worker times out waiting for a new task. After this the worker returns to 
+waiting on the resource queue for subsequent deployment.
 }
 \value{
 Nothing is returned but status messages are printed to the log
 during operation of the worker loop.
 }
 \author{
-B. W. Lewis <blewis@illposed.net>
+Michael Kane <kaneplusplus@gmail.com>
 }
 \note{
 All doRedis functions require network access to a Redis server (not
@@ -58,6 +57,6 @@ included with the doRedis package).
 \examples{
 \dontrun{
 require('doRedis')
-redisWorker('jobs')
+redisDeployableWorker('resources')
 }
 }
