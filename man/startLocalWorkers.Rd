@@ -36,8 +36,9 @@ Log messages to the specified destination (defaults to stderr()).
   \item{Rbin}{
 The full path to the command-line R program.
 }
-  \item{deployable}
+  \item{deployable}{
 Is the new worker deployable?
+}
 }
 \details{
 Use \code{startLocalWorkers} to start one or more doRedis R worker processes
