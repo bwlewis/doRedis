@@ -1,5 +1,5 @@
-\name{redisWorker}
-\alias{redisWorker}
+\name{redisDeployableWorker}
+\alias{redisDeployableWorker}
 \title{
 redisDeployableWorker
 }
@@ -7,7 +7,7 @@ redisDeployableWorker
 Initialize a doRedis deployable worker R process.
 }
 \usage{
-redisWorker(resourceQueue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout())
+redisDeployableWorker(resourceQueue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout())
 }
 \arguments{
   \item{resourceQueue}{

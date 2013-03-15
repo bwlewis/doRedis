@@ -43,23 +43,24 @@
 `.evalWrapper` <- function(args)
 {
   tryCatch({
-      lapply(names(args), function(n) 
+      lapply(names(args), function(n)
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
-#      eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+# eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
       evalq(eval(doRedis:::.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
   )
 }
 
-`startLocalWorkers` <- function(n, queue, host="localhost", port=6379, 
-  iter=Inf, timeout=30, log=stdout(), 
-  Rbin=paste(R.home(component='bin'),"R",sep="/"), deployable=FALSE)
+`startLocalWorkers` <- function(n, queue, host="localhost", port=6379,
+  iter=Inf, timeout=30, log=stdout(),
+  Rbin=paste(R.home(component='bin'),"R",sep="/"), deployable=FALSE,
+  deployTimeout=2)
 {
   m <- match.call()
   f <- formals()
   l <- m$log
-  if(is.null(l)) l <- f$log 
+  if(is.null(l)) l <- f$log
 
   if (!deployable) {
     cmd <- paste("require(doRedis);redisWorker(queue='",
@@ -67,13 +68,14 @@
       timeout,", log=",deparse(l),")",sep="")
   } else {
     cmd <- paste("require(doRedis);redisDeployableWorker(resourceQueue='",
-      queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
-      timeout,", log=",deparse(l),")",sep="")
+      queue, "', host='", host,"', port=", port,", iter=", iter,
+      ", jobTimeout=", timeout, ", deployTimeout=", deployTimeout, 
+      ", log=",deparse(l),")",sep="")
   }
   j=0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
-  while(j<n) { 
-#      system2(Rbin,args=args,wait=FALSE,stdout=NULL)
+  while(j<n) {
+# system2(Rbin,args=args,wait=FALSE,stdout=NULL)
     system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
     j = j + 1
   }
@@ -99,7 +101,7 @@
     work <- redisBLPop(queue,timeout=timeout)
     queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
     queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
-# We terminate the worker loop after a timeout when all specified work 
+# We terminate the worker loop after a timeout when all specified work
 # queues have been deleted.
     if(is.null(work[[1]]))
      {
@@ -157,32 +159,103 @@
     redisClose()
 }
 
-redisDeployableWorker <- function(resourceQueue, host="localhost", 
-  port=6379, iter=Inf, timeout=30, log=stdout())
+serviceJob <- function(queue, host="localhost", port=6379, iter=Inf, 
+  timeout=2, log=stdout()) {
+  assign(".jobID", "0", envir=.doRedisGlobals)
+  queueLive <- paste(queue,"live",sep=".")
+  for(j in queueLive) {
+    if(!redisExists(j)) redisSet(j,NULL)
+   }
+  queueCount <- paste(queue,"count",sep=".")
+  for(j in queueCount)
+    tryCatch(redisIncr(j),error=function(e) invisible())
+  cat("Waiting for doRedis jobs.\n", file=log)
+  flush.console()
+  k <- 0
+  while(k < iter) { 
+    work <- redisBLPop(queue, timeout=timeout)
+    queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
+    queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
+    # We terminate the worker loop after a timeout when all specified work
+    # queues have been deleted.
+    if(is.null(work[[1]])) {
+      ok <- Reduce( "||", Map(redisExists, queueEnv))
+      if(!ok) {
+        # If we get here, our queues were deleted. Clean up and exit 
+        # service loop.
+        for(j in queueOut) if(redisExists(j)) redisDelete(j)
+        for(j in queueEnv) if(redisExists(j)) redisDelete(j)
+        for(j in queueCount) if(redisExists(j)) redisDelete(j)
+        break
+      }
+    }
+    else {
+      k <- k + 1
+      cat( "Processing task", names(work[[1]]$argsList), "from queue",
+        names(work),"ID",work[[1]]$ID,"\n",file=log)
+      flush.console()
+      # Check that the incoming work ID matches our current environment. If
+      # not, we need to re-initialize our work environment with data from the
+      # <queue>.env Redis string.
+      if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID) {
+        initdata <- redisGet(queueEnv)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
+                    names(work[[1]]$argsList)[[1]],log)
+        assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
+       }
+      # XXX FT support
+      fttag <- paste(names(work[[1]]$argsList),collapse="_")
+      fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
+      fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
+      # fttag.start is a permanent key
+      # fttag.alive is a matching ephemeral key that is regularly kept 
+      # alive by the setOK helper thread. Upon disruption of the thread 
+      # (for example, a crash), the resulting Redis state will be an 
+      # unmatched start tag, which may be used by fault tolerant code 
+      # to resubmit the associated jobs.
+      redisSet(fttag.start,as.integer(names(work[[1]]$argsList)))
+      .setOK(port, host, fttag.alive)
+      # Now do the work.
+      # XXX We assume that job order is encoded in names(argsList), cf. doRedis.
+      result <- lapply(work[[1]]$argsList, .evalWrapper)
+      names(result) <- names(work[[1]]$argsList)
+      redisLPush(queueOut, result)
+      tryCatch(redisDelete(fttag.start), error=function(e) invisible())
+      .delOK()
+    }
+  }
+
+  # Either the queue has been deleted, or we've exceeded the number of
+  # specified work iterations.
+  for (j in queueLive) redisDelete(j) 
+  for(j in queueCount) if(redisExists(j)) redisDelete(j)
+  cat("Worker exit.\n", file=log)
+}
+
+redisDeployableWorker <- function(resourceQueue, host="localhost",
+  port=6379, iter=Inf, jobTimeout=30, deployTimeout=2, log=stdout())
 {
   redisConnect(host, port)
   while (TRUE) {
-    newJob <- redisBLPop(resourceQueue, timeout)
+    newJob <- redisBLPop(resourceQueue, jobTimeout)
     if ( is.null(newJob) ) {
       cat("No jobs in the resource queue\n", file=log)
-      redisClose()
-      return(invisible(NULL))
-    }
-    newJob <- newJob[[resourceQueue]]
-    print(newJob)
-    if ( newJob$type == "shutdown" ) {
-      cat("Shutdown request received from the resource queue\n", file=log)
-      redisClose()
-      return(invisible(NULL))
-    } else if (newJob$type == "resource request") {
-      cat("Resource request, listening on", newJob$queue, "\n", file=log)
-      queue <- newJob$queue
-      redisWorker(newJob$queue, host=host, port=port, iter=iter, 
-        timeout=timeout, log=log, connected=TRUE)
+      break
     } else {
-      cat("Unknown request type from resource queue.\n", file=log)
+      newJob <- newJob[[resourceQueue]]
+      if ( newJob$type == "shutdown" ) {
+        cat("Shutdown request received from the resource queue\n", file=log)
+        break
+      } else if (newJob$type == "resource request") {
+        cat("Resource request, listening on", newJob$queue, "\n", file=log)
+        queue <- newJob$queue
+        serviceJob(newJob$queue, host=host, port=port, iter=iter,
+          timeout=deployTimeout, log=log)
+        cat("Job serviced, back to the resource queue.\n", file=log)
+      } else {
+        cat("Unknown request type from resource queue.\n", file=log)
+      }
     }
   }
   redisClose()
 }
-
