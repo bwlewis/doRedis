@@ -84,11 +84,12 @@ tcpconnect(char *host, int port)
       sa.sin_family = AF_INET;
       sa.sin_port = htons(port);
       sa.sin_addr = *(struct in_addr *) h->h_addr;
-      if (j=connect(s, (struct sockaddr *) &sa, sizeof(sa)) < 0)
-	{
-	  close(s);
-	  return;
-	}
+      j=connect(s, (struct sockaddr *) &sa, sizeof(sa));
+      if (j < 0)
+        {
+          close(s);
+          return;
+        }
     }
 }
 #endif
