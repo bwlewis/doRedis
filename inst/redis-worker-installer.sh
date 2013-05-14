@@ -141,5 +141,5 @@ queue: RJOBS
 
 
 chmod a+x /etc/init.d/doRedis
-#update-rc.d doRedis defaults
-#/etc/init.d/doRedis start
+update-rc.d doRedis defaults
+/etc/init.d/doRedis start
