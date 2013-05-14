@@ -91,6 +91,7 @@ CONF=\$1
 N=\$(cat \$CONF | sed -n /^n:/p | sed -e "s/.*:[[:blank:]*]//")
 R=\$(cat \$CONF | sed -n /^R:/p | sed -e "s/.*:[[:blank:]*]//")
 T=\$(cat \$CONF | sed -n /^timeout:/p | sed -e "s/.*:[[:blank:]*]//")
+I=\$(cat \$CONF | sed -n /^iter:/p | sed -e "s/.*:[[:blank:]*]//")
 HOST=\$(cat \$CONF | sed -n /^host:/p | sed -e "s/.*:[[:blank:]*]//")
 PORT=\$(cat \$CONF | sed -n /^port:/p | sed -e "s/.*:[[:blank:]*]//")
 QUEUE=\$(cat \$CONF | sed -n /^queue:/p | sed -e "s/.*:[[:blank:]*]//")
@@ -104,10 +105,10 @@ Terminator ()
 }
 trap "Terminator" SIGHUP SIGINT SIGTERM
 
-while true; do
+while :; do
   j=0
   while test \$j -lt \$N; do
-    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue=\"\${QUEUE}\", host=\"\${HOST}\", port=\${PORT},timeout=\${T}),error=function(e) q(save='no'));q(save='no')" >/dev/null 2>&1 &
+    bash -c "while :; do \${R} --slave -e \"require('doRedis'); tryCatch(redisWorker(queue=\\\\\\"\${QUEUE}\\\\\\", host=\\\\\\"\${HOST}\\\\\\", port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')\"  >/dev/null 2>&1 ;sleep 1;done" &
     j=\$((\$j + 1))
   done
   wait
@@ -118,11 +119,20 @@ chmod +x /usr/local/bin/doRedis_worker
 
 echo "Installing /etc/doRedis.conf configuration file                                   (you probably want to edit this)..."
 cat > /etc/doRedis.conf << 3ZZZ
+# /etc/doRedis.conf
+# This file has a pretty rigid structure. The format per line is
+# key: vaule
+# and the colon and space after key are required! The settings
+# may apper in any order.
+#
 # Set n to the number of workers to start.
 n: 1
 # Set R to the path to R (default assumes 'R' is in the PATH)
 R: R
+# Set timeout to wait period after job queue is deleted before exiting
 timeout: 5
+# Set iter to maximum number of iterations to run before exiting
+iter: Inf
 host: localhost
 port: 6379
 queue: RJOBS
@@ -131,5 +141,5 @@ queue: RJOBS
 
 
 chmod a+x /etc/init.d/doRedis
-update-rc.d doRedis defaults
-/etc/init.d/doRedis start
+#update-rc.d doRedis defaults
+#/etc/init.d/doRedis start
