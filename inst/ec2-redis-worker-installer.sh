@@ -46,7 +46,7 @@ SCRIPTNAME=/etc/init.d/doRedis
 #
 do_start()
 {
-  U=$(wget -O - -q http://XXX.XXX.XXX.XXX/latest/user-data)
+  U=$(wget -O - -q http://169.254.169.254/latest/user-data)
   if test -n "${U}";  then
     N=$(cat /proc/cpuinfo | grep ^processor | wc -l)
     echo "n: ${N}" > /etc/doRedis.conf
