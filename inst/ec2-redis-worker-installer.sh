@@ -7,8 +7,8 @@
 # /etc/doRedis.conf
 #
 # and configures the doRedis init script to start in the usual runlevels.
-# Edit the /etc/doRedis.conf file to point to the right Redis server and
-# to set other configuration parameters.
+# This is the EC2 version of the script that configure /etc/doRedis.conf
+# at boot time using information supplied in the EC2 user-data field.
 
 echo "Installing /etc/init.d/doRedis script..."
 cat > /etc/init.d/doRedis <<1ZZZ
@@ -46,6 +46,14 @@ SCRIPTNAME=/etc/init.d/doRedis
 #
 do_start()
 {
+  U=$(wget -O - -q http://XXX.XXX.XXX.XXX/latest/user-data)
+  if test -n "${U}";  then
+    N=$(cat /proc/cpuinfo | grep ^processor | wc -l)
+    echo "n: ${N}" > /etc/doRedis.conf
+    echo ${U} >> /etc/doRedis.conf
+    /etc/init.d/doRedis stop
+    /etc/init.d/doRedis start
+  fi
   sudo -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
 }
 
