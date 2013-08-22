@@ -21,9 +21,9 @@
 
 # Register the 'doRedis' function with %dopar%.
 registerDoRedis <- function(queue, host="localhost", port=6379, 
-  deployable=FALSE, nWorkers=1)
+  deployable=FALSE, nWorkers=1, password=NULL)
 {
-  redisConnect(host,port)
+  redisConnect(host,port,password)
   if (!deployable)
     nWorkers <- NA
   setDoPar(fun=(if(!deployable) .doRedis else .doDeployRedis), 

@@ -55,7 +55,7 @@
 `startLocalWorkers` <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
   Rbin=paste(R.home(component='bin'),"R",sep="/"), deployable=FALSE,
-  deployTimeout=2)
+  deployTimeout=2, password=NULL)
 {
   m <- match.call()
   f <- formals()
@@ -65,12 +65,12 @@
   if (!deployable) {
     cmd <- paste("require(doRedis);redisWorker(queue='",
       queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
-      timeout,", log=",deparse(l),")",sep="")
+      timeout,", log=",deparse(l)," password=", password,")",sep="")
   } else {
     cmd <- paste("require(doRedis);redisDeployableWorker(resourceQueue='",
       queue, "', host='", host,"', port=", port,", iter=", iter,
       ", jobTimeout=", timeout, ", deployTimeout=", deployTimeout, 
-      ", log=",deparse(l),")",sep="")
+      ", log=",deparse(l), " password=", password,")",sep="")
   }
   j=0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
@@ -81,10 +81,10 @@
   }
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE)
+`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL)
 {
   if (!connected)
-    redisConnect(host,port)
+    redisConnect(host,port,password)
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue,"live",sep=".")
   for(j in queueLive)
@@ -233,9 +233,9 @@ serviceJob <- function(queue, host="localhost", port=6379, iter=Inf,
 }
 
 redisDeployableWorker <- function(resourceQueue, host="localhost",
-  port=6379, iter=Inf, jobTimeout=30, deployTimeout=2, log=stdout())
+  port=6379, iter=Inf, jobTimeout=30, deployTimeout=2, log=stdout(), password=NULL)
 {
-  redisConnect(host, port)
+  redisConnect(host, port, password)
   while (TRUE) {
     newJob <- redisBLPop(resourceQueue, jobTimeout)
     if ( is.null(newJob) ) {
