@@ -7,7 +7,7 @@ redisDeployableWorker
 Initialize a doRedis deployable worker R process.
 }
 \usage{
-redisDeployableWorker(resourceQueue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout())
+redisDeployableWorker(resourceQueue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout(), password=NULL)
 }
 \arguments{
   \item{resourceQueue}{
@@ -29,6 +29,9 @@ specified timeout interval.
 }
   \item{log}{
 Log messages to the specified destination (defaults to stdout()).
+}
+  \item{password}{
+The Redis server password.
 }
 }
 \details{
