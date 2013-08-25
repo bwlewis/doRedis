@@ -23,7 +23,7 @@
 registerDoRedis <- function(queue, host="localhost", port=6379, 
   deployable=FALSE, nWorkers=1, password=NULL)
 {
-  redisConnect(host,port,password)
+  redisConnect(host,port,password=password)
   if (!deployable)
     nWorkers <- NA
   setDoPar(fun=(if(!deployable) .doRedis else .doDeployRedis), 
