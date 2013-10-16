@@ -1,92 +1,4 @@
-#
-# Copyright (c) 2010 by Bryan W. Lewis.
-#
-# This is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as published
-# by the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
-# USA
-
-# The environment initialization code is adapted (with minor changes)
-# from the doMPI package from Steve Weston.
-
-# Register the 'doRedis' function with %dopar%.
-registerDoRedis <- function(queue, host="localhost", port=6379, 
-  deployable=FALSE, nWorkers=1)
-{
-  redisConnect(host,port)
-  if (!deployable)
-    nWorkers <- NA
-  setDoPar(fun=(if(!deployable) .doRedis else .doDeployRedis), 
-    data=list(queue=queue, nWorkers=nWorkers, deployable=deployable), 
-    info=.info)
-}
-
-removeQueue <- function(queue)
-{
-  redisDelete(paste(queue,"live",sep="."))
-}
-
-setChunkSize <- function(value=1)
-{
-  if(!is.numeric(value)) stop("setChunkSize requires a numeric argument")
-  value <- max(round(value - 1),0)
-  assign('chunkSize', value, envir=.doRedisGlobals)
-}
-
-setExport <- function(names=c())
-{
-  assign('export', names, envir=.doRedisGlobals)
-}
-
-setPackages <- function(packages=c())
-{
-  assign('packages', packages, envir=.doRedisGlobals)
-}
-
-.info <- function(data, item) {
-  if (!data$deployable) {
-    # The number of workers should be considered an estimate that may change.
-    switch(item,
-           workers=
-             tryCatch(
-               {
-                 n <- redisGet(
-                         paste(foreach:::.foreachGlobals$data,'count',sep='.'))
-                 if(length(n)==0) n <- 0
-                 else n <- as.numeric(n)
-               }, error=function(e) 0),
-           name='doRedis',
-           version=packageDescription('doRedis', fields='Version'),
-           NULL)
-  } else {
-    # The number of workers is the maximum number of workers that can be 
-    # deployed to this process.
-    switch(item,
-           workers=data$workers,
-           name='doDeployRedis',
-           version=packageDescription('doRedis', fields='Version'),
-           NULL)
-  }
-}
-
-.doRedisGlobals <- new.env(parent=emptyenv())
-
-.makeDotsEnv <- function(...) {
-  list(...)
-  function() NULL
-}
-
-.doRedis <- function(obj, expr, envir, data)
+.doDeployRedis <- function(obj, expr, envir, data)
 {
 # ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
@@ -97,7 +9,19 @@ setPackages <- function(packages=c())
   ID <- ID_file
 # The backslash escape charater present in Windows paths causes problems.
   ID <- gsub("\\\\","_",ID)
-  queue <- data$queue
+
+  
+  #  queue <- data
+  # Create the queue for this foreach task.
+  queue <- uuid()
+  
+  # Now request the resources from the resource allocator. 
+  # Note that this will change when we have a proper broker.
+  payload <- list(type="resource request", queue=queue)
+
+  for (i in 1:data$nWorkers)
+    redisRPush(data$queue, payload)
+
   queueEnv <- paste(queue,"env", ID, sep=".")
   queueOut <- paste(queue,"out", ID, sep=".")
   queueStart <- paste(queue,"start",ID, sep=".")
@@ -154,9 +78,12 @@ setPackages <- function(packages=c())
              pos=exportenv, inherits=FALSE)
     }
   }
+	# export packages
+	packages <- unique(c(obj$packages, .doRedisGlobals$packages))
+	
 # Create a job environment for the workers to use
   redisSet(queueEnv, list(expr=expr, 
-                          exportenv=exportenv, packages=obj$packages))
+                          exportenv=exportenv, packages=packages))
   results <- NULL
   njobs <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
@@ -189,7 +116,7 @@ setPackages <- function(packages=c())
 # since the accumulator requires numeric job tags for ordering.
   nout <- 1
   j <- 1
-# To speed this up, we added nonblocking calls to rredis and use them.
+# XXX XXX To speed this up, we added nonblocking calls to rredis and use them.
   redisSetBlocking(FALSE)
   redisMulti()
   while(j <= njobs)
@@ -207,28 +134,29 @@ setPackages <- function(packages=c())
 
 # Collect the results and pass through the accumulator
   j <- 1
-  while(j < nout) {
+  while(j < nout)
+   {
     results <- redisBRPop(queueOut, timeout=ftinterval)
     if(is.null(results)) {
 # Check for worker fault and re-submit tasks if required...
-      started <- redisKeys(queueStart)
-      started <- sub(paste(queue,"start","",sep="."),"",started)
-      alive <- redisKeys(queueAlive)
-      alive <- sub(paste(queue,"alive","",sep="."),"",alive)
-      fault <- setdiff(started,alive)
-      if(length(fault)>0) {
-  # One or more worker faults have occurred. Re-sumbit the work.
-        fault <- paste(queue, "start", fault, sep=".")
-        fjobs <- redisMGet(fault)
-        redisDelete(fault)
-        for(resub in fjobs) {
-          block <- argsList[unlist(resub)]
-          names(block) <- unlist(resub)
-          if (obj$verbose)
-            cat("Worker fault: resubmitting jobs", names(block), "\n")
-          redisRPush(queue, list(ID=ID, argsList=block))
-        }
+    started <- redisKeys(queueStart)
+    started <- sub(paste(queue,"start","",sep="."),"",started)
+    alive <- redisKeys(queueAlive)
+    alive <- sub(paste(queue,"alive","",sep="."),"",alive)
+    fault <- setdiff(started,alive)
+    if(length(fault)>0) {
+# One or more worker faults have occurred. Re-sumbit the work.
+      fault <- paste(queue, "start", fault, sep=".")
+      fjobs <- redisMGet(fault)
+      redisDelete(fault)
+      for(resub in fjobs) {
+        block <- argsList[unlist(resub)]
+        names(block) <- unlist(resub)
+        if (obj$verbose)
+          cat("Worker fault: resubmitting jobs", names(block), "\n")
+        redisRPush(queue, list(ID=ID, argsList=block))
       }
+    }
     }
     else {
       j <- j + 1
@@ -257,41 +185,4 @@ setPackages <- function(packages=c())
   } else {
     getResult(it)
   }
-}
-
-uuid <- function(uuidLength=10) {
-  paste(sample(c(letters[1:6],0:9), uuidLength, replace=TRUE),collapse="")
-}
-
-# Convert the iterator to a list
-.to.list <- function(x) {
-  n <- 64
-  a <- vector('list', length=n)
-  i <- 0
-  tryCatch({
-    repeat {
-      if (i >= n) {
-        n <- 2 * n
-        length(a) <- n
-      }
-      a[i + 1] <- list(nextElem(x))
-      i <- i + 1
-    }
-  },
-  error=function(e) {
-    if (!identical(conditionMessage(e), 'StopIteration'))
-      stop(e)
-  })
-  length(a) <- i
-  a
-}
-
-.onLoad <- function(libname, pkgname)
-{
-  library.dynam('doRedis', pkgname, libname)
-}
-
-.onUnload <- function (libpath)
-{
-  library.dynam.unload('doRedis', libpath)
 }

@@ -1,11 +1,10 @@
 /*
- * alive.c: a simple fault detection system for doRedis.
- * doRedis worker fault tolerance works by assigning two keys to each
- * in process task: a permanent key created when the task starts, and
- * an ephemeral key kept alive by this thread while the task is running.
- * If the thread defined in this code stops, for example if R crashes,
- * then the ephemeral key will expire and the master doRedis process can
- * detect the failed task and resubmit it.
+ * alive.c: a simple fault detection system for doRedis.  doRedis worker fault
+ * tolerance works by assigning two keys to each in process task: a permanent
+ * key created when the task starts, and an ephemeral key kept alive by this
+ * thread while the task is running.  If the thread defined in this code stops,
+ * for example if R crashes, then the ephemeral key will expire and the master
+ * doRedis process can detect the failed task and resubmit it.
  */
 #ifdef Win32
 #include <winsock2.h>
