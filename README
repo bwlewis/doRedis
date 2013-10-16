@@ -9,7 +9,7 @@ timeout 0
 DESCRIPTION
 
 Steve Weston's foreach package is a remarkable parametric evaluation device for
-the R language. Similarly to lapply-like functions, foreach maps functions to
+the R language. Similarly to lapply-like functions, foreach maps expressions to
 data and aggregates results. Even better, foreach lets you do this in parallel
 across multiple CPU cores and computers.  And even better yet, foreach
 abstracts the parallel computing details away into modular back-end code. Code
