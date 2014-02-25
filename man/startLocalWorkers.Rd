@@ -7,7 +7,7 @@ startLocalWorkers
 Start background R worker processes on the local system.
 }
 \usage{
-startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout(),  Rbin = paste(R.home(component="bin"),"R",sep="/"), deployable=FALSE, password=NULL)
+startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout(),  Rbin = paste(R.home(component="bin"),"R",sep="/"), password=NULL)
 }
 \arguments{
   \item{n}{
@@ -35,9 +35,6 @@ Log messages to the specified destination (defaults to stderr()).
 }
   \item{Rbin}{
 The full path to the command-line R program.
-}
-  \item{deployable}{
-Is the new worker deployable?
 }
   \item{password}{
 The Redis server password.

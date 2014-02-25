@@ -93,3 +93,35 @@ a convenient way to invoke several workers at once.
 Workers self-terminate when their work queues have been deleted with the
 removeQueue function.
 
+
+SOME TECHNICAL DETAILS
+
+A job queue is a Redis 'list'. Workers listen on the job queue for new work.
+Masters publish to the job queue to advertise new work.
+
+A 'job' is a unique identifier string that corresponds to a single R
+environment, a parameterized R expression (the body of the foreach loop), and a
+set of tasks.  A 'task' is a list of one or more parameter values over which to
+evaluate an R expression (body of a foreach loop) in its job environment.
+
+Let 'JOBS' be a job queue. Let 'ID' be the unique ID for a given doRedis job.
+The following Redis keys are used by doRedis to coordinate the work:
+
+Name                KeyType   Description
+'JOBS'              list      Job queue (new tasks announced here)
+'JOBS:counter'      string    Next job ID; also serves to indicate the queue is
+                              active.
+'JOBS:workers'      string    Incremented when a worker listens to this queue,
+                              decremented on exit. Semi-reliable worker count.
+'JOBS:ID'           hash      The elements of this hash are the job's tasks.
+'JOBS:ID.results'   list      Task result queue (task results placed here)
+'JOBS:ID.env'       string    Job-common R environment. This includes a Lua
+                              function that workers use to pull tasks.
+'JOBS:ID.alive.TID' string    A key indicating task TID is processing.
+'JOBS:ID.start.TID' string    An ephemeral key indicating task TID was started.
+
+The last two keys are used for worker fault detection. Workers set the permanent
+'started' key when they start working on a task collection. They start a thread
+that periodically refreshes the ephemeral 'alive' key. The master periodically
+checks for imbalances between 'started' and 'alive' keys, and if detectde,
+resubmits the corresponding tasks.

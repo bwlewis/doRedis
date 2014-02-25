@@ -1,5 +1,3 @@
-.doRedisGlobals <- new.env(parent=emptyenv())
-
 # .setOK and .delOK support worker fault tolerance
 `.setOK` <- function(port, host, key)
 {
@@ -21,6 +19,7 @@
 # XXX This use of parent.env should be changed. It's used here to
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
+# Would attach work instead?
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
   tryCatch(
     {for (p in packages)
@@ -54,24 +53,15 @@
 
 `startLocalWorkers` <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
-  Rbin=paste(R.home(component='bin'),"R",sep="/"), deployable=FALSE,
-  deployTimeout=2, password=NULL)
+  Rbin=paste(R.home(component='bin'),"R",sep="/"), password=NULL)
 {
   m <- match.call()
   f <- formals()
   l <- m$log
   if(is.null(l)) l <- f$log
-
-  if (!deployable) {
-    cmd <- paste("require(doRedis);redisWorker(queue='",
-      queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
-      timeout,", log=",deparse(l),", password='", password,"')",sep="")
-  } else {
-    cmd <- paste("require(doRedis);redisDeployableWorker(resourceQueue='",
-      queue, "', host='", host,"', port=", port,", iter=", iter,
-      ", jobTimeout=", timeout, ", deployTimeout=", deployTimeout, 
-      ", log=",deparse(l), ", password='", password,"')",sep="")
-  }
+  cmd <- paste("require(doRedis);redisWorker(queue='",
+         queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
+         timeout,", log=",deparse(l),", password='", password,"')",sep="")
   j=0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
   while(j<n) {
@@ -83,179 +73,76 @@
 
 `redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL)
 {
+  if(!is.null(password) && nchar(password)<1) password=c()
   if (!connected)
     redisConnect(host,port,password=password)
-  assign(".jobID", "0", envir=.doRedisGlobals)
-  queueLive <- paste(queue,"live",sep=".")
-  for(j in queueLive)
-   {
-    if(!redisExists(j)) redisSet(j,NULL)
-   }
-  queueCount <- paste(queue,"count",sep=".")
-  for(j in queueCount)
-    tryCatch(redisIncr(j),error=function(e) invisible())
+  assign(".jobID", "   ~~~   ", envir=.doRedisGlobals) # dummy id
+  queueCounter <- sprintf("%s:counter",queue) # Job id counter
+  SEED <- redisIncr(queueCounter) # Just to make sure this key exists, also
+#   used as a seed in lieu of a better user-supplied pRNG. See workerInit.
+  queueWorkers <- sprintf("%s:workers",queue)
+  redisIncr(queueWorkers)
   cat("Waiting for doRedis jobs.\n", file=log)
   flush.console()
   k <- 0
-  while(k < iter) {
-    work <- redisBLPop(queue,timeout=timeout)
-    queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
-    queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
+  while(k < iter)
+  {
+    ID <- redisBLPop(queue,timeout=timeout)[[1]] # Retrieve a job ID
 # We terminate the worker loop after a timeout when all specified work
 # queues have been deleted.
-    if(is.null(work[[1]]))
+    if(is.null(ID[[1]]))
      {
-      ok <- FALSE
-      for(j in queueLive) ok <- ok || redisExists(j)
-      if(!ok) {
-# If we get here, our queues were deleted. Clean up and exit worker loop.
-        for(j in queueOut) if(redisExists(j)) redisDelete(j)
-        for(j in queueEnv) if(redisExists(j)) redisDelete(j)
-        for(j in queueCount) if(redisExists(j)) redisDelete(j)
-        for(j in queue) if(redisExists(j)) redisDelete(j)
-        break
-      }
+       ok <- redisExists(queueCounter)
+       if(!ok) {
+# If we get here, our entire job queue was deleted.
+# Clean up and exit worker loop.
+         removeQueue(queue)
+         break
+       }
      }
     else
      {
-      k <- k + 1
-      cat("Processing task",names(work[[1]]$argsList),"from queue",names(work),"ID",work[[1]]$ID,"\n",file=log)
-      flush.console()
+      queueEnv <- sprintf("%s:%.0f.env",queue,ID)
+      queueResults <- sprintf("%s:%.0f.results",queue,ID)
+      cat("Processing task for job ",ID," from queue ",queue,"\n")
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
-      if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
+      if(get(".jobID", envir=.doRedisGlobals) != ID)
        {
         initdata <- redisGet(queueEnv)
         .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
-                    names(work[[1]]$argsList)[[1]],log)
-        assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
+                    SEED,log)
+        assign(".jobID", ID, envir=.doRedisGlobals)
        }
-# XXX FT support
-      fttag <- paste(names(work[[1]]$argsList),collapse="_")
-      fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
-      fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
+# Retrieve a task
+      task <- .doRedisGlobals$exportenv$.getTask(queue, ID)
+      k <- k + 1
+      cat("Processing task",task$task_id,"... from queue",queue,"jobID",ID,"\n",file=log)
+      flush.console()
+# Fault detection
+      fttag.start <- sprintf("%s:%.0f.start.%s",queue,ID,task$task_id)
+      fttag.alive <- sprintf("%s:%.0f.alive.%s",queue,ID,task$task_id)
 # fttag.start is a permanent key
 # fttag.alive is a matching ephemeral key that is regularly kept alive by the
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
-      redisSet(fttag.start,as.integer(names(work[[1]]$argsList)))
+      redisSet(fttag.start,task$task_id)
       .setOK(port, host, fttag.alive)
 # Now do the work.
-# XXX We assume that job order is encoded in names(argsList), cf. doRedis.
-      result <- lapply(work[[1]]$argsList, .evalWrapper)
-      names(result) <- names(work[[1]]$argsList)
-      redisLPush(queueOut, result)
+# We assume that job order is encoded in names(args), cf. doRedis.
+      result <- lapply(task$args, .evalWrapper)
+      names(result) <- names(task$args)
+      redisLPush(queueResults, result)
       tryCatch(redisDelete(fttag.start), error=function(e) invisible())
       .delOK()
+      tryCatch(redisDelete(fttag.alive), error=function(e) invisible())
     }
   }
 # Either the queue has been deleted, or we've exceeded the number of
 # specified work iterations.
-  for(j in queueCount) if(redisExists(j)) redisDecr(j)
+  redisDecr(queueWorkers)
   cat("Worker exit.\n", file=log)
-  if (!connected)
-    redisClose()
-}
-
-serviceJob <- function(queue, host="localhost", port=6379, iter=Inf, 
-  timeout=2, log=stdout()) {
-  assign(".jobID", "0", envir=.doRedisGlobals)
-  queueLive <- paste(queue,"live",sep=".")
-  for(j in queueLive) {
-    if(!redisExists(j)) redisSet(j,NULL)
-   }
-  queueCount <- paste(queue,"count",sep=".")
-  for(j in queueCount)
-    tryCatch(redisIncr(j),error=function(e) invisible())
-  cat("Waiting for doRedis jobs.\n", file=log)
-  flush.console()
-  k <- 0
-  while(k < iter) { 
-    work <- redisBLPop(queue, timeout=timeout)
-    queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
-    queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
-    # We terminate the worker loop after a timeout when all specified work
-    # queues have been deleted.
-    if(is.null(work[[1]])) {
-      ok <- Reduce( "||", Map(redisExists, queueEnv))
-      if(!ok) {
-        # If we get here, our queues were deleted. Clean up and exit 
-        # service loop.
-        for(j in queueOut) if(redisExists(j)) redisDelete(j)
-        for(j in queueEnv) if(redisExists(j)) redisDelete(j)
-        for(j in queueCount) if(redisExists(j)) redisDelete(j)
-        break
-      }
-    }
-    else {
-      k <- k + 1
-      cat( "Processing task", names(work[[1]]$argsList), "from queue",
-        names(work),"ID",work[[1]]$ID,"\n",file=log)
-      flush.console()
-      # Check that the incoming work ID matches our current environment. If
-      # not, we need to re-initialize our work environment with data from the
-      # <queue>.env Redis string.
-      if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID) {
-        initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
-                    names(work[[1]]$argsList)[[1]],log)
-        assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
-       }
-      # XXX FT support
-      fttag <- paste(names(work[[1]]$argsList),collapse="_")
-      fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
-      fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
-      # fttag.start is a permanent key
-      # fttag.alive is a matching ephemeral key that is regularly kept 
-      # alive by the setOK helper thread. Upon disruption of the thread 
-      # (for example, a crash), the resulting Redis state will be an 
-      # unmatched start tag, which may be used by fault tolerant code 
-      # to resubmit the associated jobs.
-      redisSet(fttag.start,as.integer(names(work[[1]]$argsList)))
-      .setOK(port, host, fttag.alive)
-      # Now do the work.
-      # XXX We assume that job order is encoded in names(argsList), cf. doRedis.
-      result <- lapply(work[[1]]$argsList, .evalWrapper)
-      names(result) <- names(work[[1]]$argsList)
-      redisLPush(queueOut, result)
-      tryCatch(redisDelete(fttag.start), error=function(e) invisible())
-      .delOK()
-    }
-  }
-
-  # Either the queue has been deleted, or we've exceeded the number of
-  # specified work iterations.
-  for (j in queueLive) redisDelete(j) 
-  for(j in queueCount) if(redisExists(j)) redisDelete(j)
-  cat("Worker exit.\n", file=log)
-}
-
-redisDeployableWorker <- function(resourceQueue, host="localhost",
-  port=6379, iter=Inf, jobTimeout=30, deployTimeout=2, log=stdout(), password=NULL)
-{
-  redisConnect(host, port, password=password)
-  while (TRUE) {
-    newJob <- redisBLPop(resourceQueue, jobTimeout)
-    if ( is.null(newJob) ) {
-      cat("No jobs in the resource queue\n", file=log)
-      break
-    } else {
-      newJob <- newJob[[resourceQueue]]
-      if ( newJob$type == "shutdown" ) {
-        cat("Shutdown request received from the resource queue\n", file=log)
-        break
-      } else if (newJob$type == "resource request") {
-        cat("Resource request, listening on", newJob$queue, "\n", file=log)
-        queue <- newJob$queue
-        serviceJob(newJob$queue, host=host, port=port, iter=iter,
-          timeout=deployTimeout, log=log)
-        cat("Job serviced, back to the resource queue.\n", file=log)
-      } else {
-        cat("Unknown request type from resource queue.\n", file=log)
-      }
-    }
-  }
   redisClose()
 }

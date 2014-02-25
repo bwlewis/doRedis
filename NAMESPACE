@@ -5,5 +5,7 @@ export(
   setExport,
   startLocalWorkers,
   redisWorker,
-  redisDeployableWorker)
+  setTaskLabel,
+  setGetTask
+)
 import(foreach)

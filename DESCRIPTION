@@ -1,8 +1,8 @@
 Package: doRedis
 Type: Package
 Title: Foreach parallel adapter for the rredis package
-Version: 1.0.5
-Date: 2012-7-14
+Version: 1.1.0
+Date: 2014-2-25
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
 Description: A Redis parallel backend for the %dopar% function
