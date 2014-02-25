@@ -7,7 +7,11 @@ startLocalWorkers
 Start background R worker processes on the local system.
 }
 \usage{
-startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout(),  Rbin = paste(R.home(component="bin"),"R",sep="/"), password=NULL)
+startLocalWorkers(n, queue, host = "localhost",
+                  port = 6379, iter = Inf,
+                  timeout = 30, log = stdout(),
+                  Rbin = paste(R.home(component="bin"),"R",sep="/"),
+                  password=NULL)
 }
 \arguments{
   \item{n}{

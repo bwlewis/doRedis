@@ -80,7 +80,7 @@ setPackages <- function(packages=c())
              tryCatch(
                {
                  n <- redisGet(
-                         paste(foreach:::.foreachGlobals$data,'count',sep='.'))
+                         paste(foreach:::.foreachGlobals$data$queue,'workers',sep=':'))
                  if(length(n)==0) n <- 0
                  else n <- as.numeric(n)
                }, error=function(e) 0),

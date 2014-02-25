@@ -45,7 +45,7 @@
       lapply(names(args), function(n)
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
 # eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
-      evalq(eval(doRedis:::.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
+      evalq(eval(.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
   )

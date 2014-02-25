@@ -7,7 +7,14 @@ redisWorker
 Initialize a doRedis worker R process.
 }
 \usage{
-redisWorker(queue, host = "localhost", port = 6379, iter = Inf, timeout = 30, log = stdout(), connected=FALSE, password=NULL)
+redisWorker(queue,
+            host = "localhost",
+            port = 6379,
+            iter = Inf,
+            timeout = 30,
+            log = stdout(),
+            connected=FALSE,
+            password=NULL)
 }
 \arguments{
   \item{queue}{

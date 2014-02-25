@@ -9,3 +9,4 @@ export(
   setGetTask
 )
 import(foreach)
+import(rredis)
