@@ -1,5 +1,8 @@
 doRedis: A simple parallel backend for foreach using Redis.
 
+See https://github.com/bwlewis/doRedis for the latest examples, bug fixes and
+documentation.
+
 IMPORTANT NOTE
 
 Set the following parameter in your redis.conf file before using doRedis:
