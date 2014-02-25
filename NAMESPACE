@@ -10,3 +10,4 @@ export(
 )
 import(foreach)
 import(rredis)
+import(iterators)

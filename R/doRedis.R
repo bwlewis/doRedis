@@ -28,6 +28,7 @@
 registerDoRedis <- function(queue, host="localhost", port=6379, password=NULL)
 {
   redisConnect(host,port,password=password)
+  assign('.queue', queue, envir=.doRedisGlobals)
   setDoPar(fun=.doRedis,
     data=list(queue=queue), 
     info=.info)
@@ -80,7 +81,7 @@ setPackages <- function(packages=c())
              tryCatch(
                {
                  n <- redisGet(
-                         paste(foreach:::.foreachGlobals$data$queue,'workers',sep=':'))
+                         paste(.doRedisGlobals$.queue,'workers',sep=':'))
                  if(length(n)==0) n <- 0
                  else n <- as.numeric(n)
                }, error=function(e) 0),
