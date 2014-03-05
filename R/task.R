@@ -3,13 +3,12 @@
 #
 # Function arguments must include at least:
 # queue (characer) name of job queue
-# id (character) job ID
+# job_id (character) job ID
 #
 # The function must return a task list, an R list with the following
 # fields:
 # task_id (character) task ID
 # args (list) expression arguments
-
 
 default_getTask <-  function(queue, job_id, ...)
 {
