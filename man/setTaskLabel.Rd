@@ -55,6 +55,7 @@ getTask <- function(queue, job_id, ...)
              redis.call('hdel',KEYS[1],x);i
              return ans",key)
 }
-setTaskLabel(getTask)
+
+setTaskLabel(fn = I)
 }
 }

@@ -41,13 +41,15 @@
 
 `.evalWrapper` <- function(args)
 {
+  env <- .doRedisGlobals$exportenv
   tryCatch({
       lapply(names(args), function(n)
-                         assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
-# eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
-      evalq(eval(.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
+                         assign(n, args[[n]], envir=env))
+# Is this OK? Previous versions had a curious use of
+# evalq(eval(...)). I'm not sure why.
+eval(.doRedisGlobals$expr, envir=env)
     },
-    error=function(e) e
+    error=function(e) e  # Return the error to the master
   )
 }
 
@@ -71,11 +73,18 @@
   }
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL)
+`redisWorker` <- function(queue,
+                          host="localhost",
+                          port=6379,
+                          iter=Inf,
+                          timeout=30,
+                          log=stdout(),
+                          connected=FALSE,
+                          password=NULL)
 {
   if(!is.null(password) && nchar(password)<1) password=c()
   if (!connected)
-    redisConnect(host,port,password=password)
+    redisConnect(host,port,password=password,nodelay=TRUE)
   assign(".jobID", "   ~~~   ", envir=.doRedisGlobals) # dummy id
   queueCounter <- sprintf("%s:counter",queue) # Job id counter
   SEED <- redisIncr(queueCounter) # Just to make sure this key exists, also
@@ -135,9 +144,9 @@
       result <- lapply(task$args, .evalWrapper)
       names(result) <- names(task$args)
       redisLPush(queueResults, result)
-      tryCatch(redisDelete(fttag.start), error=function(e) invisible())
+      tryCatch(redisDelete(fttag.start), error=invisible, warning=invisible)
       .delOK()
-      tryCatch(redisDelete(fttag.alive), error=function(e) invisible())
+      tryCatch(redisDelete(fttag.alive), error=invisible, warning=invisible)
     }
   }
 # Either the queue has been deleted, or we've exceeded the number of
