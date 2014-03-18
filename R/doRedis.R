@@ -24,10 +24,18 @@
 # The environment initialization code is adapted (with minor changes) from the
 # doMPI package by Steve Weston.
 
+# doRedis requires versions of Redis equipped with Lua scripting.
+version_check <- function()
+{
+  v <- as.numeric(strsplit(redisInfo()$redis_version,"\\.")[[1]])
+  if( ! (v[1]>=2 && v[2]>=6) ) stop("doRedis requires Redis version >= 2.6")
+}
+
 # Register the 'doRedis' function with %dopar%.
 registerDoRedis <- function(queue, host="localhost", port=6379, password=NULL)
 {
   redisConnect(host,port,password=password)
+  version_check()
   assign('.queue', queue, envir=.doRedisGlobals)
   setDoPar(fun=.doRedis,
     data=list(queue=queue), 

@@ -85,6 +85,7 @@ eval(.doRedisGlobals$expr, envir=env)
   if(!is.null(password) && nchar(password)<1) password=c()
   if (!connected)
     redisConnect(host,port,password=password,nodelay=TRUE)
+  version_check()
   assign(".jobID", "   ~~~   ", envir=.doRedisGlobals) # dummy id
   queueCounter <- sprintf("%s:counter",queue) # Job id counter
   SEED <- redisIncr(queueCounter) # Just to make sure this key exists, also
