@@ -113,7 +113,7 @@ eval(.doRedisGlobals$expr, envir=env)
      {
       queueEnv <- sprintf("%s:%.0f.env",queue,ID)
       queueResults <- sprintf("%s:%.0f.results",queue,ID)
-      cat("Processing task for job ",ID," from queue ",queue,"\n")
+      cat("Processing job ",ID," from queue ",queue,"\n")
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
@@ -126,6 +126,14 @@ eval(.doRedisGlobals$expr, envir=env)
        }
 # Retrieve a task
       task <- .doRedisGlobals$exportenv$.getTask(queue, ID)
+# Maybe we didn't get a task for some reason! Nobody likes me :(
+# I'll put this job notice back into the work queue...
+      if(is.null(task))
+      {
+        redisRPush(queue, ID) # Put this job notice back.
+        Sys.sleep(5)  # What's appropriate here?
+        next
+      }
       k <- k + 1
       cat("Processing task",task$task_id,"... from queue",queue,"jobID",ID,"\n",file=log)
       flush.console()
