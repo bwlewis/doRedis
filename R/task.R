@@ -4,12 +4,12 @@
 # Function arguments must include at least:
 # queue (characer) name of job queue
 # job_id (character) job ID
+# ...  (required ellipsis argument)
 #
 # The function must return either NULL or a task list, an R list with the
 # following fields:
 # task_id (character) task ID
 # args (list) expression arguments
-
 
 default_getTask <-  function(queue, job_id, ...)
 {

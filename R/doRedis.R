@@ -97,6 +97,7 @@ setPackages <- function(packages=c())
            NULL)
 }
 
+# A global workspace environment for doRedis
 .doRedisGlobals <- new.env(parent=emptyenv())
 
 # This is used for the closure's enclosing environment.
@@ -224,7 +225,8 @@ setPackages <- function(packages=c())
   task_list <- list()
   nout <- 1
   j <- 1
-# To speed this up, we use nonblocking calls to Redis.
+# To speed this up, we use nonblocking calls to Redis. We also submit all
+# the tasks in a single transaction.
   redisSetPipeline(TRUE)
   redisMulti()
   while(j <= ntasks)
@@ -247,11 +249,13 @@ setPackages <- function(packages=c())
    redisSetPipeline(FALSE)
 
 # Collect the results and pass through the accumulator
+  finished = c()
   j <- 1
   while(j < nout)
    {
     results <- tryCatch(redisBRPop(queueResults, timeout=ftinterval),error=NULL)
-    if(is.null(results)) {
+    if(is.null(results))
+    {
 # Check for worker fault and re-submit tasks if required...
       started <- redisKeys(queueStart)
       started <- gsub(sprintf("%s:%.0f.start.",queue,ID),"",started)
@@ -269,9 +273,19 @@ setPackages <- function(packages=c())
           redisRPush(queue, ID)
         }
       }
+# Check for imbalance in: queued + started + finished = total.
+      queued = redisLLen(queue)    # number of queued tasks remaining
+      nq = length(setdiff(names(task_list), c(finished, started)))
+      if(queued < nq)
+      {
+        warning("Queue length off by ",nq)
+        replicate(nq,redisRPush(queue, ID))
+      }
     }
-    else {
+    else
+    {
       j <- j + 1
+      finished = c(finished, names(results[[1]]))
       tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
         error=function(e) {
           cat('error calling combine function:\n')

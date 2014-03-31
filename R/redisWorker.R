@@ -1,4 +1,12 @@
-# .setOK and .delOK support worker fault tolerance
+# Retrieve a variable "tag" from .doRedisGlobals, if it exists. If not,
+# return the system name.
+.getTag <- function()
+{
+  if(exists("tag",envir=.doRedisGlobals)) return(get("tag",envir=.doRedisGlobals))
+  Sys.info()["nodename"][[1]]
+}
+
+# .setOK and .delOK support worker fault tolerance (internal functions)
 `.setOK` <- function(port, host, key)
 {
   .Call("setOK", as.integer(port), as.character(host), as.character(key),PACKAGE="doRedis")
@@ -34,6 +42,14 @@
       set.seed((log10(as.numeric(seed))/308)*2^31)
       assign('initRNG', TRUE, envir=.doRedisGlobals)
     }
+   },
+   error=function(e) cat(as.character(e),'\n',file=log)
+  )
+# Look for and run generic worker initialization function...
+  tryCatch(
+   {
+    if(exists("worker.init",envir=.doRedisGlobals$exportenv))
+      do.call("worker.init",envir=.doRedisGlobals$exportenv)
    },
    error=function(e) cat(as.character(e),'\n',file=log)
   )
@@ -125,13 +141,22 @@ eval(.doRedisGlobals$expr, envir=env)
         assign(".jobID", ID, envir=.doRedisGlobals)
        }
 # Retrieve a task
-      task <- .doRedisGlobals$exportenv$.getTask(queue, ID)
+
+# DEBUG: 'next' at this point simulates a bad failure--a task announcement
+# pulled from the work queue, but no task pulled. This leaves
+# total = queued + started + finished 
+# out of balance.
+
+if(k>0) next
+
+      task <- .doRedisGlobals$exportenv$.getTask(queue, ID, .getTag())
 # Maybe we didn't get a task for some reason! Nobody likes me :(
-# I'll put this job notice back into the work queue...
+# I'll put this job notice back into the work queue... This stall
+# sucks though. Is there a better approach here?
       if(is.null(task))
       {
         redisRPush(queue, ID) # Put this job notice back.
-        Sys.sleep(5)  # What's appropriate here?
+        Sys.sleep(2)          # What's appropriate here?
         next
       }
       k <- k + 1
