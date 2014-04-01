@@ -1,3 +1,9 @@
+# Exposed function to set a variable named "tag" in .doRedisGlobals.
+setTag <- function(label)
+{
+  assign("tag",as.character(label),envir=.doRedisGlobals)
+}
+
 # Retrieve a variable "tag" from .doRedisGlobals, if it exists. If not,
 # return the system name.
 .getTag <- function()
@@ -7,19 +13,19 @@
 }
 
 # .setOK and .delOK support worker fault tolerance (internal functions)
-`.setOK` <- function(port, host, key)
+.setOK <- function(port, host, key)
 {
   .Call("setOK", as.integer(port), as.character(host), as.character(key),PACKAGE="doRedis")
   invisible()
 }
 
-`.delOK` <- function()
+.delOK <- function()
 {
   .Call("delOK",PACKAGE="doRedis")
   invisible()
 }
 
-`.workerInit` <- function(expr, exportenv, packages, seed, log)
+.workerInit <- function(expr, exportenv, packages, seed, log)
 {
 # Override the function set.seed.worker in the exportenv to change!
   assign('expr', expr, .doRedisGlobals)
@@ -49,13 +55,13 @@
   tryCatch(
    {
     if(exists("worker.init",envir=.doRedisGlobals$exportenv))
-      do.call("worker.init",envir=.doRedisGlobals$exportenv)
+      do.call("worker.init",args=list(),envir=.doRedisGlobals$exportenv)
    },
    error=function(e) cat(as.character(e),'\n',file=log)
   )
 }
 
-`.evalWrapper` <- function(args)
+.evalWrapper <- function(args)
 {
   env <- .doRedisGlobals$exportenv
   tryCatch({
@@ -69,7 +75,7 @@ eval(.doRedisGlobals$expr, envir=env)
   )
 }
 
-`startLocalWorkers` <- function(n, queue, host="localhost", port=6379,
+startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
   Rbin=paste(R.home(component='bin'),"R",sep="/"), password=NULL)
 {
@@ -89,7 +95,7 @@ eval(.doRedisGlobals$expr, envir=env)
   }
 }
 
-`redisWorker` <- function(queue,
+redisWorker <- function(queue,
                           host="localhost",
                           port=6379,
                           iter=Inf,
@@ -146,8 +152,7 @@ eval(.doRedisGlobals$expr, envir=env)
 # pulled from the work queue, but no task pulled. This leaves
 # total = queued + started + finished 
 # out of balance.
-
-if(k>0) next
+#if(k>0) next
 
       task <- .doRedisGlobals$exportenv$.getTask(queue, ID, .getTag())
 # Maybe we didn't get a task for some reason! Nobody likes me :(
@@ -155,14 +160,17 @@ if(k>0) next
 # sucks though. Is there a better approach here?
       if(is.null(task))
       {
+        ok <- redisExists(queueCounter)
+        if(!ok) break         # This job is gone!
         redisRPush(queue, ID) # Put this job notice back.
-        Sys.sleep(2)          # What's appropriate here?
+        Sys.sleep(1)          # What's appropriate here?
         next
       }
       k <- k + 1
       cat("Processing task",task$task_id,"... from queue",queue,"jobID",ID,"\n",file=log)
       flush.console()
 # Fault detection
+      fttag.start <- sprintf("%s:%.0f.start.%s",queue,ID,task$task_id)
       fttag.alive <- sprintf("%s:%.0f.alive.%s",queue,ID,task$task_id)
 # fttag.alive is a matching ephemeral key that is regularly kept alive by the
 # setOK helper thread. Upon disruption of the thread (for example, a crash),

@@ -6,7 +6,8 @@ export(
   startLocalWorkers,
   redisWorker,
   setTaskLabel,
-  setGetTask
+  setGetTask,
+  setTag
 )
 import(foreach)
 import(rredis)
