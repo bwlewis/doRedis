@@ -8,7 +8,10 @@ documentation.
 
 IMPORTANT NOTES
 
-doRedis now requires Redis versions > 2.6 that support Lua scripting.
+Users are encouraged to upgrade to Redis versions >= 2.6 that include server-side
+Lua scripting. doRedis can take advantage of that to enable new features outlined
+in the package vignette. Backwards compatibility with older versions of Redis
+is maintained, however.
 
 Set the following parameter in your redis.conf file before using doRedis:
 
