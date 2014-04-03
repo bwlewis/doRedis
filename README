@@ -6,6 +6,11 @@ for the package vignette, which contains many technical details and examples.
 See https://github.com/bwlewis/doRedis for the latest examples, bug fixes and
 documentation.
 
+Here is a copy of the compiled Windows binary package (32- and 64-bit). It will
+soon also be available on CRAN:
+http://bwlewis.github.io/doRedis/doRedis_1.1.1.zip
+
+
 IMPORTANT NOTES
 
 Users are encouraged to upgrade to Redis versions >= 2.6 that include server-side
