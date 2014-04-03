@@ -27,6 +27,11 @@ setTag <- function(label)
 
 .workerInit <- function(expr, exportenv, packages, seed, log)
 {
+  tryCatch(
+    {for (p in packages)
+      library(p, character.only=TRUE)
+    }, error=function(e) cat(as.character(e),'\n',file=log)
+  )
 # Override the function set.seed.worker in the exportenv to change!
   assign('expr', expr, .doRedisGlobals)
   assign('exportenv', exportenv, .doRedisGlobals)
@@ -35,11 +40,6 @@ setTag <- function(label)
 # is fraglie as this may function be dropped in a future release of R.
 # Would attach work instead?
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
-  tryCatch(
-    {for (p in packages)
-      library(p, character.only=TRUE)
-    }, error=function(e) cat(as.character(e),'\n',file=log)
-  )
   tryCatch(
    {
     if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
