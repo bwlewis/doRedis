@@ -158,6 +158,9 @@ redisWorker <- function(queue,
 # Maybe we didn't get a task for some reason! Nobody likes me :(
 # I'll put this job notice back into the work queue... This stall
 # sucks though. Is there a better approach here?
+# Note that a malicious or crashed R worker process might not do
+# this. eventually the master process will detect an imbalance in the
+# work queue anyway and correct things. But it's better to do it here.
       if(is.null(task))
       {
         ok <- redisExists(queueCounter)
@@ -171,6 +174,10 @@ redisWorker <- function(queue,
       flush.console()
 # Fault detection
       fttag.start <- sprintf("%s:%.0f.start.%s",queue,ID,task$task_id)
+# The 'start' key has already been set for us by Redis. We set it again
+# anyway just in case (for example, a custom getTask function might forget
+# to do this).
+      redisSet(fttag.start, task$task_id)
       fttag.alive <- sprintf("%s:%.0f.alive.%s",queue,ID,task$task_id)
 # fttag.alive is a matching ephemeral key that is regularly kept alive by the
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
