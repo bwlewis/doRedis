@@ -256,10 +256,18 @@ setPackages <- function(packages=c())
     results <- tryCatch(redisBRPop(queueResults, timeout=ftinterval),error=NULL)
     if(is.null(results))
     {
+
 # Check for worker fault and re-submit tasks if required...
-      started <- redisKeys(queueStart)
+      redisMulti()
+      redisKeys(queueStart)
+      redisKeys(queueAlive)
+      redisLLen(queue)    # number of queued tasks remaining
+      ans <- redisExec()
+      started <- ans[[1]]
+      alive <- ans[[2]]
+      queued <- ans[[3]]
+
       started <- gsub(sprintf("%s:%.0f.start.",queue,ID),"",started)
-      alive <- redisKeys(queueAlive)
       alive <- gsub(sprintf("%s:%.0f.alive.",queue,ID),"",alive)
       fault <- setdiff(started,alive)
       if(length(fault)>0) {
@@ -274,11 +282,10 @@ setPackages <- function(packages=c())
         }
       }
 # Check for imbalance in: queued + started + finished = total.
-      queued = redisLLen(queue)    # number of queued tasks remaining
       nq = length(setdiff(names(task_list), c(finished, started)))
       if(queued < nq)
       {
-        warning("Queue length off by ",nq)
+        warning("Queue length off by ",nq,"...correcting")
         replicate(nq,redisRPush(queue, ID))
       }
     }
