@@ -178,7 +178,7 @@ setPackages <- function(packages=c())
   nout <- 1
   j <- 1
 # To speed this up, we added nonblocking calls to rredis and use them.
-  redisSetBlocking(FALSE)
+  redisSetPipeline(TRUE)
   redisMulti()
   while(j <= njobs)
    {
@@ -191,7 +191,7 @@ setPackages <- function(packages=c())
    }
    redisExec()
    redisGetResponse(all=TRUE)
-   redisSetBlocking(TRUE)
+   redisSetPipeline(FALSE)
 
 # Collect the results and pass through the accumulator
   j <- 1
@@ -220,6 +220,7 @@ setPackages <- function(packages=c())
     }
     else {
       j <- j + 1
+browser()
       tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
         error=function(e) {
           cat('error calling combine function:\n')
