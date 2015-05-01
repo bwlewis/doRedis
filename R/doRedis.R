@@ -24,9 +24,7 @@ registerDoRedis <- function(queue, host="localhost", port=6379,
   deployable=FALSE, nWorkers=1, password=NULL)
 {
   redisConnect(host,port,password=password)
-  if (!deployable)
-    nWorkers <- NA
-  setDoPar(fun=(if(!deployable) .doRedis else .doDeployRedis), 
+  setDoPar(fun=.doRedis, 
     data=list(queue=queue, nWorkers=nWorkers, deployable=deployable), 
     info=.info)
 }
@@ -54,7 +52,6 @@ setPackages <- function(packages=c())
 }
 
 .info <- function(data, item) {
-  if (!data$deployable) {
     # The number of workers should be considered an estimate that may change.
     switch(item,
            workers=
@@ -68,15 +65,6 @@ setPackages <- function(packages=c())
            name='doRedis',
            version=packageDescription('doRedis', fields='Version'),
            NULL)
-  } else {
-    # The number of workers is the maximum number of workers that can be 
-    # deployed to this process.
-    switch(item,
-           workers=data$workers,
-           name='doDeployRedis',
-           version=packageDescription('doRedis', fields='Version'),
-           NULL)
-  }
 }
 
 .doRedisGlobals <- new.env(parent=emptyenv())
