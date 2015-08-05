@@ -479,22 +479,28 @@ combine function in the {\tt foreach} loop.
 
 \section{Technical Details}
 
-A \verb+doRedis+ \emph{task} is a parameterized R expression that represents
-a unit of work. The task expression is the body of a \verb+foreach+ loop. A
-single task may consist of one or more loop iterations depending on the value
-of the \verb+chunkSize+ parameter (the default is one).
+A \verb+foreach+ loop iteration is a parameterized R expression that represents
+a unit of work. The expression is the body of the \verb+foreach+ loop and the
+parameter, if it exists, is the loop variable value. (It is possible to use
+\verb+foreach+ non-parametrically with an anonymous iterator to simply
+replicate the loop body expression a number of times.)  Each iteration is
+enumerated so that \verb+foreach+ can put the results together in order if
+required.
 
-All of the tasks associated with a single \verb+foreach+ statement are
-collected into a \verb+doRedis+ \emph{job}. Each job is assigned a unique
-identifier, and each job's tasks are enumerated $1, 2, 3, ...$.
+A \emph{task} is a collection of one or more loop iterations. The number of
+iterations per task is at most \verb+chunkSize+.
 
-Jobs are announced on a \emph{work queue}--technically, a special Redis key
-called a ``list'' that supports blocking reads. Users choose the name of the
-work queue in the \verb+registerDoRedis+ function. Master R programs that issue
-jobs wait for results on yet another blocking Redis list, a result queue
-specific to the job.
+A \emph{job} is a collection of one or more tasks that covers all the
+iterations in the \verb+foreach+ loop. Each job is assigned a unique
+identifier.
 
-R workers listen on work queues for jobs using blocking reads.  As shown in the
+Jobs are submitted as a sequence of tasks to a \emph{work queue}--technically,
+a special Redis key called a ``list'' that supports blocking reads. Users
+choose the name of the work queue in the \verb+registerDoRedis+ function.
+Master R programs that issue jobs wait for results on yet another blocking
+Redis list, a result queue associated with the job.
+
+R workers listen on work queues for tasks using blocking reads.  As shown in the
 last section the number of workers is dynamic.  It's possible for workers to
 listen on queues before any jobs exist, or for masters to issue jobs to queues
 without any workers available.
@@ -519,17 +525,16 @@ described in detail below.
 The name of the work queue illustrated in Figure 2 is ``myjobs.'' The
 corresponding Redis key is also named ``myjobs'' and it's a Redis list value type
 (that is, a queue).  Such a queue can be set up, for example, with
-\verb+registerDoRedis(queue="jobs")+.
+\verb+registerDoRedis(queue="myjobs")+.
 
-Removal of the ``jobs'' key serves as a signal that the work queue has been
-removed, for example with the \verb+removeQueue("jobs")+ function. After this
-happens, any R workers listening on the queue will clean up any Redis keys that
-they created and terminate after a timeout period.
+Removal of the ``jobs.live'' key serves as a signal that the work queue has
+been removed, for example with the \verb+removeQueue("myjobs")+ function. After
+this happens, R workers listening on the queue will clean up any Redis keys
+that they created and terminate after a timeout period.
 
-Along with the work queue, a counter key named ``myjobs.count'' is set up to
-enumerate jobs. The key is atomically incremented by Redis with each new job.
-It is an estimate of the number of workers currently registered to accept work
-on the queue.
+A counter key named ``myjobs.count'' enumerates the number of R worker
+processes registered on the queue.  It is only an estimate of the number of
+workers currently registered to accept work on the queue.
 
 \verb+foreach+ assigns every job an R environment with state required to
 execute the loop expression. The example in Figure 2 illustrates a job
@@ -542,11 +547,12 @@ job).
 into the ``myjobs'' queue using the labels ``jobID.n'', where n is the number
 of each task, n=1, 2, ... .
 
-R workers listen on the ``myjobs'' queue for tasks. It's a blocking queue,
-but the workers periodically time out. After each time out they check to see if
-``myjobs'' key still exists, and if it doesn't they terminate. If it's still
-there, they loop and listen again for jobs.
+R workers listen on the ``myjobs'' queue for tasks. It's a blocking queue, but
+the workers periodically time out. After each time out they check to see if the
+``myjobs.live'' key still exists, and if it doesn't they clean up their Redis
+keys and terminate. If it's still there, they loop and listen again for jobs.
 
+\begin{sloppypar}
 When a job/task announcement arrives in the ``myjobs'' queue, a worker
 downloads the new task from the ``myjobs'' queue. The worker then:
 \begin{enumerate}
@@ -562,6 +568,7 @@ in Figure 2 as ``myjobs.alive.jobID.taskID''.
 result queue for that job ID, shown in Figure 2 as ``myjobs.out.jobID'',
 and then removes its corresponding start and alive keys.
 \end{enumerate}
+\end{sloppypar}
 
 Meanwhile, the R master process is listening for results on the job result
 queue, shown in Figure 2 as ``myjobs.out.jobID'' Results arrive from the
