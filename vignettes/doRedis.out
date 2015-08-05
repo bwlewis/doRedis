@@ -1,0 +1,19 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [2][-]{subsection.1.1}{Why doRedis?}{section.1}% 2
+\BOOKMARK [1][-]{section.2}{Obtaining and Configuring the Redis server}{}% 3
+\BOOKMARK [1][-]{section.3}{doRedis Examples}{}% 4
+\BOOKMARK [2][-]{subsection.3.1}{A Really Simple Example}{section.3}% 5
+\BOOKMARK [2][-]{subsection.3.2}{Fault tolerance}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.3}{Dynamic Worker Pools and Heterogeneous Workers}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.4}{A Parallel boot Function}{section.3}% 8
+\BOOKMARK [1][-]{section.4}{Technical Details}{}% 9
+\BOOKMARK [2][-]{subsection.4.1}{Redis Key Organization}{section.4}% 10
+\BOOKMARK [2][-]{subsection.4.2}{Worker Fault Detection and Recovery}{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.3}{Random Number Generator Seeds}{section.4}% 12
+\BOOKMARK [2][-]{subsection.4.4}{Known Problems and Limitations}{section.4}% 13
+\BOOKMARK [1][-]{section.5}{Advanced Topics}{}% 14
+\BOOKMARK [2][-]{subsection.5.1}{Custom task assignment}{section.5}% 15
+\BOOKMARK [3][-]{subsubsection.5.1.1}{Setting worker tags}{subsection.5.1}% 16
+\BOOKMARK [3][-]{subsubsection.5.1.2}{Customizing the getTask function}{subsection.5.1}% 17
+\BOOKMARK [2][-]{subsection.5.2}{Things to watch out for}{section.5}% 18
+\BOOKMARK [2][-]{subsection.5.3}{worker.init}{section.5}% 19

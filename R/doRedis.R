@@ -82,7 +82,7 @@ setPackages <- function(packages=c())
   ID_file <- tempfile("doRedis")
   zz <- file(ID_file,"w")
   close(zz)
-  ID <- ID_file
+  ID <- basename(ID_file)
 # The backslash escape charater present in Windows paths causes problems.
   ID <- gsub("\\\\","_",ID)
   queue <- data$queue
