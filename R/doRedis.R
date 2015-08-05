@@ -109,10 +109,11 @@ setPackages <- function(packages=c())
 # empty lists.
   redisSet(queueLive, "")
 
-# Manage default parallel RNG, restoring old RNG state on exit
-  .seed = if(exists(".Random.seed")) .Random.seed else NULL
+# Manage default parallel RNG, restoring an advanced old RNG state on exit
+  .seed = NULL
+  if(exists(".Random.seed",envir=globalenv())) .seed=get(".Random.seed",envir=globalenv())
   RNG_STATE = list(kind=RNGkind()[[1]], seed=.seed)
-  on.exit({RNGkind(RNG_STATE$kind); set.seed(RNG_STATE$seed)})
+  on.exit({RNGkind(RNG_STATE$kind); assign(".Random.seed",RNG_STATE$seed,envir=globalenv());runif(1);invisible()})
   RNGkind("L'Ecuyer-CMRG")
   .rngseed <- .Random.seed
 

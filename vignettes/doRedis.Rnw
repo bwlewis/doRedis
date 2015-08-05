@@ -607,7 +607,15 @@ repeated results for the same task ID.
 \subsection{Random Number Generator Seeds}
 
 The initialization of pseudorandom number generators is an important
-consideration, especially when running simulations in parallel. Each {\tt
+consideration, especially when running simulations in parallel.  By default,
+workers use the L'Ecuyer-CMRG method from R's \verb+parallel+ package. Each
+\verb+foreach+ loop iteration is assigned a L'Ecuyer stream making parallel
+random number generation reproducible regardless of the number of workers or
+chunk size settings.
+
+XXX 
+
+Each {\tt
 foreach} loop iteration (task) is assigned a number in order from the sequence
 $1, 2, \ldots$. By default, {\tt doRedis} workers initialize the seed of their
 random number generator with a multiple  of the first task number they receive.
