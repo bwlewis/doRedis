@@ -49,6 +49,10 @@
       lapply(names(args), function(n)
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
 # eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+      if(exists(".Random.seed",envir=.doRedisGlobals$exportenv))
+      {
+        assign(".Random.seed",.doRedisGlobals$exportenv$.Random.seed, envir=globalenv())
+      }
       evalq(eval(doRedis:::.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e

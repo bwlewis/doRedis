@@ -220,7 +220,6 @@ The next line:
 for work on the queue named ``jobs.'' The worker sessions don't display any 
 output by default. The {\tt startLocalWorkers} function can instruct the
 workers to log messages to output files or stdout if desired.
-
 You can verify that workers are in fact waiting for work with:
 
 \noindent \verb+getDoParWorkers()+
