@@ -611,31 +611,13 @@ consideration, especially when running simulations in parallel.  By default,
 workers use the L'Ecuyer-CMRG method from R's \verb+parallel+ package. Each
 \verb+foreach+ loop iteration is assigned a L'Ecuyer stream making parallel
 random number generation reproducible regardless of the number of workers or
-chunk size settings.
+chunk size settings. Simply set the random seed prior to a \verb+foreach+
+loop as you would do in a sequential program.
 
-XXX 
+Note that, although \verb+doRedis+ uses the L'Ecuyer random number generator
+internally, it records and restores the state and kind of random number
+generator prior to the \verb+foreach+ loop.
 
-Each {\tt
-foreach} loop iteration (task) is assigned a number in order from the sequence
-$1, 2, \ldots$. By default, {\tt doRedis} workers initialize the seed of their
-random number generator with a multiple  of the first task number they receive.
-The multiple is chosen to very widely separate seed initialization values.
-This simple scheme is sufficient for many problems, and comparable to
-the initialization scheme used by many other parallel back ends.
-
-\begin{lstlisting}[float=!ht,caption=User-defined RNG initialization,label=rng]
-# First, use the default initialization:
-> startLocalWorkers(n=5,queue="jobs")
-> registerDoRedis("jobs")
-> foreach(j=1:5,.combine="c") %dopar% runif(1)
- [1] 0.27572951 0.62581389 0.90845008 0.49669130 0.06106442 
-
-# Now, let's make all the workers use the same random seed initialization:
-
-> set.seed.worker <- function(n) set.seed(55)
-> foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
-[1] 0.5478135 0.5478135 0.5478135 0.5478135 0.5478135
-\end{lstlisting}
 
 The {\tt doRedis} package includes a mechanism to define an arbitrary random
 seed initialization function. Such a function could be used, for example, with
@@ -646,6 +628,20 @@ set.seed.worker}, take one argument and must be exported to the workers
 explicitly in the {\tt foreach} loop. The example shown in Listing \ref{rng}
 illustrates a simple user-defined seed function.
 
+\begin{lstlisting}[float=!ht,caption=User-defined RNG initialization,label=rng]
+> startLocalWorkers(n=5,queue="jobs")
+> registerDoRedis("jobs")
+
+> # Make all the workers use the same random seed initialization and the old
+> # "Super-Duper" RNG:
+> set.seed.worker <- function(n) {
++   RNGkind("Super-Duper")
++   set.seed(55)
++ }
+> foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
+[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
+\end{lstlisting}
+
 
 \subsection{Known Problems and Limitations}
 
@@ -654,23 +650,21 @@ Redis server may be lost or enter an undefined state. An R session can reset
 connection to a Redis server at any time by issuing \verb+redisClose()+
 followed by re-registering the {\tt doRedis} back end.
 
-Redis limits database values to less than 2\,GB. Neither the \verb+foreach+
+Redis limits database values to less than 512\,MB. Neither the \verb+foreach+
 loop parameters nor the job environment may exceed this size. If you need to
 work on chunks of data larger than this, see the Advanced Topics section
 for examples of working on already distributed data in place.
 
 
 
-
 \section{Advanced Topics}
 
-Let's start this section by dealing with the 2\,GB Redis value size limit.
-Problems will come along in which you'll need to get more than
-2\,GB of data to the R worker processes. There
-are several approaches that one might take:
+Let's start this section by dealing with the 512\,MB Redis value size limit.
+Problems will come along in which you'll need to get more than 512\,MB of data
+to the R worker processes. There are several approaches that one might take:
 \begin{enumerate}
 \item Distribute the data outside of Redis, for example through a shared
-      distributed file system like PVFS or Lustre.
+      distributed file system like PVFS or Lustre, or through another database.
 \item Break the data up into chunks that each fit into Redis and use
       Redis to distribute the data.
 \end{enumerate}
@@ -715,213 +709,6 @@ avoids putting the data into the exported R environment, which could exceed the
 Redis 2\,GB value size limit. The example also avoids sending data to workers
 that they don't need. Each worker downloads just the data it needs and nothing
 more.
-
-
-\subsection{Custom task assignment}
-
-The example shown in Listing \ref{chunk} presents one way to distribute just
-the data needed to each task. But what if we need to repeat the \verb+foreach+
-loop in Listing \ref{chunk}, for example in the running of an iterative method?
-It would be nice if the workers could cache their chunks of data locally and
-simply re-use that without fetching new data.
-
-The default \verb+doRedis+ approach assigns work to workers on a first-come,
-first-served basis. But it also allows for custom task assignment, for example
-to align tasks with existing cached data on workers. Custom task assignment can
-also be used to allocate tasks based on distance to already distributed data.
-
-
-Let's recall how tasks are assigned to a worker R process by \verb+doRedis+
-(refer to Figure \ref{keys}):
-\begin{enumerate}
-\item The worker waits for a job announcement with a blocking
-      read on the job work queue (``jobs'' in Figure \ref{keys}).
-\item After a job ID is removed from the work queue, the worker
-      downloads the job R environment value (``jobs:1.env'').
-\item The environment contains a function called \verb+getTask+. The
-      worker invokes this function with the work queue name, the job ID,
-      and a worker ``tag'' value to get a task.
-\item If a task was obtained, the worker executes it, placing the result
-      in the result queue \break(``jobs.1.results''). Otherwise the worker
-      replaces the obtained job ID into the work queue and repeats
-      (see below for a discussion of this exceptional case).
-\end{enumerate}
-Customization of task assignment boils down to supplying a custom
-\verb+getTask+ and setting a ``tag'' value in the workers.
-
-
-\subsubsection{Setting worker tags}
-
-A ``tag'' is a character string that workers report to their \verb+getTask+
-functions. Tags can be any character string, and they do not need to be unique.
-Workers report their system host names by default. Interesting tag possibilities
-are chunk number and worker I.P. address.
-
-Set tags with the \verb+setTag+ function. This step is usually done once in the
-first \verb+foreach+ loop.  Once a tag is set, it remains in force until reset
-(the tag value will not vary from job to job).
-
-
-\subsubsection{Customizing the getTask function}
-
-The task assignment decision is made by the Redis server.  The default
-\verb+getTask+ function specifies a Lua script that is run by Redis. It
-ignores the ``tag'' argument supplied by the workers.  Here it is:
-\begin{lstlisting}[float=!ht,caption=Default getTask function,basicstyle=\footnotesize\ttfamily,label=getTask]
-getTask <- function(queue, job_id, ...)
-{
-  key <- sprintf("
-  redisEval("local x=redis.call('hkeys',KEYS[1])[1];
-             if x==nil then return nil end;
-             local ans=redis.call('hget',KEYS[1],x);
-             redis.call('set', KEYS[1] .. '.start.' .. x, x);
-             redis.call('hdel',KEYS[1],x);i
-             return ans",key)
-}
-\end{lstlisting}
-Note that it's important for the \verb+getTask+ function to set the task started
-key (the Lua statement \verb+redis.call('set', KEYS[1] .. '.start.' .. x, x)+).
-For reliable operation, this should be set by Redis and not left up to the
-R worker.
-
-Let's modify the example in Listing \ref{chunk} to preferentially assign work
-to workers that already have locally cached data.  With these modifications in
-place, the \verb+foreach+ loop in Listing \ref{chunk} can be repeated without
-incurring any new data movement costs as long as the \verb+doRedis+ worker pool
-remains constant.
-
-\begin{lstlisting}[float=!ht,caption=Custom getTask function,basicstyle=\footnotesize\ttfamily,label=custom]
-> myGetTask <- function(queue, job_id, tag, ...)
-{ 
-# The default task Redis hash map is labeled queue:job_id:
->   key <- sprintf("%s:%s",queue, job_id)
-# The worker tag is passed in to the Redis Lua interpreter as ARGV[1].
-# See ?redisEval for details.
->   redisEval("local x=redis.call('hkeys',KEYS[1])[tonumber(ARGV[1])];
-+              if x==nil then x=redis.call('hkeys',KEYS[1])[1]; end;
-+              if x==nil then return nil; end;
-+              local ans=redis.call('hget',KEYS[1],x);
-+              redis.call('set', KEYS[1] .. '.start.' .. x, x);
-+              redis.call('hdel',KEYS[1],x);
-+              return ans",key,FALSE,tag)
-}
-\end{lstlisting}
-
-The custom \verb+myGetTask+ function shown in Listing \ref{custom} first tries
-to assign a specific task number requested by the worker via its tag. If that
-fails, it assigns the first available task or NULL if there aren't any tasks.
-Listing \ref{customloop} shows a modified version of the \verb+foreach+ loop
-from example \ref{chunk}. The modifications add the following:
-\begin{mitemize}
-\item Cache the data in the worker's R global environment the first time run.
-\item Assign a tag corresponding to the cached data chunk.
-\item Use the custom \verb+myGetTask+ function from Listing \ref{custom}.
-\item Add some debugging output to help understand what's happening.
-\end{mitemize}
-
-\begin{lstlisting}[float=!ht,caption=Modified foreach loop,basicstyle=\footnotesize\ttfamily,label=customloop]
-> ans  <-
-> foreach(j=1:2, .options.redis=list(getTask=myGetTask)) %dopar% {
->   chunk <- sprintf("A%d",j)
->   log <- paste("My job is to sum chunk ",chunk)
->   log <- paste(log,"My tag ID is ",doRedis:::.getTag())
-# Check if we have a cached copy of the chunk
->   if(exists(chunk))
->   {
->     log <- paste(log,"I've already got this chunk...")
->     mychunk <- get(chunk)
->     return(list(sum=sum(mychunk), log=log))
->   }
-# We don't have it cached, download it and cache it locally...
->   log <- paste(log,"Downloading chunk",chunk)
->   setTag(j)     # Set our tag!
->   assign(chunk, redisGet(chunk), envir=globalenv())
->   mychunk <- get(chunk, envir=globalenv())
->   list(sum=sum(mychunk), log=log)
-> }
-> print(ans)
-\end{lstlisting}
-
-Let's say that the example shown in Listing \ref{customloop} is run
-using the ``jobs'' work queue with two local \verb+doRedis+ workers,
-for example with:
-\begin{lstlisting}[float=!ht,caption=Starting two local R workers,xleftmargin=0pt]
-> library("doRedis")
-> registerDoRedis("jobs")
-> startLocalWorkers(n=2, queue="jobs")
-\end{lstlisting}
-The first time you run the example \verb+foreach+ loop in Listing
-\ref{customloop}, you'll see output similar to that shown
-in Listing \ref{exampleoutput1} below.
-\begin{lstlisting}[float=!ht,caption=First foreach loop run,label=exampleoutput1]
-[[1]]
-[[1]]$sum
-[1] 0
-  
-[[1]]$log
-[1] "My job is to sum chunk  A1 My tag ID is localhost Downloading chunk A1"
-  
-  
-[[2]]
-[[2]]$sum
-[1] 0
-  
-[[2]]$log
-[1] "My job is to sum chunk  A2 My tag ID is localhost Downloading chunk A2"
-\end{lstlisting}
-If you repeat the \verb+foreach+ loop in Listing \ref{customloop}, you'll see output
-similar to that shown below in Listing \ref{exampleoutput2}, which shows that the
-workers are using their cached data. You can repeat the \verb+foreach+ loop as many
-times as you like and the output should remain constant.
-\begin{lstlisting}[float=!ht,caption=Repeated foreach loop runs,label=exampleoutput2]
-[[1]]
-[[1]]$sum
-[1] 0
-
-[[1]]$log
-[1] "My job is to sum chunk  A1 My tag ID is  1 I've already got this chunk..."
-
-
-[[2]]
-[[2]]$sum
-[1] 0
-
-[[2]]$log
-[1] "My job is to sum chunk  A2 My tag ID is  2 I've already got this chunk..."
-\end{lstlisting}
-
-Note that, even if one of the workers quits or crashes, the remaining worker
-will be assigned work to finish the job. And, the method still accommodates
-additional workers coming on line at any time.
-
-
-\subsection{Things to watch out for}
-
-\verb+foreach+ submits all tasks associated with one job in a single Redis
-transaction. This is important in light of the custom task pulling example in
-Listing \ref{custom}.  We'd like to make sure that all the tasks are available
-before doling out work to avoid prematurely assigning a task to the wrong
-worker.
-
-However, that means that if the \verb+foreach+ loop parameterization contains a
-lot of data, there can be a significant lag before starting the work. Avoid
-loop parameterizations containing lots of data. It's a better idea to manually
-break up data into Redis keys as shown in the example in Listing \ref{chunk}.
-
-It's possible that a worker can remove a job announcement from a work queue
-without requesting a task via \verb+getTask+ from the job's task set. That's
-a problem. Another problem already discussed in the fault tolerance section
-occurs when the number of started tasks does not match the number of alive
-tasks.  The master process periodically checks two things:
-\begin{enumerate}
-\item Number of started tasks = number of alive tasks (fault check)
-\item queued + started + finished = total
-\end{enumerate}
-If item 2 fails, then the queue is out of balance and the master R program
-resubmits the missing number of task entries. In either case, it's possible
-that a rogue worker process tricks us and completes work that apparently
-failed. The master R program running the \verb+foreach+ loop throws away
-replicated task results, keeping only the first result to arrive.
 
 
 \subsection{worker.init}

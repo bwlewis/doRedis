@@ -28,19 +28,7 @@
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
-  tryCatch(
-   {
-# Override the function set.seed.worker to roll your own RNG.
-    if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
-      do.call('set.seed.worker',list(seed),envir=.doRedisGlobals$exportenv)
-    else
-    { 
-# Default uses L'Ecuyer XXX XXX
-      RNGkind("L'Ecuyer-CMRG")
-    }
-   },
-   error=function(e) cat(as.character(e),'\n',file=log)
-  )
+  RNGkind("L'Ecuyer-CMRG")
 }
 
 `.evalWrapper` <- function(args)
@@ -53,6 +41,12 @@
       {
         assign(".Random.seed",.doRedisGlobals$exportenv$.Random.seed, envir=globalenv())
       }
+      tryCatch(
+      {
+# Override the function set.seed.worker to roll your own RNG.
+        if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
+          do.call('set.seed.worker',list(0),envir=.doRedisGlobals$exportenv)
+       }, error=function(e) cat(as.character(e),'\n',file=log))
       evalq(eval(doRedis:::.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
