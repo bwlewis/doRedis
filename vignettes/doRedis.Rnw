@@ -1,7 +1,7 @@
 % \VignetteIndexEntry{doRedis Manual}
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
-\documentclass[12pt]{article}
+\documentclass[10pt]{article}
 \usepackage{amsmath}
 %\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}

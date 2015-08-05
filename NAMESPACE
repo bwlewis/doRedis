@@ -4,6 +4,6 @@ export(
   setChunkSize,
   setExport,
   startLocalWorkers,
-  redisWorker,
-  redisDeployableWorker)
+  redisWorker)
 import(foreach)
+import(parallel)

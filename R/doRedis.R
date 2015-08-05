@@ -38,6 +38,8 @@ removeQueue <- function(queue)
   for(j in queueOut) redisDelete(j)
   queueCount = redisKeys(pattern=sprintf("%s\\.count",queue))
   for(j in queueCount) redisDelete(j)
+  queueLive = redisKeys(pattern=sprintf("%s\\.live",queue))
+  for(j in queueLive) redisDelete(j)
 }
 
 setChunkSize <- function(value=1)
@@ -92,6 +94,7 @@ setPackages <- function(packages=c())
 # The backslash escape charater present in Windows paths causes problems.
   ID <- gsub("\\\\","_",ID)
   queue <- data$queue
+  queueLive <- paste(queue,"live", sep=".")
   queueEnv <- paste(queue,"env", ID, sep=".")
   queueOut <- paste(queue,"out", ID, sep=".")
   queueStart <- paste(queue,"start",ID, sep=".")
@@ -101,6 +104,18 @@ setPackages <- function(packages=c())
 
   if (!inherits(obj, 'foreach'))
     stop('obj must be a foreach object')
+
+# Set a queue.live key that signals to workers that this queue is
+# valid. We need this because Redis removes the key associated with
+# empty lists.
+  redisSet(queueLive, "")
+
+# Manage default parallel RNG, restoring old RNG state on exit
+  .seed = if(exists(".Random.seed")) .Random.seed else NULL
+  RNG_STATE = list(kind=RNGkind()[[1]], seed=.seed)
+  on.exit({RNGkind(RNG_STATE$kind); set.seed(RNG_STATE$seed)})
+  RNGkind("L'Ecuyer-CMRG")
+  .rngseed <- .Random.seed
 
   it <- iter(obj)
   argsList <- .to.list(it)
@@ -153,7 +168,7 @@ setPackages <- function(packages=c())
   redisSet(queueEnv, list(expr=expr, 
                           exportenv=exportenv, packages=obj$packages))
   results <- NULL
-  njobs <- length(argsList)
+  ntasks <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
 # Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
@@ -180,17 +195,16 @@ setPackages <- function(packages=c())
    }
   ftinterval <- max(ftinterval,3)
 
-# Queue the job(s)
-# We encode the job order in names(argsList) XXX This is perhaps not optimal
-# since the accumulator requires numeric job tags for ordering.
+# Queue the task(s)
+# The task order is encoded in names(argsList).
   nout <- 1
   j <- 1
 # To speed this up, we added nonblocking calls to rredis and use them.
   redisSetPipeline(TRUE)
   redisMulti()
-  while(j <= njobs)
+  while(j <= ntasks)
    {
-    k <- min(j+chunkSize,njobs)
+    k <- min(j+chunkSize,ntasks)
     block <- argsList[j:k]
     names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
@@ -261,6 +275,7 @@ uuid <- function(uuidLength=10) {
 
 # Convert the iterator to a list
 .to.list <- function(x) {
+  seed <- .Random.seed
   n <- 64
   a <- vector('list', length=n)
   i <- 0
@@ -270,6 +285,9 @@ uuid <- function(uuidLength=10) {
         n <- 2 * n
         length(a) <- n
       }
+      seed <- nextRNGStream(seed)
+print(seed)
+#      a[[i + 1]] <- list(nextElem(x), .Random.seed=seed)
       a[i + 1] <- list(nextElem(x))
       i <- i + 1
     }
