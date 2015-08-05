@@ -15,6 +15,11 @@
 
 `.workerInit` <- function(expr, exportenv, packages, seed, log)
 {
+  tryCatch(
+    {
+      for (p in packages) library(p, character.only=TRUE)
+    }, error=function(e) cat(as.character(e),'\n',file=log)
+  )
 # Override the function set.seed.worker in the exportenv to change!
   assign('expr', expr, .doRedisGlobals)
   assign('exportenv', exportenv, .doRedisGlobals)
@@ -22,11 +27,6 @@
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
-  tryCatch(
-    {for (p in packages)
-      library(p, character.only=TRUE)
-    }, error=function(e) cat(as.character(e),'\n',file=log)
-  )
   tryCatch(
    {
     if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))

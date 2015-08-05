@@ -4,7 +4,8 @@
  * key created when the task starts, and an ephemeral key kept alive by this
  * thread while the task is running.  If the thread defined in this code stops,
  * for example if R crashes, then the ephemeral key will expire and the master
- * doRedis process can detect the failed task and resubmit it.
+ * doRedis process can detect the resulting keypair imbalance and re-submit the
+ * corresponding task.
  */
 #ifdef Win32
 #include <winsock2.h>

@@ -143,6 +143,7 @@ setPackages <- function(packages=c())
     }
   }
 # Create a job environment for the workers to use
+# XXX catch error here (too big)
   redisSet(queueEnv, list(expr=expr, 
                           exportenv=exportenv, packages=obj$packages))
   results <- NULL
@@ -161,16 +162,17 @@ setPackages <- function(packages=c())
     )
    }
   chunkSize <- max(chunkSize,0)
-# We also check for a fault-tolerance check interval (in seconds):
-  ftinterval <- 30
+# Check for a fault-tolerance check interval (in seconds), do not
+# allow it to be less than 3 seconds (see alive.c thread code).
+  ftinterval <- 15
   if(!is.null(obj$options$redis$ftinterval))
    {
     tryCatch(
       ftinterval <- obj$options$redis$ftinterval,
-      error=function(e) {ftinterval <<- 30; warning(e)}
+      error=function(e) {ftinterval <<- 15; warning(e)}
     )
    }
-  ftinterval <- max(ftinterval,1)
+  ftinterval <- max(ftinterval,3)
 
 # Queue the job(s)
 # We encode the job order in names(argsList) XXX This is perhaps not optimal
@@ -220,7 +222,6 @@ setPackages <- function(packages=c())
     }
     else {
       j <- j + 1
-browser()
       tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
         error=function(e) {
           cat('error calling combine function:\n')
