@@ -21,7 +21,6 @@
       for (p in packages) library(p, character.only=TRUE)
     }, error=function(e) cat(as.character(e),'\n',file=log)
   )
-# Override the function set.seed.worker in the exportenv to change!
   assign('expr', expr, .doRedisGlobals)
   assign('exportenv', exportenv, .doRedisGlobals)
 # XXX This use of parent.env should be changed. It's used here to
@@ -29,6 +28,10 @@
 # is fraglie as this may function be dropped in a future release of R.
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
   RNGkind("L'Ecuyer-CMRG")
+# Check for woker.init function
+  if(!is.null(exportenv$worker.init))
+    if(is.function(exportenv$worker.init))
+      do.call(exportenv$worker.init, envir=globalenv())
 }
 
 `.evalWrapper` <- function(args)
