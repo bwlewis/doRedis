@@ -31,7 +31,9 @@ registerDoRedis <- function(queue, host="localhost", port=6379,
 
 removeQueue <- function(queue)
 {
-  redisDelete(paste(queue,"live",sep="."))
+  if(redisExists(queue)) redisDelete(queue)
+  queueEnv = redisKeys(pattern=sprintf("%s\\.env.*",queue))
+  for(j in queueEnv) redisDelete(j)
 }
 
 setChunkSize <- function(value=1)

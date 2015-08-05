@@ -86,11 +86,6 @@
   if (!connected)
     redisConnect(host,port,password=password)
   assign(".jobID", "0", envir=.doRedisGlobals)
-  queueLive <- paste(queue,"live",sep=".")
-  for(j in queueLive)
-   {
-    if(!redisExists(j)) redisSet(j,NULL)
-   }
   queueCount <- paste(queue,"count",sep=".")
   for(j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
@@ -106,9 +101,9 @@
     if(is.null(work[[1]]))
      {
       ok <- FALSE
-      for(j in queueLive) ok <- ok || redisExists(j)
+      for(j in queue) ok <- ok || redisExists(j)
       if(!ok) {
-# If we get here, our queues were deleted. Clean up and exit worker loop.
+# If we get here, ALL our queues were deleted. Clean up and exit worker loop.
         for(j in queueOut) if(redisExists(j)) redisDelete(j)
         for(j in queueEnv) if(redisExists(j)) redisDelete(j)
         for(j in queueCount) if(redisExists(j)) redisDelete(j)
@@ -162,10 +157,6 @@
 serviceJob <- function(queue, host="localhost", port=6379, iter=Inf, 
   timeout=2, log=stdout()) {
   assign(".jobID", "0", envir=.doRedisGlobals)
-  queueLive <- paste(queue,"live",sep=".")
-  for(j in queueLive) {
-    if(!redisExists(j)) redisSet(j,NULL)
-   }
   queueCount <- paste(queue,"count",sep=".")
   for(j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
@@ -227,8 +218,7 @@ serviceJob <- function(queue, host="localhost", port=6379, iter=Inf,
 
   # Either the queue has been deleted, or we've exceeded the number of
   # specified work iterations.
-  for (j in queueLive) redisDelete(j) 
-  for(j in queueCount) if(redisExists(j)) redisDelete(j)
+  for(j in queueCount) if(redisExists(j)) redisDelete(j) # XXX XXX decr instead
   cat("Worker exit.\n", file=log)
 }
 
