@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2010 by Bryan W. Lewis.
 #
 # This is free software; you can redistribute it and/or
@@ -286,9 +285,8 @@ uuid <- function(uuidLength=10) {
         length(a) <- n
       }
       seed <- nextRNGStream(seed)
-print(seed)
-#      a[[i + 1]] <- list(nextElem(x), .Random.seed=seed)
-      a[i + 1] <- list(nextElem(x))
+      rs <- list(.Random.seed=seed)
+      a[[i + 1]] <- c(nextElem(x), rs)
       i <- i + 1
     }
   },
