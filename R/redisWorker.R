@@ -19,6 +19,11 @@
   tryCatch(
     {
       for (p in packages) library(p, character.only=TRUE)
+      RNGkind("L'Ecuyer-CMRG")
+# Check for worker.init function
+      if(!is.null(exportenv$worker.init))
+        if(is.function(exportenv$worker.init))
+          do.call(exportenv$worker.init, list(), envir=globalenv())
     }, error=function(e) cat(as.character(e),'\n',file=log)
   )
   assign('expr', expr, .doRedisGlobals)
@@ -27,11 +32,6 @@
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
   parent.env(.doRedisGlobals$exportenv) <- globalenv()
-  RNGkind("L'Ecuyer-CMRG")
-# Check for woker.init function
-  if(!is.null(exportenv$worker.init))
-    if(is.function(exportenv$worker.init))
-      do.call(exportenv$worker.init, envir=globalenv())
 }
 
 `.evalWrapper` <- function(args)
