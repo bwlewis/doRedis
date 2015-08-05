@@ -259,7 +259,7 @@ sessions, operating system crash or reboot, power outages, or simply dialing
 down elastic workers by turning them off. When a failure is detected, affected tasks are
 automatically re-submitted to the work queue. The option {\tt ftinterval}
 controls how frequently {\tt doRedis} checks for failure. The default value is
-30 seconds, and the minimum allowed value is one second. (Very frequent checks
+15 seconds, and the minimum allowed value is three seconds. (Very frequent checks
 for failure increase overhead and will slow computations down--the default
 value is usually reasonable.)
 
@@ -486,8 +486,8 @@ single task may consist of one or more loop iterations depending on the value
 of the \verb+chunkSize+ parameter (the default is one).
 
 All of the tasks associated with a single \verb+foreach+ statement are
-collected into a \verb+doRedis+ \emph{job}. Each job is assigned a numeric
-identifier, and each job's tasks are numbered $1, 2, 3, ...$.
+collected into a \verb+doRedis+ \emph{job}. Each job is assigned a unique
+identifier, and each job's tasks are enumerated $1, 2, 3, ...$.
 
 Jobs are announced on a \emph{work queue}--technically, a special Redis key
 called a ``list'' that supports blocking reads. Users choose the name of the
@@ -506,33 +506,38 @@ without any workers available.
 The ``work queue'' name specified in the {\tt registerDoRedis} and
 {\tt redisWorker} functions is used as the root name for a family of Redis
 keys used to organize computation. Figure 2 illustrates example Redis
-keys used by a master and worker R processes, described in detail below.
+keys used by a master and worker R processes for a work queue named ``myjobs'',
+described in detail below.
 
 \begin{figure}[!ht]
 \begin{center}
 \resizebox{0.65\textwidth}{!}{\rotatebox{0}{\includegraphics{keys}}}
 \end{center}
-\caption{Example {\tt doRedis} keys}
+\caption{Example {\tt doRedis} keys for an example work queue named ``myjobs''}
 \label{keys}
 \end{figure}
 
-The name of the work queue illustrated in Figure 2 is ``jobs.'' The
-corresponding Redis key is also named ``jobs'' and it's a Redis list value type
+The name of the work queue illustrated in Figure 2 is ``myjobs.'' The
+corresponding Redis key is also named ``myjobs'' and it's a Redis list value type
 (that is, a queue).  Such a queue can be set up, for example, with
 \verb+registerDoRedis(queue="jobs")+.
 
-Along with the work queue, a counter key named ``jobs:counter'' is set up to
-enumerate jobs. The key is atomically incremented by Redis with each new job.
-Removal of ``jobs:counter'' key serves as a signal that the work queue has been
+Removal of the ``jobs'' key serves as a signal that the work queue has been
 removed, for example with the \verb+removeQueue("jobs")+ function. After this
-happens, any workers listening on the queue will terminate.
+happens, any R workers listening on the queue will clean up any Redis keys that
+they created and terminate after a timeout period.
+
+Along with the work queue, a counter key named ``myjobs.count'' is set up to
+enumerate jobs. The key is atomically incremented by Redis with each new job.
+It is an estimate of the number of workers currently registered to accept work
+on the queue.
 
 \verb+foreach+ assigns every job an R environment with state required to
 execute the loop expression. The example in Figure 2 illustrates a job
-environment for the ``jobs'' queue and job number 1 called ``jobs:1.env.'' R
-worker processes working on job number 1 in the ``jobs'' queue will download
-this environment key once (independently of the number of tasks they run for
-the job).
+environment for the ``myjobs'' queue and a particular job ID called
+``jobs.env.jobID'' R worker processes working on ``jobID'' the ``myjobs'' queue
+will download this environment key once (independently of the number of tasks
+they run for the job).
 
 All of the tasks for the job number 1 in the ``jobs'' queue are placed in a
 Redis key called ``jobs:1`` in Figure 2. The Redis value type associated with

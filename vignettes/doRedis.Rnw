@@ -506,109 +506,96 @@ without any workers available.
 The ``work queue'' name specified in the {\tt registerDoRedis} and
 {\tt redisWorker} functions is used as the root name for a family of Redis
 keys used to organize computation. Figure 2 illustrates example Redis
-keys used by a master and worker R processes for a work queue named ``jobs'',
+keys used by a master and worker R processes for a work queue named ``myjobs'',
 described in detail below.
 
 \begin{figure}[!ht]
 \begin{center}
 \resizebox{0.65\textwidth}{!}{\rotatebox{0}{\includegraphics{keys}}}
 \end{center}
-\caption{Example {\tt doRedis} keys for an example work queue named ``jobs''}
+\caption{Example {\tt doRedis} keys for an example work queue named ``myjobs''}
 \label{keys}
 \end{figure}
 
-The name of the work queue illustrated in Figure 2 is ``jobs.'' The
-corresponding Redis key is also named ``jobs'' and it's a Redis list value type
+The name of the work queue illustrated in Figure 2 is ``myjobs.'' The
+corresponding Redis key is also named ``myjobs'' and it's a Redis list value type
 (that is, a queue).  Such a queue can be set up, for example, with
 \verb+registerDoRedis(queue="jobs")+.
 
-Along with the work queue, a counter key named ``jobs.count'' is set up to
-enumerate jobs. The key is atomically incremented by Redis with each new job.
-Removal of ``jobs:counter'' key serves as a signal that the work queue has been
+Removal of the ``jobs'' key serves as a signal that the work queue has been
 removed, for example with the \verb+removeQueue("jobs")+ function. After this
-happens, any workers listening on the queue will terminate.
+happens, any R workers listening on the queue will clean up any Redis keys that
+they created and terminate after a timeout period.
+
+Along with the work queue, a counter key named ``myjobs.count'' is set up to
+enumerate jobs. The key is atomically incremented by Redis with each new job.
+It is an estimate of the number of workers currently registered to accept work
+on the queue.
 
 \verb+foreach+ assigns every job an R environment with state required to
 execute the loop expression. The example in Figure 2 illustrates a job
-environment for the ``jobs'' queue and job number 1 called ``jobs:1.env.'' R
-worker processes working on job number 1 in the ``jobs'' queue will download
-this environment key once (independently of the number of tasks they run for
-the job).
+environment for the ``myjobs'' queue and the ``jobID'' job called
+``myjobs.env.jobID'' R worker processes working on ``jobID'' will download this
+environment key once (independently of the number of tasks they run for the
+job).
 
-All of the tasks for the job number 1 in the ``jobs'' queue are placed in a
-Redis key called ``jobs:1`` in Figure 2. The Redis value type associated with
-this key is a hash table. Hash table entries are named by task number ($1, 2,
-...$) and the hash table values contain the \verb+foreach+ loop parameters
-associated with the task.
+\verb+doRedis+ pushes the tasks (loop iterations) associated with ``jobID''
+into the ``myjobs'' queue using the labels ``jobID.n'', where n is the number
+of each task, n=1, 2, ... .
 
-The \verb+foreach+ loop performs the following steps to create a new job
-in the ``jobs'' queue consisting of $n$ tasks:
+R workers listen on the ``myjobs'' queue for tasks. It's a blocking queue,
+but the workers periodically time out. After each time out they check to see if
+``myjobs'' key still exists, and if it doesn't they terminate. If it's still
+there, they loop and listen again for jobs.
+
+When a job/task announcement arrives in the ``myjobs'' queue, a worker
+downloads the new task from the ``myjobs'' queue. The worker then:
 \begin{enumerate}
-\item Increment ``jobs:count'', recording the new job number
-       (say, job number 1 for example).
-\item Create and upload the  ``jobs:1.env'' job environment.
-\item Populate the $n$ tasks in the ``jobs:1'' hash table with the
-      \verb+foreach+ loop parameters for each task.
-\item Push $n$ copies of the job number to the ``jobs'' queue to announce
-  the new job with $n$ tasks.
-\end{enumerate}
-
-R workers listen on the ``jobs'' queue for new jobs. It's a blocking queue, but
-the workers periodically time out. After each time out they check to see if the
-``jobs:counter'' key still exists, and if it doesn't they terminate. If it's
-still there, they loop and listen again for jobs.
-
-When a job announcement arrives, a worker downloads the new job number
-from the ``jobs'' queue. The worker then:
-\begin{enumerate}
-\item Checks the job number to see if it already has the job environment.
-If it doesn't it downloads it (from ``jobs:1.env'' in the example).
-\item Calls the \verb+getTask+ function defined in the job environment to
-get a task. By default, this function pulls tasks in order from the
-associated job task hash table (``jobs:1'' in Figure 2). The function
-can be customized to do more (see the advanced examples topic in the sequel).
-\item Upon successfully downloading a task, Redis
-creates a task start key that indicates that the task is being processed.
-The example in Figure 2 illustrates a task key called ``jobs:1.start.5''
-indicating task number 5 of job number 1 in the jobs queue.
-\item The R worker process maintains a task liveness key, illustrated
-in Figure 2 as ``jobs:1.alive.5''.
-\item When a task completes, the worker places the result in the job
-result queue, shown in Figure 2 as ``jobs:1.results'', and then
-removes its corresponding start and alive keys.
+\item Checks the job ID to see if it already has the job environment.
+If it doesn't it downloads it (from ``myjobs.env.jobID'' in the example) and
+initializes a new R environment specific to this job ID.
+\item The R worker process initializes a task started key, illustrated
+in Figure 2 as ``myjobs.start.jobID.taskID''.
+\item The R worker process initializes a thread that
+maintains a task liveness key, illustrated
+in Figure 2 as ``myjobs.alive.jobID.taskID''.
+\item When a task completes, the worker places the result in a job
+result queue for that job ID, shown in Figure 2 as ``myjobs.out.jobID'',
+and then removes its corresponding start and alive keys.
 \end{enumerate}
 
 Meanwhile, the R master process is listening for results on the job result
-queue, shown in Figure 2 as ``jobs.1.results.'' Results arrive from the workers
-as R lists of the form \verb+list(id=result)+, where \verb+id+ corresponds to
-the task ID number and \verb+result+ to the computed task result.
+queue, shown in Figure 2 as ``myjobs.out.jobID'' Results arrive from the
+workers as R lists of the form \verb+list(id=result)+, where \verb+id+
+corresponds to the task ID number and \verb+result+ to the computed task
+result. \verb+foreach+ can use the task ID number to cache and order results,
+unless the option \verb+.inorder=FALSE+ was specified.
 
 
 \subsection{Worker Fault Detection and Recovery}
 
 While running, each task is associated with two keys described in the last
-section: a task ``started'' key and a task ``alive'' key. The ``started'' key
-is normally created by Redis when a task is downloaded. The ``alive'' key is a
-Redis ephemeral key with a relatively short time out (after which it
-disappears). The R worker processes maintain background threads that keep the
-ephemeral ``alive'' key active while the job is being run. If for some reason
-the R worker process crashes, or the work system crashes or reboots, or network
+section: a task ``start'' key and a task ``alive'' key. The ``start'' key is
+created by an R worker process when a task is downloaded. The ``alive'' key is
+a Redis ephemeral key with a relatively short time out (after which it
+disappears). Each R worker processes maintains a background thread that keeps
+the ephemeral ``alive'' key active while the task runs. If for some reason the
+R worker process crashes, or the work system crashes or reboots, or the network
 fails, then the ``alive'' key will time out and be removed from Redis.
 
 After \verb+foreach+ sets up a job, the master R process listens for results on
-the associated job results queue. It's a blocking read, but the master R
+the associated job ID results queue. It's a blocking read, but the master R
 process periodically times out. After each time out, the master examines all
-the ``started'' and ``alive'' keys associated with the job. If it finds a
-mismatch, the master R process assumes that task has failed and:
-\begin{enumerate}
-\item resubmits the task in the corresponding job tasks hash table;
-\item announces another task for this job in the job queue.
-\end{enumerate}
+the ``start'' and ``alive'' keys associated with the job. If it finds an imbalance
+in the keys (a start key without a corresponding alive key), then the master R
+process assumes that task has failed and resubmits the failed task to the
+work queue.
 
 It's possible that a wayward R worker process might return after its task has
-been declared lost. In such cases, results for tasks might be returned more
-than once in the result queue, but \verb+doRedis+ is prepared for this and
-simply discards repeated results.
+been declared lost. This might occur, for example, under intermittent network
+failure.  In such cases, results for tasks might be returned more than once in
+the result queue, but \verb+doRedis+ is prepared for this and simply discards
+repeated results for the same task ID.
 
 
 \subsection{Random Number Generator Seeds}

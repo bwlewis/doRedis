@@ -34,6 +34,10 @@ removeQueue <- function(queue)
   if(redisExists(queue)) redisDelete(queue)
   queueEnv = redisKeys(pattern=sprintf("%s\\.env.*",queue))
   for(j in queueEnv) redisDelete(j)
+  queueOut = redisKeys(pattern=sprintf("%s\\.out",queue))
+  for(j in queueOut) redisDelete(j)
+  queueCount = redisKeys(pattern=sprintf("%s\\.count",queue))
+  for(j in queueCount) redisDelete(j)
 }
 
 setChunkSize <- function(value=1)

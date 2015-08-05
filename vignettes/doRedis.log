@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.4.12)  5 AUG 2015 10:25
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.4.12)  5 AUG 2015 11:07
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -590,80 +590,76 @@ Overfull \hbox (6.0pt too wide) in paragraph at lines 434--434
 [7] <keys.jpg, id=209, 963.6pt x 722.7pt>
 File: keys.jpg Graphic file (type jpg)
  <use keys.jpg>
-Package pdftex.def Info: keys.jpg used on input line 513.
+Package pdftex.def Info: keys.jpg used on input line 514.
 (pdftex.def)             Requested size: 404.71353pt x 303.53192pt.
  [8 <./stripchart.pdf>] [9] [10 <./keys.jpg>] [11]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 624--624
+Overfull \hbox (6.0pt too wide) in paragraph at lines 629--629
 [][][][][][][] 
  []
 
 [12]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 681--681
+Overfull \hbox (6.0pt too wide) in paragraph at lines 686--686
 [][][][][][][] 
  []
 
 [13] [14]
-Overfull \hbox (6.0pt too wide) in paragraph at lines 768--768
+Overfull \hbox (6.0pt too wide) in paragraph at lines 773--773
 [][][][][][][] 
  []
 
-LaTeX Font Info:    Try loading font information for TS1+aett on input line 781
+LaTeX Font Info:    Try loading font information for TS1+aett on input line 786
 .
 (/usr/local/lib/R/share/texmf/tex/latex/ts1aett.fd
 File: ts1aett.fd 
 )
-LaTeX Font Info:    Try loading font information for TS1+cmtt on input line 781
+LaTeX Font Info:    Try loading font information for TS1+cmtt on input line 786
 .
 
 (/usr/share/texlive/texmf-dist/tex/latex/base/ts1cmtt.fd
 File: ts1cmtt.fd 1999/05/25 v2.5h Standard LaTeX font definitions
 )
 LaTeX Font Info:    Font shape `TS1/aett/m/n' in size <12> not available
-(Font)              Font shape `TS1/cmtt/m/n' tried instead on input line 781.
+(Font)              Font shape `TS1/cmtt/m/n' tried instead on input line 786.
 
-Overfull \hbox (6.0pt too wide) in paragraph at lines 791--791
+Overfull \hbox (6.0pt too wide) in paragraph at lines 796--796
 [][][][][][][] 
  []
 
 
-Overfull \hbox (6.0pt too wide) in paragraph at lines 820--820
-[][][][][][][] 
- []
-
-
-Overfull \hbox (6.0pt too wide) in paragraph at lines 846--846
-[][][][][][][] 
- []
-
-
-Overfull \hbox (6.0pt too wide) in paragraph at lines 854--854
-[][][][][][][] 
- []
-
-
-Overfull \hbox (6.0pt too wide) in paragraph at lines 874--874
+Overfull \hbox (6.0pt too wide) in paragraph at lines 825--825
 [][][][][][][] 
  []
 
 [15]
+Overfull \hbox (6.0pt too wide) in paragraph at lines 851--851
+[][][][][][][] 
+ []
 
-LaTeX Warning: Text page 16 contains only floats.
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 859--859
+[][][][][][][] 
+ []
+
+
+Overfull \hbox (6.0pt too wide) in paragraph at lines 879--879
+[][][][][][][] 
+ []
 
 [16] [17]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 933.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 938.
  [18]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 933.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 938.
  (./doRedis.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 933.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 933.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 938.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 938.
 Package rerunfilecheck Info: File `doRedis.out' has not changed.
 (rerunfilecheck)             Checksum: 10F84A25A2F566A54EC46D7057D66572;1336.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 933.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 938.
  ) 
 Here is how much of TeX's memory you used:
  9884 strings out of 495028
  146844 string characters out of 6181497
- 290349 words of memory out of 5000000
+ 287392 words of memory out of 5000000
  12606 multiletter control sequences out of 15000+600000
  34804 words of font info for 79 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
@@ -679,7 +675,7 @@ amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfont
 s/cm/cmti12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/c
 mtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt12.
 pfb>
-Output written on doRedis.pdf (18 pages, 281764 bytes).
+Output written on doRedis.pdf (18 pages, 282034 bytes).
 PDF statistics:
  580 PDF objects out of 1000 (max. 8388607)
  540 compressed objects within 6 object streams
