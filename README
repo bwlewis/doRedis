@@ -4,15 +4,15 @@ CHANGES IN VERSION 1.2.0
 
 This is a major change.
 
-* Work queue structure has been greatly simplified. We got rid of the use of
-  server-side Lua Redis code and programmable task assignment. Tasks are now
-  consumed by workers with a simple first-come, first-served rule using
-  simple Redis list value types (queues). This simpler scheme should be
-  more robust than the 1.1 versions of the package.
+* Work queue structure has been greatly simplified. We got rid of the use
+  of server-side Lua Redis code and programmable task assignment. Tasks
+  are now consumed by workers with a simple first-come, first-served rule
+  using simple Redis list value types (queues). This simpler scheme should
+  be more robust than the 1.1 versions of the package.
 
 * The parallel package is now a dependency for the L'Ecuyer RNG functions,
-  which are now the default parallel RNG. User-defined RNG is still supported
-  as outlined in the vignette.
+  which are now the default parallel RNG. User-defined RNG is still
+  supported as outlined in the vignette.
 
 NOTE
 
@@ -22,21 +22,22 @@ timeout 0
 
 DESCRIPTION
 
-Steve Weston's foreach package is a remarkable parametric evaluation device for
-the R language. Similarly to lapply-like functions, foreach maps expressions to
-data and aggregates results. Even better, foreach lets you do this in parallel
-across multiple CPU cores and computers.  And even better yet, foreach
-abstracts the parallel computing details away into modular back-end code. Code
-written using foreach works sequentially in the absence of a parallel back-end,
-and works uniformly across a growing variety of back ends. Think of foreach as
-the lingua Franca of parallel computing for R.
+Steve Weston's foreach package is a remarkable parametric evaluation
+device for the R language. Similarly to lapply-like functions, foreach
+maps expressions to data and aggregates results. Even better, foreach
+lets you do this in parallel across multiple CPU cores and computers.
+And even better yet, foreach abstracts the parallel computing details
+away into modular back-end code. Code written using foreach works
+sequentially in the absence of a parallel back-end, and works uniformly
+across a growing variety of back ends. Think of foreach as the lingua
+Franca of parallel computing for R.
 
-Redis is a powerful, fast networked database with many innovative features,
-among them a blocking stack-like data structure (Redis "lists"). This feature
-makes Redis useful as a lightweight backend for parallel computing, similar to
-REvolution Computing's NetWorkSpaces. The rredis package provides a native R
-interface to Redis. The doRedis package defines a simple parallel backend for
-foreach that uses Redis.
+Redis is a powerful, fast networked database with many innovative
+features, among them a blocking stack-like data structure (Redis
+"lists"). This feature makes Redis useful as a lightweight backend for
+parallel computing, similar to REvolution Computing's NetWorkSpaces. The
+rredis package provides a native R interface to Redis. The doRedis
+package defines a simple parallel backend for foreach that uses Redis.
 
 Here is a quick example procedure for experimenting with doRedis:
 
@@ -53,7 +54,9 @@ Here is a quick example procedure for experimenting with doRedis:
    require('doRedis')
    redisWorker('jobs')
 
-   (The R session will display status messages but otherwise block for work.)
+   (The R session will display status messages but otherwise block for
+   work.)
+
    Note: You can add more workers to a work queue at any time. Also note
    that each back-end worker may advertise for work on multiple queues
    simultaneously (see the documentation and examples).
@@ -70,37 +73,38 @@ Here is a quick example procedure for experimenting with doRedis:
 
 DISCUSSION
 
-The "jobs" parameter of the redisWorker and registerDoRedis function specifies
-a Redis "list" (queue) used to transfer data between the master and worker
-processes. Think of this name as a reference to a job queue. You are free to
-configure multiple queues.
+The "jobs" parameter of the redisWorker and registerDoRedis function
+specifies a Redis "list" (queue) used to transfer data between the
+master and worker processes. Think of this name as a reference to a job
+queue. You are free to configure multiple queues.
 
-The doRedis parallel  backend supports dynamic pools of back-end workers.  New
-workers may be added to work queues at any time and can be immediately used by
-running foreach computations.
+The doRedis parallel  backend supports dynamic pools of back-end
+workers.  New workers may be added to work queues at any time and can be
+immediately used by running foreach computations.
 
-A task is a collection of foreach loop iterations, by default one.  The doRedis
-backend accepts a parameter called "chunkSize" that sets the number of loop
-iterations doled out per task. Optionally set this with the setChunkSize
-function. Increasing chunkSize can improve performance greatly for
-quick-running function evaluations. Here is an example that sets the chunkSize
-to 100:
+A task is a collection of foreach loop iterations, by default one.  The
+doRedis backend accepts a parameter called "chunkSize" that sets the
+number of loop iterations doled out per task. Optionally set this with
+the setChunkSize function. Increasing chunkSize can improve performance
+greatly for quick-running function evaluations. Here is an example that
+sets the chunkSize to 100:
 
 foreach(j=1:5, .options.redis=list(chunkSize=100)) %dopar%  ...
 
-Setting chunkSize too large will adversely impact load-balancing across the
-workers.
+Setting chunkSize too large will adversely impact load-balancing across
+the workers.
 
-The redisWorker function is used to manually invoke worker processes that
-advertise for jobs on one or more work queues. The function also has parameters
-for a Redis host and port number. For example, if the Redis server is running
-on a host called "Cazart" with the default Redis port 6379:
+The redisWorker function is used to manually invoke worker processes
+that advertise for jobs on one or more work queues. The function also
+has parameters for a Redis host and port number. For example, if the
+Redis server is running on a host called "Cazart" with the default Redis
+port 6379:
 
 redisWorker('jobs', host='Cazart', port=6379)
 
-The registerDoRedis function also contains host and port parameters. Neither
-the worker nor master R session needs to be running on the same machine as the
-Redis server.
+The registerDoRedis function also contains host and port parameters.
+Neither the worker nor master R session needs to be running on the same
+machine as the Redis server.
 
 The startLocalWorkers function invokes one or more background R worker
 processes on the local machine (using the redisWorker function). It's a
