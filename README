@@ -1,6 +1,20 @@
-doRedis: A simple parallel backend for foreach using Redis.
+doRedis: A parallel backend for foreach using Redis.
 
-IMPORTANT NOTE
+CHANGES IN VERSION 1.2.0
+
+This is a major change.
+
+* Work queue structure has been greatly simplified. We got rid of the use of
+  server-side Lua Redis code and programmable task assignment. Tasks are now
+  consumed by workers with a simple first-come, first-served rule using
+  simple Redis list value types (queues). This simpler scheme should be
+  more robust than the 1.1 versions of the package.
+
+* The parallel package is now a dependency for the L'Ecuyer RNG functions,
+  which are now the default parallel RNG. User-defined RNG is still supported
+  as outlined in the vignette.
+
+NOTE
 
 Set the following parameter in your redis.conf file before using doRedis:
 
@@ -57,18 +71,20 @@ Here is a quick example procedure for experimenting with doRedis:
 DISCUSSION
 
 The "jobs" parameter of the redisWorker and registerDoRedis function specifies
-a Redis "list" that will be used to transfer data between the master and worker
+a Redis "list" (queue) used to transfer data between the master and worker
 processes. Think of this name as a reference to a job queue. You are free to
 configure multiple queues.
 
 The doRedis parallel  backend supports dynamic pools of back-end workers.  New
 workers may be added to work queues at any time and can be immediately used by
-in-flight foreach computations.
+running foreach computations.
 
-The doRedis backend accepts a parameter called "chunkSize" that sets the
-number of function evaluations to be doled out per job. The default value
-is one. Increasing chunkSize can improve performance greatly for quick-running
-function evaluations. Here is an example that sets the chunkSize to 100:
+A task is a collection of foreach loop iterations, by default one.  The doRedis
+backend accepts a parameter called "chunkSize" that sets the number of loop
+iterations doled out per task. Optionally set this with the setChunkSize
+function. Increasing chunkSize can improve performance greatly for
+quick-running function evaluations. Here is an example that sets the chunkSize
+to 100:
 
 foreach(j=1:5, .options.redis=list(chunkSize=100)) %dopar%  ...
 
@@ -76,20 +92,19 @@ Setting chunkSize too large will adversely impact load-balancing across the
 workers.
 
 The redisWorker function is used to manually invoke worker processes that
-advertise for jobs on one or more queues. The function also has parameters
-for a Redis host and port number. For example, if the Redis server is
-running on a host called "Cazart" with the default Redis port 6379:
+advertise for jobs on one or more work queues. The function also has parameters
+for a Redis host and port number. For example, if the Redis server is running
+on a host called "Cazart" with the default Redis port 6379:
 
 redisWorker('jobs', host='Cazart', port=6379)
 
 The registerDoRedis function also contains host and port parameters. Neither
-the worker nor master R session needs to be running on the same machine as
-the Redis server.
+the worker nor master R session needs to be running on the same machine as the
+Redis server.
 
 The startLocalWorkers function invokes one or more background R worker
-processes on the local machine (using the redisWorker function). It's
-a convenient way to invoke several workers at once.
+processes on the local machine (using the redisWorker function). It's a
+convenient way to invoke several workers at once.
 
 Workers self-terminate when their work queues have been deleted with the
 removeQueue function.
-
