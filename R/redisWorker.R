@@ -1,7 +1,7 @@
 # .setOK and .delOK support worker fault tolerance
-`.setOK` <- function(port, host, key)
+`.setOK` <- function(port, host, key, auth="")
 {
-  .Call("setOK", as.integer(port), as.character(host), as.character(key),PACKAGE="doRedis")
+  .Call("setOK", as.integer(port), as.character(host), as.character(key),as.character(auth), PACKAGE="doRedis")
   invisible()
 }
 
@@ -194,7 +194,8 @@ redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
       on.exit(.delOK()) # In case we exit this function unexpectedly
-      .setOK(port, host, fttag.alive) # Immediately set an alive key for this task
+      if(is.null(password)) .setOK(port, host, fttag.alive, auth="") # Immediately set an alive key for this task
+      else .setOK(port, host, fttag.alive, auth=password) # Immediately set an alive key for this task
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       result <- lapply(work[[1]]$argsList, .evalWrapper)
