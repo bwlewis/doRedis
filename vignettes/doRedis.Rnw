@@ -1,7 +1,11 @@
 % \VignetteIndexEntry{doRedis Manual}
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
+<<<<<<< HEAD
 \documentclass[12pt]{article}
+=======
+\documentclass[10pt]{article}
+>>>>>>> devel
 \usepackage{amsmath}
 %\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
@@ -98,7 +102,11 @@ in parallel across multiple CPU cores and computers.  And even better yet,
 foreach abstracts the parallel computing details away into modular back end
 code. Code written using foreach works sequentially in the absence of a
 parallel back end, and works uniformly across different back ends, allowing
+<<<<<<< HEAD
 programmers to write code largely independent from specific parallel
+=======
+programmers to write code independently of specific parallel computing
+>>>>>>> devel
 implementations. The {\tt foreach} package has many other wonderful features
 outlined in its package documentation.
 
@@ -115,8 +123,14 @@ has available many parallel back end packages, including {\tt doMC},
 {\tt doSNOW} and {\tt doMPI}.
 
 The key differentiating features of {\tt doRedis} are elasticity and fault-tolerance,
+<<<<<<< HEAD
 portability across operating system platforms, and the ability to easily define
 custom distance measures on the spatial (network) or temporal layout of data:
+=======
+and portability across operating system platforms. The {\tt doRedis} package is
+well-suited to small to medium-sized parallel computing jobs, especially across
+ad hoc collections of computing resources.
+>>>>>>> devel
 
 \begin{itemize}
 %\renewcommand{\labelitemi}{{\bf{--}}}
@@ -132,11 +146,15 @@ available.
 \item {\tt doRedis} computations are partially fault tolerant. Failure of
 back-end worker R processes (for example due to a machine crash or simply
 scaling back elastic resources) are automatically detected and the affected
+<<<<<<< HEAD
 tasks are re-submitted.
 
 \item  User-defined task-pulling functions are supported. In particular, work
 can be preferentially directed to sources of data with any user-defined notion
 of network/data distance. This is a new feature introduced in March 2014.
+=======
+tasks are automatically re-submitted.
+>>>>>>> devel
 
 \item {\tt doRedis} makes it particularly easy to run parallel jobs across
 different operating systems. It works equally well on GNU/Linux, Mac OS X, and
@@ -144,11 +162,24 @@ Windows systems, and should work well on most POSIX systems.  Back end parallel
 R worker processes are effectively anonymous--they may run anywhere as long as
 all the R package dependencies required by the task at hand are available.
 
+<<<<<<< HEAD
 \item Intermediate results may be aggregated incrementally, significantly
 reducing required memory overhead for problems that return large data.
 
 \end{itemize}
 
+=======
+\item Like all {\tt foreach} parallel back-ends, intermediate results may be
+aggregated incrementally, significantly reducing required memory overhead for
+problems that return large data.
+
+\end{itemize}
+
+
+
+
+
+>>>>>>> devel
 \section{Obtaining and Configuring the Redis server}\label{install}
 
 Redis is an extremely popular open source networked key/value database, and
@@ -169,7 +200,11 @@ settings as well.
 
 Let's start by exploring the operation of some {\tt doRedis} features through a
 few examples.  Unless otherwise noted, we assume that Redis is installed and
+<<<<<<< HEAD
 running on the local machine (``localhost'').
+=======
+running on the local computer (``localhost'').
+>>>>>>> devel
 
 \subsection{A Really Simple Example}
 
@@ -214,11 +249,18 @@ The next line:
 
 \noindent \verb+startLocalWorkers(n=2, queue="jobs")+
 
+<<<<<<< HEAD
 \noindent starts up two worker R sessions on the local machine, both listening
 for work on the queue named ``jobs.'' The worker sessions don't display any 
 output by default. The {\tt startLocalWorkers} function can instruct the
 workers to log messages to output files or stdout if desired.
 
+=======
+\noindent starts up two worker R sessions on the local computer, both listening
+for work on the queue named ``jobs.'' The worker sessions don't display any 
+output by default. The {\tt startLocalWorkers} function can instruct the
+workers to log messages to output files or stdout if desired.
+>>>>>>> devel
 You can verify that workers are in fact waiting for work with:
 
 \noindent \verb+getDoParWorkers()+
@@ -257,7 +299,11 @@ sessions, operating system crash or reboot, power outages, or simply dialing
 down elastic workers by turning them off. When a failure is detected, affected tasks are
 automatically re-submitted to the work queue. The option {\tt ftinterval}
 controls how frequently {\tt doRedis} checks for failure. The default value is
+<<<<<<< HEAD
 30 seconds, and the minimum allowed value is one second. (Very frequent checks
+=======
+15 seconds, and the minimum allowed value is three seconds. (Very frequent checks
+>>>>>>> devel
 for failure increase overhead and will slow computations down--the default
 value is usually reasonable.)
 
@@ -478,6 +524,7 @@ combine function in the {\tt foreach} loop.
 
 \section{Technical Details}
 
+<<<<<<< HEAD
 A \verb+doRedis+ \emph{task} is a parameterized R expression that represents
 a unit of work. The task expression is the body of a \verb+foreach+ loop. A
 single task may consist of one or more loop iterations depending on the value
@@ -494,6 +541,30 @@ jobs wait for results on yet another blocking Redis list, a result queue
 specific to the job.
 
 R workers listen on work queues for jobs using blocking reads.  As shown in the
+=======
+A \verb+foreach+ loop iteration is a parameterized R expression that represents
+a unit of work. The expression is the body of the \verb+foreach+ loop and the
+parameter, if it exists, is the loop variable value. (It is possible to use
+\verb+foreach+ non-parametrically with an anonymous iterator to simply
+replicate the loop body expression a number of times.)  Each iteration is
+enumerated so that \verb+foreach+ can put the results together in order if
+required.
+
+A \emph{task} is a collection of one or more loop iterations. The number of
+iterations per task is at most \verb+chunkSize+.
+
+A \emph{job} is a collection of one or more tasks that covers all the
+iterations in the \verb+foreach+ loop. Each job is assigned a unique
+identifier.
+
+Jobs are submitted as a sequence of tasks to a \emph{work queue}--technically,
+a special Redis key called a ``list'' that supports blocking reads. Users
+choose the name of the work queue in the \verb+registerDoRedis+ function.
+Master R programs that issue jobs wait for results on yet another blocking
+Redis list, a result queue associated with the job.
+
+R workers listen on work queues for tasks using blocking reads.  As shown in the
+>>>>>>> devel
 last section the number of workers is dynamic.  It's possible for workers to
 listen on queues before any jobs exist, or for masters to issue jobs to queues
 without any workers available.
@@ -504,12 +575,18 @@ without any workers available.
 The ``work queue'' name specified in the {\tt registerDoRedis} and
 {\tt redisWorker} functions is used as the root name for a family of Redis
 keys used to organize computation. Figure 2 illustrates example Redis
+<<<<<<< HEAD
 keys used by a master and worker R processes, described in detail below.
+=======
+keys used by a master and worker R processes for a work queue named ``myjobs'',
+described in detail below.
+>>>>>>> devel
 
 \begin{figure}[!ht]
 \begin{center}
 \resizebox{0.65\textwidth}{!}{\rotatebox{0}{\includegraphics{keys}}}
 \end{center}
+<<<<<<< HEAD
 \caption{Example {\tt doRedis} keys}
 \label{keys}
 \end{figure}
@@ -579,11 +656,72 @@ Meanwhile, the R master process is listening for results on the job result
 queue, shown in Figure 2 as ``jobs.1.results.'' Results arrive from the workers
 as R lists of the form \verb+list(id=result)+, where \verb+id+ corresponds to
 the task ID number and \verb+result+ to the computed task result.
+=======
+\caption{Example {\tt doRedis} keys for an example work queue named ``myjobs''}
+\label{keys}
+\end{figure}
+
+The name of the work queue illustrated in Figure 2 is ``myjobs.'' The
+corresponding Redis key is also named ``myjobs'' and it's a Redis list value type
+(that is, a queue).  Such a queue can be set up, for example, with
+\verb+registerDoRedis(queue="myjobs")+.
+
+Removal of the ``jobs.live'' key serves as a signal that the work queue has
+been removed, for example with the \verb+removeQueue("myjobs")+ function. After
+this happens, R workers listening on the queue will clean up any Redis keys
+that they created and terminate after a timeout period.
+
+A counter key named ``myjobs.count'' enumerates the number of R worker
+processes registered on the queue.  It is only an estimate of the number of
+workers currently registered to accept work on the queue.
+
+\verb+foreach+ assigns every job an R environment with state required to
+execute the loop expression. The example in Figure 2 illustrates a job
+environment for the ``myjobs'' queue and the ``jobID'' job called
+``myjobs.env.jobID'' R worker processes working on ``jobID'' will download this
+environment key once (independently of the number of tasks they run for the
+job).
+
+\verb+doRedis+ pushes the tasks (loop iterations) associated with ``jobID''
+into the ``myjobs'' queue using the labels ``jobID.n'', where n is the number
+of each task, n=1, 2, ... .
+
+R workers listen on the ``myjobs'' queue for tasks. It's a blocking queue, but
+the workers periodically time out. After each time out they check to see if the
+``myjobs.live'' key still exists, and if it doesn't they clean up their Redis
+keys and terminate. If it's still there, they loop and listen again for jobs.
+
+\begin{sloppypar}
+When a job/task announcement arrives in the ``myjobs'' queue, a worker
+downloads the new task from the ``myjobs'' queue. The worker then:
+\begin{enumerate}
+\item Checks the job ID to see if it already has the job environment.
+If it doesn't it downloads it (from ``myjobs.env.jobID'' in the example) and
+initializes a new R environment specific to this job ID.
+\item The R worker process initializes a task started key, illustrated
+in Figure 2 as ``myjobs.start.jobID.taskID''.
+\item The R worker process initializes a thread that
+maintains a task liveness key, illustrated
+in Figure 2 as ``myjobs.alive.jobID.taskID''.
+\item When a task completes, the worker places the result in a job
+result queue for that job ID, shown in Figure 2 as ``myjobs.out.jobID'',
+and then removes its corresponding start and alive keys.
+\end{enumerate}
+\end{sloppypar}
+
+Meanwhile, the R master process is listening for results on the job result
+queue, shown in Figure 2 as ``myjobs.out.jobID'' Results arrive from the
+workers as R lists of the form \verb+list(id=result)+, where \verb+id+
+corresponds to the task ID number and \verb+result+ to the computed task
+result. \verb+foreach+ can use the task ID number to cache and order results,
+unless the option \verb+.inorder=FALSE+ was specified.
+>>>>>>> devel
 
 
 \subsection{Worker Fault Detection and Recovery}
 
 While running, each task is associated with two keys described in the last
+<<<<<<< HEAD
 section: a task ``started'' key and a task ``alive'' key. The ``started'' key
 is normally created by Redis when a task is downloaded. The ``alive'' key is a
 Redis ephemeral key with a relatively short time out (after which it
@@ -606,11 +744,35 @@ It's possible that a wayward R worker process might return after its task has
 been declared lost. In such cases, results for tasks might be returned more
 than once in the result queue, but \verb+doRedis+ is prepared for this and
 simply discards repeated results.
+=======
+section: a task ``start'' key and a task ``alive'' key. The ``start'' key is
+created by an R worker process when a task is downloaded. The ``alive'' key is
+a Redis ephemeral key with a relatively short time out (after which it
+disappears). Each R worker processes maintains a background thread that keeps
+the ephemeral ``alive'' key active while the task runs. If for some reason the
+R worker process crashes, or the work system crashes or reboots, or the network
+fails, then the ``alive'' key will time out and be removed from Redis.
+
+After \verb+foreach+ sets up a job, the master R process listens for results on
+the associated job ID results queue. It's a blocking read, but the master R
+process periodically times out. After each time out, the master examines all
+the ``start'' and ``alive'' keys associated with the job. If it finds an imbalance
+in the keys (a start key without a corresponding alive key), then the master R
+process assumes that task has failed and resubmits the failed task to the
+work queue.
+
+It's possible that a wayward R worker process might return after its task has
+been declared lost. This might occur, for example, under intermittent network
+failure.  In such cases, results for tasks might be returned more than once in
+the result queue, but \verb+doRedis+ is prepared for this and simply discards
+repeated results for the same task ID.
+>>>>>>> devel
 
 
 \subsection{Random Number Generator Seeds}
 
 The initialization of pseudorandom number generators is an important
+<<<<<<< HEAD
 consideration, especially when running simulations in parallel. Each {\tt
 foreach} loop iteration (task) is assigned a number in order from the sequence
 $1, 2, \ldots$. By default, {\tt doRedis} workers initialize the seed of their
@@ -632,6 +794,19 @@ the initialization scheme used by many other parallel back ends.
 > foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
 [1] 0.5478135 0.5478135 0.5478135 0.5478135 0.5478135
 \end{lstlisting}
+=======
+consideration, especially when running simulations in parallel.  By default,
+workers use the L'Ecuyer-CMRG method from R's \verb+parallel+ package. Each
+\verb+foreach+ loop iteration is assigned a L'Ecuyer stream making parallel
+random number generation reproducible regardless of the number of workers or
+chunk size settings. Simply set the random seed prior to a \verb+foreach+
+loop as you would do in a sequential program.
+
+Note that, although \verb+doRedis+ uses the L'Ecuyer random number generator
+internally, it records and restores the state and kind of random number
+generator prior to the \verb+foreach+ loop.
+
+>>>>>>> devel
 
 The {\tt doRedis} package includes a mechanism to define an arbitrary random
 seed initialization function. Such a function could be used, for example, with
@@ -642,6 +817,23 @@ set.seed.worker}, take one argument and must be exported to the workers
 explicitly in the {\tt foreach} loop. The example shown in Listing \ref{rng}
 illustrates a simple user-defined seed function.
 
+<<<<<<< HEAD
+=======
+\begin{lstlisting}[float=!ht,caption=User-defined RNG initialization,label=rng]
+> startLocalWorkers(n=5,queue="jobs")
+> registerDoRedis("jobs")
+
+> # Make all the workers use the same random seed initialization and the old
+> # "Super-Duper" RNG:
+> set.seed.worker <- function(n) {
++   RNGkind("Super-Duper")
++   set.seed(55)
++ }
+> foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
+[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
+\end{lstlisting}
+
+>>>>>>> devel
 
 \subsection{Known Problems and Limitations}
 
@@ -650,13 +842,18 @@ Redis server may be lost or enter an undefined state. An R session can reset
 connection to a Redis server at any time by issuing \verb+redisClose()+
 followed by re-registering the {\tt doRedis} back end.
 
+<<<<<<< HEAD
 Redis limits database values to less than 2\,GB. Neither the \verb+foreach+
+=======
+Redis limits database values to less than 512\,MB. Neither the \verb+foreach+
+>>>>>>> devel
 loop parameters nor the job environment may exceed this size. If you need to
 work on chunks of data larger than this, see the Advanced Topics section
 for examples of working on already distributed data in place.
 
 
 
+<<<<<<< HEAD
 
 \section{Advanced Topics}
 
@@ -667,6 +864,16 @@ are several approaches that one might take:
 \begin{enumerate}
 \item Distribute the data outside of Redis, for example through a shared
       distributed file system like PVFS or Lustre.
+=======
+\section{Advanced Topics}
+
+Let's start this section by dealing with the 512\,MB Redis value size limit.
+Problems will come along in which you'll need to get more than 512\,MB of data
+to the R worker processes. There are several approaches that one might take:
+\begin{enumerate}
+\item Distribute the data outside of Redis, for example through a shared
+      distributed file system like PVFS or Lustre, or through another database.
+>>>>>>> devel
 \item Break the data up into chunks that each fit into Redis and use
       Redis to distribute the data.
 \end{enumerate}
@@ -713,6 +920,7 @@ that they don't need. Each worker downloads just the data it needs and nothing
 more.
 
 
+<<<<<<< HEAD
 \subsection{Custom task assignment}
 
 The example shown in Listing \ref{chunk} presents one way to distribute just
@@ -920,12 +1128,20 @@ failed. The master R program running the \verb+foreach+ loop throws away
 replicated task results, keeping only the first result to arrive.
 
 
+=======
+>>>>>>> devel
 \subsection{worker.init}
 
 If you export a function named \verb+worker.init+ that takes no arguments, it
 will be run by the workers once just after downloading a new job environment.
+<<<<<<< HEAD
 This is a generic function that may contain any worker initialization code that
 may not be appropriate for the body of the \verb+foreach+ loop.
 The \verb+worker.init+ function is rarely needed.
+=======
+The function may contain any worker initialization code not be appropriate for
+the body of the \verb+foreach+ loop that only needs to run once per job,
+independently of the number of tasks that might run on a particular worker.
+>>>>>>> devel
 
 \end{document}

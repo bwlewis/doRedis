@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 #        __      ____           ___     
 #   ____/ /___  / __ \___  ____/ (_)____
 #  / __  / __ \/ /_/ / _ \/ __  / / ___/
 # / /_/ / /_/ / _, _/  __/ /_/ / (__  ) 
 # \__,_/\____/_/ |_|\___/\__,_/_/____/  
 #                                      
+=======
+>>>>>>> devel
 # Copyright (c) 2010 by Bryan W. Lewis.
 #
 # This is free software; you can redistribute it and/or
@@ -31,6 +34,7 @@ version_check <- function()
   v[1]>=2 && v[2]>=6
 }
 
+<<<<<<< HEAD
 # Register the 'doRedis' function with %dopar%.
 registerDoRedis <- function(queue, host="localhost", port=6379, password=NULL)
 {
@@ -39,10 +43,101 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password=NULL)
   setDoPar(fun=.doRedis,
     data=list(queue=queue), 
     info=.info)
+=======
+
+
+#' Register the Redis back end for foreach.
+#'
+#' The doRedis package imlpements a simple but flexible parallel back end
+#' for foreach that uses Redis for inter-process communication. The work
+#' queue name specifies the base name of a small set of Redis keys that the master
+#' and worker processes use to exchange data.
+#' 
+#' Back-end worker R processes  advertise their availablility for work
+#' with the \code{\link{redisWorker}} function.
+#' 
+#' The doRedis parallel back end tolerates faults among the worker processes and
+#' automatically resubmits failed tasks. It is also portable and supports
+#' heterogeneous sets of workers, even across operative systems.  The back end
+#' supports dynamic pools of worker processes.  New workers may be added to work
+#' queues at any time and can be used by running foreach computations.
+#'
+#' @param queue A work queue name
+#' @param host The Redis server host name or IP address
+#' @param port The Redis server port number
+#' @param password An optional Redis database password
+#'
+#' @note 
+#' All doRedis functions require access to a Redis database server (not included
+#' with this package).
+#"
+#' The doRedis package sets RNG streams across the worker processes using the
+#' L'Ecuyer-CMRG method from R's parallel package for reproducible pseudorandom
+#' numbers independent of the number of workers or task distribution. See the
+#' package vignette for more details and additional options.
+#'
+#' @return
+#' NULL is invisibly returned.
+#'
+#' @examples
+#' \dontrun{
+#' ## The example assumes that a Redis server is running on the local host
+#' ## and standard port.
+#'
+#' ## 1. Open one or more 'worker' R sessions and run:
+#' require('doRedis')
+#' redisWorker('jobs')
+#'
+#' ## 2. Open another R session acting as a 'master' and run this simple 
+#' ##    sampling approximation of pi:
+#' require('doRedis')
+#' registerDoRedis('jobs')
+#' foreach(j=1:10,.combine=sum,.multicombine=TRUE) \%dopar\%
+#'         4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
+#' removeQueue('jobs')
+#' }
+#'
+#' @seealso \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
+#'
+#' @import rredis
+#' @import foreach
+#' @importFrom parallel nextRNGStream
+#' @importFrom iterators nextElem iter
+#' @export
+registerDoRedis <- function(queue, host="localhost", port=6379, password)
+{
+  if(missing(password)) redisConnect(host, port)
+  else redisConnect(host,port,password=password)
+  assign('queue', queue, envir=.doRedisGlobals)
+# Set a queue.live key that signals to workers that this queue is
+# valid. We need this because Redis removes the key associated with
+# empty lists.
+  queueLive <- paste(queue,"live", sep=".")
+  if(!redisExists(queueLive)) redisSet(queueLive, "")
+
+  setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
+>>>>>>> devel
 }
 
+#' Remove a doRedis queue and delete all associated keys from Redis.
+#'
+#' Removing a doRedis queue cleans up associated keys in the Redis
+#' database and signals to workers listening on the queue to terminate.
+#' Workers normally terminate after their timeout period after a
+#' queue is delete.
+#' @param queue The doRedis queue name
+#'
+#' @note Workers listening for work on more than one queue will only
+#' terminate after all their queues have been deleted.
+#'
+#' @return
+#' NULL is invisibly returned.
+#'
+#' @import rredis
+#' @export
 removeQueue <- function(queue)
 {
+<<<<<<< HEAD
   tryCatch(redisDelete(queue),error=invisible,warning=invisible)
   k <- redisKeys(sprintf("%s:*",queue))
   for(j in k) tryCatch(redisDelete(j),error=invisible,warning=invisible)
@@ -52,8 +147,39 @@ removeJob <- function(queue, ID)
 {
   k <- redisKeys(sprintf("%s:%.0f*",queue,ID))
   for(j in k) tryCatch(redisDelete(j),error=invisible,warning=invisible)
+=======
+  if(redisExists(queue)) redisDelete(queue)
+  queueEnv = redisKeys(pattern=sprintf("%s\\.env.*",queue))
+  for(j in queueEnv) redisDelete(j)
+  queueOut = redisKeys(pattern=sprintf("%s\\.out",queue))
+  for(j in queueOut) redisDelete(j)
+  queueCount = redisKeys(pattern=sprintf("%s\\.count",queue))
+  for(j in queueCount) redisDelete(j)
+  queueLive = redisKeys(pattern=sprintf("%s\\.live",queue))
+  for(j in queueLive) redisDelete(j)
+>>>>>>> devel
 }
 
+#' Set the default granularity of distributed tasks.
+#'
+#' A job is the collection of all tasks in a foreach loop.
+#' A task is a collection of loop iterations of at most size \code{chunkSize}.
+#' R workers are assigned work by task in blocks of at most
+#' \code{chunkSize} loop iterations per task.
+#' The default value is one iteration per task.
+#' Setting the default chunk size larger for shorter-running jobs can
+#' substantially improve performance. Setting this value too high can
+#' negatively impact load-balancing across workers, however.
+#'
+#' @param value Positive integer chunk size setting
+#'
+#' @note
+#' This value is overriden by setting the 'chunkSize' option in the
+#' foreach loop (see the examples).
+#'
+#' @return NULL is invisibly returned.
+#'
+#' @export
 setChunkSize <- function(value=1)
 {
   if(!is.numeric(value)) stop("setChunkSize requires a numeric argument")
@@ -61,6 +187,7 @@ setChunkSize <- function(value=1)
   assign('chunkSize', value, envir=.doRedisGlobals)
 }
 
+<<<<<<< HEAD
 setTaskLabel <- function(fn=I)
 {
   assign('taskLabel', fn, envir=.doRedisGlobals)
@@ -71,24 +198,89 @@ setGetTask <- function(fn=default_getTask)
   assign('getTask', fn, envir=.doRedisGlobals)
 }
 
+=======
+#' Manually set symbol names to the worker environment export list.
+#'
+#' The setExport function lets users manually declare symbol names
+#' of corresponding objects that should be exported to workers.
+#'
+#' The \code{foreach} function includes a similar \code{.export} parameter.
+#'
+#' We provide this supplemental export option for users without direct access
+#' to the \code{foreach} function, for example, when \code{foreach} is used
+#' inside another package.
+#'
+#' @param names A character vector of symbol names to export.
+#'
+#' @return NULL is invisibly returned.
+#'
+#' @examples
+#' \dontrun{
+#' require("doRedis")
+#' registerDoRedis("work queue")
+#' startLocalWorkers(n=1, queue="work queue")
+#'
+#' f <- function() pi
+#' 
+#' foreach(1) %dopar% eval(call("f"))
+#' # Returns the error:
+#' # Error in eval(call("f")) : task 1 failed - could not find function "f"
+#'
+#' # Manuall export the symbol f:
+#' setExport("f")
+#' foreach(1) %dopar% eval(call("f"))
+#' # Ok then.
+#' #[[1]]
+#' #[1] 3.141593
+#' removeQueue("work queue")
+#' }
+#'
+#' @export
+>>>>>>> devel
 setExport <- function(names=c())
 {
   assign('export', names, envir=.doRedisGlobals)
 }
 
+#' Manually set package names to the worker environment package list.
+#'
+#' The setPackages function lets users manually declare packages
+#' that R worker processes need to load before running their tasks.
+#'
+#' The \code{foreach} function includes a similar \code{.packages} parameter.
+#'
+#' We provide this supplemental packages option for users without direct access
+#' to the \code{foreach} function, for example, when \code{foreach} is used
+#' inside another package.
+#'
+#' @param packages A character vector of package names.
+#'
+#' @return NULL is invisibly returned.
+#'
+#' @export
 setPackages <- function(packages=c())
 {
   assign('packages', packages, envir=.doRedisGlobals)
 }
 
+<<<<<<< HEAD
 .info <- function(data, item)
 {
   switch(item,
+=======
+.info <- function(data, item) {
+# The number of workers should be considered an estimate that may change.
+    switch(item,
+>>>>>>> devel
            workers=
              tryCatch(
                {
                  n <- redisGet(
+<<<<<<< HEAD
                          paste(.doRedisGlobals$.queue,'workers',sep=':'))
+=======
+                         paste(.doRedisGlobals$queue,'count',sep='.'))
+>>>>>>> devel
                  if(length(n)==0) n <- 0
                  else n <- as.numeric(n)
                }, error=function(e) 0),
@@ -97,12 +289,16 @@ setPackages <- function(packages=c())
            NULL)
 }
 
+<<<<<<< HEAD
 # A global workspace environment for doRedis
 .doRedisGlobals <- new.env(parent=emptyenv())
 
 # This is used for the closure's enclosing environment.
 .makeDotsEnv <- function(...)
 {
+=======
+.makeDotsEnv <- function(...) {
+>>>>>>> devel
   list(...)
   function() NULL
 }
@@ -112,6 +308,15 @@ setPackages <- function(packages=c())
 # ID associates the work with a job environment <queue>:<ID>.env. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
+<<<<<<< HEAD
+=======
+  ID_file <- tempfile("doRedis")
+  zz <- file(ID_file,"w")
+  close(zz)
+  ID <- basename(ID_file)
+# The backslash escape charater present in Windows paths causes problems.
+  ID <- gsub("\\\\","_",ID)
+>>>>>>> devel
   queue <- data$queue
   queueCounter <- sprintf("%s:counter", queue)   # job task ID counter
   ID <- redisIncr(queueCounter)
@@ -123,6 +328,14 @@ setPackages <- function(packages=c())
 
   if (!inherits(obj, 'foreach'))
     stop('obj must be a foreach object')
+
+# Manage default parallel RNG, restoring an advanced old RNG state on exit
+  .seed = NULL
+  if(exists(".Random.seed",envir=globalenv())) .seed=get(".Random.seed",envir=globalenv())
+  RNG_STATE = list(kind=RNGkind()[[1]], seed=.seed)
+  on.exit({RNGkind(RNG_STATE$kind); assign(".Random.seed",RNG_STATE$seed,envir=globalenv());runif(1);invisible()})
+  RNGkind("L'Ecuyer-CMRG")
+  .rngseed <- .Random.seed
 
   it <- iter(obj)
   argsList <- .to.list(it)
@@ -169,6 +382,7 @@ setPackages <- function(packages=c())
              pos=exportenv, inherits=FALSE)
     }
   }
+<<<<<<< HEAD
 # Add task pulling function to exportenv .getTask:
   getTask <- default_getTask
   if(exists('getTask',envir=.doRedisGlobals))
@@ -185,6 +399,10 @@ setPackages <- function(packages=c())
     taskLabel <- obj$options$redis$taskLabel
 
 # Create a job environment in Redis for the workers to use
+=======
+# Create a job environment for the workers to use
+# XXX catch error here (too big)
+>>>>>>> devel
   redisSet(queueEnv, list(expr=expr, 
                           exportenv=exportenv, packages=obj$packages))
 
@@ -204,7 +422,8 @@ setPackages <- function(packages=c())
     )
    }
   chunkSize <- max(chunkSize,0)
-# We also check for a fault-tolerance check interval (in seconds):
+# Check for a fault-tolerance check interval (in seconds), do not
+# allow it to be less than 3 seconds (see alive.c thread code).
   ftinterval <- 30
   if(!is.null(obj$options$redis$ftinterval))
    {
@@ -213,8 +432,9 @@ setPackages <- function(packages=c())
       error=function(e) {ftinterval <<- 30; warning(e)}
     )
    }
-  ftinterval <- max(ftinterval,1)
+  ftinterval <- max(ftinterval,3)
 
+<<<<<<< HEAD
 # Queue the tasks (in blocks defined by chunkSize)
 # 1. Add each task block to the <queue>:<task id> hash
 # 2. Add a job ID notice to the job queue for each task block
@@ -227,11 +447,19 @@ setPackages <- function(packages=c())
   j <- 1
 # To speed this up, we use nonblocking calls to Redis. We also submit all
 # the tasks in a single transaction.
+=======
+# Queue the task(s)
+# The task order is encoded in names(argsList).
+  nout <- 1
+  j <- 1
+# To speed this up, we added nonblocking calls to rredis and use them.
+>>>>>>> devel
   redisSetPipeline(TRUE)
   redisMulti()
   while(j <= ntasks)
    {
     k <- min(j+chunkSize,ntasks)
+<<<<<<< HEAD
     taskblock <- argsList[j:k]
     names(taskblock) <- j:k
 # Note, we're free to identify the task in any unique way.  For example, we
@@ -241,6 +469,11 @@ setPackages <- function(packages=c())
     task_list[[task_id]] <- task
     redisHSet(queueTasks, task_id, task)
     redisRPush(queue, ID)
+=======
+    block <- argsList[j:k]
+    names(block) <- j:k
+    redisRPush(queue, list(ID=ID, argsList=block))
+>>>>>>> devel
     j <- k + 1
     nout <- nout + 1
    }
@@ -318,12 +551,9 @@ setPackages <- function(packages=c())
   }
 }
 
-uuid <- function(uuidLength=10) {
-  paste(sample(c(letters[1:6],0:9), uuidLength, replace=TRUE),collapse="")
-}
-
 # Convert the iterator to a list
 .to.list <- function(x) {
+  seed <- .Random.seed
   n <- 64
   a <- vector('list', length=n)
   i <- 0
@@ -333,7 +563,9 @@ uuid <- function(uuidLength=10) {
         n <- 2 * n
         length(a) <- n
       }
-      a[i + 1] <- list(nextElem(x))
+      seed <- nextRNGStream(seed)
+      rs <- list(.Random.seed=seed)
+      a[[i + 1]] <- c(nextElem(x), rs)
       i <- i + 1
     }
   },

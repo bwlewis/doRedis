@@ -1,10 +1,30 @@
 /*
+ * Copyright (c) 2010 by Bryan W. Lewis.
+ *
+ * This is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published
+ * by the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
+ * USA
+ */
+
+/*
  * alive.c: a simple fault detection system for doRedis.  doRedis worker fault
  * tolerance works by assigning two keys to each in process task: a permanent
  * key created when the task starts, and an ephemeral key kept alive by this
  * thread while the task is running.  If the thread defined in this code stops,
  * for example if R crashes, then the ephemeral key will expire and the master
- * doRedis process can detect the failed task and resubmit it.
+ * doRedis process can detect the resulting keypair imbalance and re-submit the
+ * corresponding task.
  */
 #ifdef Win32
 #include <winsock2.h>
@@ -128,7 +148,7 @@ void *ok(void *x)
   snprintf(expire,BS,"*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", k, key);
   m = 0;
 // Check for thread termination every 1/10 sec, but only update Redis
-// every 3s.
+// every 3s (expire after 5).
   while(go>0){
     m += 1;
     if(m>30) { 
