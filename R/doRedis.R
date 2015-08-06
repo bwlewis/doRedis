@@ -258,7 +258,17 @@ setPackages <- function(packages=c())
   .seed = NULL
   if(exists(".Random.seed",envir=globalenv())) .seed=get(".Random.seed",envir=globalenv())
   RNG_STATE = list(kind=RNGkind()[[1]], seed=.seed)
-  on.exit({RNGkind(RNG_STATE$kind); assign(".Random.seed",RNG_STATE$seed,envir=globalenv());runif(1);invisible()})
+  on.exit(
+  {
+# Reset RNG
+    RNGkind(RNG_STATE$kind)
+    assign(".Random.seed",RNG_STATE$seed,envir=globalenv())
+    runif(1)
+# Clean up the session ID and session environment
+    unlink(ID_file)
+    redisDelete(queueEnv)
+    if(redisExists(queueOut)) redisDelete(queueOut)
+  })
   RNGkind("L'Ecuyer-CMRG")
   .rngseed <- .Random.seed
 
@@ -362,9 +372,13 @@ setPackages <- function(packages=c())
 
 # Collect the results and pass through the accumulator
   j <- 1
-  while(j < nout) {
+tryCatch(
+{
+  while(j < nout)
+  {
     results <- redisBRPop(queueOut, timeout=ftinterval)
-    if(is.null(results)) {
+    if(is.null(results))
+    {
 # Check for worker fault and re-submit tasks if required...
       started <- redisKeys(queueStart)
       started <- sub(paste(queue,"start","",sep="."),"",started)
@@ -385,7 +399,8 @@ setPackages <- function(packages=c())
         }
       }
     }
-    else {
+    else
+    {
       j <- j + 1
       tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
         error=function(e) {
@@ -393,12 +408,9 @@ setPackages <- function(packages=c())
           print(e)
       })
     }
-   }
+  }
+}, interrupt=function(e) flushQueue(queue,ID), error=function(e) flushQueue(queue,ID))
 
-# Clean up the session ID and session environment
-  unlink(ID_file)
-  redisDelete(queueEnv)
-  if(redisExists(queueOut)) redisDelete(queueOut)
  
 # check for errors
   errorValue <- getErrorValue(it)
@@ -412,6 +424,24 @@ setPackages <- function(packages=c())
   } else {
     getResult(it)
   }
+}
+
+# internal function to deal with user interrupt
+# clean up redis work queue, removing all tasks in the job defined by ID
+flushQueue <- function(queue, ID)
+{
+  redisSetPipeline(TRUE)
+  redisMulti()
+  redisLRange(queue,0L,1000000000L)  # retrieve everything
+  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete
+  redisExec()
+  tasks <- redisGetResponse(all=TRUE)
+  redisSetPipeline(FALSE)
+# Restore tasks not matching ID
+  lapply(tasks[[4]][[1]], function(j)
+  {
+    if(j$ID != ID) redisRPush(queue, list(ID=j$ID, argsList=j$argsList))
+  })
 }
 
 # Convert the iterator to a list
