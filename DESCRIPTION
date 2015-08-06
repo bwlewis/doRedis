@@ -1,13 +1,12 @@
 Package: doRedis
 Type: Package
-Title: Redis Parallel Adapter for `foreach`
+Title: "Redis" Parallel Adapter for "foreach"
 Version: 1.2.0
-Date: 2015-4-30
+Date: 2015-08-06
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
-Description: A parallel backend for `foreach` function using Reids, http://redis.io.
+Description: A parallel back end for `foreach` using the "Redis" database.
 Depends: R (>= 2.5), rredis (>= 1.6.8), foreach(>= 1.3.0), iterators(>= 1.0.0), utils
 Imports: parallel
-Suggests: boot
 License: GPL-2
 LazyLoad: yes

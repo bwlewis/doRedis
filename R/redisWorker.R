@@ -1,5 +1,3 @@
-.doRedisGlobals <- new.env(parent=emptyenv())
-
 # .setOK and .delOK support worker fault tolerance
 `.setOK` <- function(port, host, key)
 {
@@ -50,13 +48,49 @@
         if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
           do.call('set.seed.worker',list(0),envir=.doRedisGlobals$exportenv)
        }, error=function(e) cat(as.character(e),'\n',file=log))
-      evalq(eval(doRedis:::.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
+      eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+     # evalq(eval(.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
   )
 }
 
-`startLocalWorkers` <- function(n, queue, host="localhost", port=6379,
+#' Start one or more background R worker processes on the local system.
+#'
+#' Use \code{startLocalWorkers} to start one or more doRedis R worker processes
+#' in the background. The worker processes are started on the local system using
+#' the \code{redisWorker} function.
+#'
+#' Running workers self-terminate when their work queues are deleted with the
+#' \code{removeQueue} function.
+#'
+#' @param n The number of workers to start.
+#' @param queue The doRedis work queue name.
+#' @param host The Redis database host name or IP address.
+#' @param port The Redis database port number.
+#' @param iter Maximum number of tasks to process before exiting the worker loop.
+#' @param timeout Timeout in seconds after which the work queue is deleted that the worker terminates.
+#' @param log Log messages to the specified file connection.
+#' @param Rbin The full path to the command-line R program.
+#' @param password Optional Redis database password.
+#'
+#' @return NULL is invisibly returned.
+#'
+#' @seealso \code{\link{registerDoRedis}}, \code{\link{redisWorker}}
+#'
+#' @examples
+#' \dontrun{
+#' require('doRedis')
+#' registerDoRedis('jobs')
+#' startLocalWorkers(n=2, queue='jobs')
+#' print(getDoParWorkers())
+#' foreach(j=1:10,.combine=sum,.multicombine=TRUE) \%dopar\%
+#'           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
+#' removeQueue('jobs')
+#' }
+#'
+#' @export
+startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
   Rbin=paste(R.home(component='bin'),"R",sep="/"), password)
 {
@@ -79,11 +113,37 @@
   }
 }
 
-`redisWorker` <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL)
+#' Initialize a doRedis worker process.
+#'
+#' The redisWorker function enrolls the current R session in one or
+#' more doRedis worker pools specified by the work queue names. The worker
+#' loop takes over the R session until the work queue(s) are deleted, after
+#' which at most \code{timeout} seconds the worker loop exits, or until
+#' the worker has processed \code{iter} tasks.
+#'
+#' @param queue The doRedis work queue name or a vector of queue names.
+#' @param host The Redis database host name or IP address.
+#' @param port The Redis database port number.
+#' @param iter Maximum number of tasks to process before exiting the worker loop.
+#' @param timeout Timeout in seconds after which the work queue is deleted that the worker terminates.
+#' @param log Log messages to the specified file connection.
+#' @param connected Is the R session creating the worker already connected to Redis?
+#' @param password Optional Redis database password.
+#'
+#' @return NULL is invisibly returned.
+#'
+#' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
+#'
+#' @export
+redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL)
 {
   if (!connected)
     redisConnect(host,port,password=password)
+  sink(type="message",append=TRUE,file=log)
+  sink(type="output",append=TRUE,file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
+  queueLive <- paste(queue,"live",sep=".")
+  if(!redisExists(queueLive)) redisSet(queueLive, "")
   queueCount <- paste(queue,"count",sep=".")
   for(j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
@@ -92,7 +152,6 @@
   k <- 0
   while(k < iter) {
     work <- redisBLPop(queue,timeout=timeout)
-    queueLive <- paste(queue,"live",sep=".")
     queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
     queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
 # We terminate the worker loop after a timeout when all specified work
