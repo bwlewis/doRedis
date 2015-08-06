@@ -146,12 +146,14 @@ void *ok(void *x)
   memset(expire,0,BS);
   snprintf(set,BS,"*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n", k, key);
   snprintf(expire,BS,"*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", k, key);
-  m = 0;
-// Check for thread termination every 1/10 sec, but only update Redis
-// every 3s (expire after 5).
+
+/* Check for thread termination every 1/10 sec, but only update Redis
+ * every 3s (expire alive key after 5s).
+ */
+  m = -1;
   while(go>0){
     m += 1;
-    if(m>30) { 
+    if(m==0 || m>30) { 
       j = msg(s, set, buf);
 #ifdef Win32
       if(j<0) ExitThread((DWORD)j);
@@ -178,6 +180,7 @@ void *ok(void *x)
 SEXP
 delOK()
 {
+  if(go==0) return(R_NilValue);
   go = 0;
 #ifdef Win32
   closesocket(s);

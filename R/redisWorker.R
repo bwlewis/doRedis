@@ -193,10 +193,10 @@ redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
-      redisSet(fttag.start,as.integer(names(work[[1]]$argsList)))
-      .setOK(port, host, fttag.alive)
+      on.exit(.delOK()) # In case we exit this function unexpectedly
+      .setOK(port, host, fttag.alive) # Immediately set an alive key for this task
+      redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
-# XXX We assume that job order is encoded in names(argsList), cf. doRedis.
       result <- lapply(work[[1]]$argsList, .evalWrapper)
       names(result) <- names(work[[1]]$argsList)
       redisLPush(queueOut, result)
