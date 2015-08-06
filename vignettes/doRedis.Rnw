@@ -715,8 +715,8 @@ more.
 
 If you export a function named \verb+worker.init+ that takes no arguments, it
 will be run by the workers once just after downloading a new job environment.
-This is a generic function that may contain any worker initialization code that
-may not be appropriate for the body of the \verb+foreach+ loop.
-The \verb+worker.init+ function is rarely needed.
+The function may contain any worker initialization code not be appropriate for
+the body of the \verb+foreach+ loop that only needs to run once per job,
+independently of the number of tasks that might run on a particular worker.
 
 \end{document}
