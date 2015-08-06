@@ -194,15 +194,27 @@ delOK()
 }
 
 SEXP
-setOK(SEXP PORT, SEXP HOST, SEXP KEY)
+setOK(SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 {
 #ifdef Win32
   WSADATA wsaData;
   DWORD dw_thread_id;
 #endif
+  char authorize[BS];
+  char buf[BS];
   char *host = (char *)CHAR(STRING_ELT(HOST, 0));
   int port = *(INTEGER(PORT));
   const char *key = CHAR(STRING_ELT(KEY, 0));
+  const char *auth = CHAR(STRING_ELT(AUTH, 0));
+  int k = strlen(auth);
+/* check for AUTH and authorize if needed */
+  if(k>0)
+  {
+    memset(authorize,0,BS);
+    snprintf(authorize,BS,"*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", k, auth);
+    j = msg(s, authorize, buf);
+  }
+
   if(go>0) return(R_NilValue);
 #ifdef Win32
   WSAStartup(MAKEWORD(2, 2), &wsaData);
