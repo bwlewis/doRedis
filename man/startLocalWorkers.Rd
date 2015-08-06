@@ -4,43 +4,6 @@
 \alias{startLocalWorkers}
 \title{Start one or more background R worker processes on the local system.}
 \usage{
-<<<<<<< HEAD
-startLocalWorkers(n, queue, host = "localhost",
-                  port = 6379, iter = Inf,
-                  timeout = 30, log = stdout(),
-                  Rbin = paste(R.home(component="bin"),"R",sep="/"),
-                  password=NULL)
-}
-\arguments{
-  \item{n}{
-The number of workers to start.
-}
-  \item{queue}{
-A (character) work queue name, or a list or character vector of queue names.
-}
-  \item{host}{
-The Redis server host name or (character) I. P. address.
-}
-  \item{port}{
-The Redis server port number.
-}
-  \item{iter}{
-The maximum number of jobs to execute before exiting the worker loop (defaults
-to infinity).
-}
-  \item{timeout}{
-The worker loop terminates if the work queue is deleted after the
-specified timeout interval.
-}
-  \item{log}{
-Log messages to the specified destination (defaults to stderr()).
-}
-  \item{Rbin}{
-The full path to the command-line R program.
-}
-  \item{password}{
-The Redis server password.
-=======
 startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
   timeout = 30, log = stdout(), Rbin = paste(R.home(component = "bin"),
   "R", sep = "/"), password)
@@ -63,7 +26,6 @@ startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
 \item{Rbin}{The full path to the command-line R program.}
 
 \item{password}{Optional Redis database password.}
->>>>>>> devel
 }
 \value{
 NULL is invisibly returned.

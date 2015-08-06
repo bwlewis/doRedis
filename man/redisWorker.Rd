@@ -4,19 +4,8 @@
 \alias{redisWorker}
 \title{Initialize a doRedis worker process.}
 \usage{
-<<<<<<< HEAD
-redisWorker(queue,
-            host = "localhost",
-            port = 6379,
-            iter = Inf,
-            timeout = 30,
-            log = stdout(),
-            connected=FALSE,
-            password=NULL)
-=======
 redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
   timeout = 30, log = stdout(), connected = FALSE, password = NULL)
->>>>>>> devel
 }
 \arguments{
 \item{queue}{The doRedis work queue name or a vector of queue names.}

@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-#        __      ____           ___     
-#   ____/ /___  / __ \___  ____/ (_)____
-#  / __  / __ \/ /_/ / _ \/ __  / / ___/
-# / /_/ / /_/ / _, _/  __/ /_/ / (__  ) 
-# \__,_/\____/_/ |_|\___/\__,_/_/____/  
-#                                      
-=======
->>>>>>> devel
 # Copyright (c) 2010 by Bryan W. Lewis.
 #
 # This is free software; you can redistribute it and/or
@@ -24,26 +15,9 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 # USA
 
-# The environment initialization code is adapted (with minor changes) from the
-# doMPI package by Steve Weston.
+# The environment initialization code is adapted (with minor changes)
+# from the doMPI package from Steve Weston.
 
-# Return TRUE if Redis version >= 2.6
-version_check <- function()
-{
-  v <- as.numeric(strsplit(redisInfo()$redis_version,"\\.")[[1]])
-  v[1]>=2 && v[2]>=6
-}
-
-<<<<<<< HEAD
-# Register the 'doRedis' function with %dopar%.
-registerDoRedis <- function(queue, host="localhost", port=6379, password=NULL)
-{
-  redisConnect(host,port,password=password)
-  assign('.queue', queue, envir=.doRedisGlobals)
-  setDoPar(fun=.doRedis,
-    data=list(queue=queue), 
-    info=.info)
-=======
 
 
 #' Register the Redis back end for foreach.
@@ -116,7 +90,6 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password)
   if(!redisExists(queueLive)) redisSet(queueLive, "")
 
   setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
->>>>>>> devel
 }
 
 #' Remove a doRedis queue and delete all associated keys from Redis.
@@ -137,17 +110,6 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password)
 #' @export
 removeQueue <- function(queue)
 {
-<<<<<<< HEAD
-  tryCatch(redisDelete(queue),error=invisible,warning=invisible)
-  k <- redisKeys(sprintf("%s:*",queue))
-  for(j in k) tryCatch(redisDelete(j),error=invisible,warning=invisible)
-}
-
-removeJob <- function(queue, ID)
-{
-  k <- redisKeys(sprintf("%s:%.0f*",queue,ID))
-  for(j in k) tryCatch(redisDelete(j),error=invisible,warning=invisible)
-=======
   if(redisExists(queue)) redisDelete(queue)
   queueEnv = redisKeys(pattern=sprintf("%s\\.env.*",queue))
   for(j in queueEnv) redisDelete(j)
@@ -157,7 +119,6 @@ removeJob <- function(queue, ID)
   for(j in queueCount) redisDelete(j)
   queueLive = redisKeys(pattern=sprintf("%s\\.live",queue))
   for(j in queueLive) redisDelete(j)
->>>>>>> devel
 }
 
 #' Set the default granularity of distributed tasks.
@@ -187,18 +148,6 @@ setChunkSize <- function(value=1)
   assign('chunkSize', value, envir=.doRedisGlobals)
 }
 
-<<<<<<< HEAD
-setTaskLabel <- function(fn=I)
-{
-  assign('taskLabel', fn, envir=.doRedisGlobals)
-}
-
-setGetTask <- function(fn=default_getTask)
-{
-  assign('getTask', fn, envir=.doRedisGlobals)
-}
-
-=======
 #' Manually set symbol names to the worker environment export list.
 #'
 #' The setExport function lets users manually declare symbol names
@@ -236,7 +185,6 @@ setGetTask <- function(fn=default_getTask)
 #' }
 #'
 #' @export
->>>>>>> devel
 setExport <- function(names=c())
 {
   assign('export', names, envir=.doRedisGlobals)
@@ -263,24 +211,14 @@ setPackages <- function(packages=c())
   assign('packages', packages, envir=.doRedisGlobals)
 }
 
-<<<<<<< HEAD
-.info <- function(data, item)
-{
-  switch(item,
-=======
 .info <- function(data, item) {
 # The number of workers should be considered an estimate that may change.
     switch(item,
->>>>>>> devel
            workers=
              tryCatch(
                {
                  n <- redisGet(
-<<<<<<< HEAD
-                         paste(.doRedisGlobals$.queue,'workers',sep=':'))
-=======
                          paste(.doRedisGlobals$queue,'count',sep='.'))
->>>>>>> devel
                  if(length(n)==0) n <- 0
                  else n <- as.numeric(n)
                }, error=function(e) 0),
@@ -289,42 +227,29 @@ setPackages <- function(packages=c())
            NULL)
 }
 
-<<<<<<< HEAD
-# A global workspace environment for doRedis
-.doRedisGlobals <- new.env(parent=emptyenv())
-
-# This is used for the closure's enclosing environment.
-.makeDotsEnv <- function(...)
-{
-=======
 .makeDotsEnv <- function(...) {
->>>>>>> devel
   list(...)
   function() NULL
 }
 
 .doRedis <- function(obj, expr, envir, data)
 {
-# ID associates the work with a job environment <queue>:<ID>.env. If
+# ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
-<<<<<<< HEAD
-=======
   ID_file <- tempfile("doRedis")
   zz <- file(ID_file,"w")
   close(zz)
   ID <- basename(ID_file)
 # The backslash escape charater present in Windows paths causes problems.
   ID <- gsub("\\\\","_",ID)
->>>>>>> devel
   queue <- data$queue
-  queueCounter <- sprintf("%s:counter", queue)   # job task ID counter
-  ID <- redisIncr(queueCounter)
-  queueEnv <- sprintf("%s:%.0f.env",queue,ID) # R job environment
-  queueTasks <- sprintf("%s:%.0f",queue,ID) # Job tasks hash
-  queueResults <- sprintf("%s:%.0f.results",queue,ID) # Output values
-  queueStart <- sprintf("%s:%.0f.start*",queue,ID)
-  queueAlive <- sprintf("%s:%.0f.alive*",queue,ID)
+  queueEnv <- paste(queue,"env", ID, sep=".")
+  queueOut <- paste(queue,"out", ID, sep=".")
+  queueStart <- paste(queue,"start",ID, sep=".")
+  queueStart <- paste(queueStart, "*", sep="")
+  queueAlive <- paste(queue,"alive",ID, sep=".")
+  queueAlive <- paste(queueAlive, "*", sep="")
 
   if (!inherits(obj, 'foreach'))
     stop('obj must be a foreach object')
@@ -341,7 +266,8 @@ setPackages <- function(packages=c())
   argsList <- .to.list(it)
   accumulator <- makeAccum(it)
 
-# Setup the job parent environment
+# Setup the parent environment by first attempting to create an environment
+# that has '...' defined in it with the appropriate values
   exportenv <- tryCatch({
     qargs <- quote(list(...))
     args <- eval(qargs, envir)
@@ -382,35 +308,15 @@ setPackages <- function(packages=c())
              pos=exportenv, inherits=FALSE)
     }
   }
-<<<<<<< HEAD
-# Add task pulling function to exportenv .getTask:
-  getTask <- default_getTask
-  if(exists('getTask',envir=.doRedisGlobals))
-    getTask <- get('getTask',envir=.doRedisGlobals)
-  if(!is.null(obj$options$redis$getTask))
-    getTask <- obj$options$redis$getTask
-  assign(".getTask",getTask, envir=exportenv)
-
-# Define task labeling function taskLabel:
-  taskLabel <- I
-  if(exists('taskLabel',envir=.doRedisGlobals))
-    taskLabel <- get('taskLabel',envir=.doRedisGlobals)
-  if(!is.null(obj$options$redis$taskLabel))
-    taskLabel <- obj$options$redis$taskLabel
-
-# Create a job environment in Redis for the workers to use
-=======
 # Create a job environment for the workers to use
 # XXX catch error here (too big)
->>>>>>> devel
   redisSet(queueEnv, list(expr=expr, 
                           exportenv=exportenv, packages=obj$packages))
-
   results <- NULL
   ntasks <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
-# Example: foreach(j=1,.options.redis=list(chunkSize=100)) %dopar% ...
+# Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
   chunkSize <- 0
   if(exists('chunkSize',envir=.doRedisGlobals))
     chunkSize <- get('chunkSize',envir=.doRedisGlobals)
@@ -434,46 +340,19 @@ setPackages <- function(packages=c())
    }
   ftinterval <- max(ftinterval,3)
 
-<<<<<<< HEAD
-# Queue the tasks (in blocks defined by chunkSize)
-# 1. Add each task block to the <queue>:<task id> hash
-# 2. Add a job ID notice to the job queue for each task block
-#
-# We encode the job order in names(argsList) XXX This is perhaps not optimal
-# since the accumulator requires numeric job tags for ordering.
-# We also maintain a list of dispatched tasks in task_list for fault recovery.
-  task_list <- list()
-  nout <- 1
-  j <- 1
-# To speed this up, we use nonblocking calls to Redis. We also submit all
-# the tasks in a single transaction.
-=======
 # Queue the task(s)
 # The task order is encoded in names(argsList).
   nout <- 1
   j <- 1
 # To speed this up, we added nonblocking calls to rredis and use them.
->>>>>>> devel
   redisSetPipeline(TRUE)
   redisMulti()
   while(j <= ntasks)
    {
     k <- min(j+chunkSize,ntasks)
-<<<<<<< HEAD
-    taskblock <- argsList[j:k]
-    names(taskblock) <- j:k
-# Note, we're free to identify the task in any unique way.  For example, we
-# could add a data location hint.
-    task_id = as.character(taskLabel(j))
-    task <- list(task_id=task_id, args=taskblock)
-    task_list[[task_id]] <- task
-    redisHSet(queueTasks, task_id, task)
-    redisRPush(queue, ID)
-=======
     block <- argsList[j:k]
     names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
->>>>>>> devel
     j <- k + 1
     nout <- nout + 1
    }
@@ -482,60 +361,44 @@ setPackages <- function(packages=c())
    redisSetPipeline(FALSE)
 
 # Collect the results and pass through the accumulator
-  finished = c()
   j <- 1
-  while(j < nout)
-   {
-    results <- tryCatch(redisBRPop(queueResults, timeout=ftinterval),error=NULL)
-    if(is.null(results))
-    {
-
+  while(j < nout) {
+    results <- redisBRPop(queueOut, timeout=ftinterval)
+    if(is.null(results)) {
 # Check for worker fault and re-submit tasks if required...
-      redisMulti()
-      redisKeys(queueStart)
-      redisKeys(queueAlive)
-      redisLLen(queue)    # number of queued tasks remaining
-      ans <- redisExec()
-      started <- ans[[1]]
-      alive <- ans[[2]]
-      queued <- ans[[3]]
-
-      started <- gsub(sprintf("%s:%.0f.start.",queue,ID),"",started)
-      alive <- gsub(sprintf("%s:%.0f.alive.",queue,ID),"",alive)
+      started <- redisKeys(queueStart)
+      started <- sub(paste(queue,"start","",sep="."),"",started)
+      alive <- redisKeys(queueAlive)
+      alive <- sub(paste(queue,"alive","",sep="."),"",alive)
       fault <- setdiff(started,alive)
       if(length(fault)>0) {
-# One or more worker faults have occurred. Re-sumbit the work.
-        for(k in fault)
-        {
-          warning(sprintf("Worker fault, resubmitting task %s.",k))
-          qs <- sprintf("%s:%.0f.start.%s",queue,ID,k)
-          redisDelete(qs)
-          redisHSet(queueTasks, k, task_list[[k]])
-          redisRPush(queue, ID)
+  # One or more worker faults have occurred. Re-sumbit the work.
+        fault <- paste(queue, "start", fault, sep=".")
+        fjobs <- redisMGet(fault)
+        redisDelete(fault)
+        for(resub in fjobs) {
+          block <- argsList[unlist(resub)]
+          names(block) <- unlist(resub)
+          if (obj$verbose)
+            cat("Worker fault: resubmitting jobs", names(block), "\n")
+          redisRPush(queue, list(ID=ID, argsList=block))
         }
       }
-# Check for imbalance in: queued + started + finished = total.
-      nq = length(setdiff(names(task_list), c(finished, started)))
-      if(queued < nq)
-      {
-        warning("Queue length off by ",nq,"...correcting")
-        replicate(nq,redisRPush(queue, ID))
-      }
     }
-    else
-    {
+    else {
       j <- j + 1
-      finished = c(finished, names(results[[1]]))
       tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
         error=function(e) {
           cat('error calling combine function:\n')
           print(e)
       })
-     }
+    }
    }
 
 # Clean up the session ID and session environment
-  removeJob(queue, ID)
+  unlink(ID_file)
+  redisDelete(queueEnv)
+  if(redisExists(queueOut)) redisDelete(queueOut)
  
 # check for errors
   errorValue <- getErrorValue(it)

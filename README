@@ -1,24 +1,5 @@
 doRedis: A parallel backend for foreach using Redis.
 
-<<<<<<< HEAD
-See https://raw.githubusercontent.com/bwlewis/doRedis/master/vignettes/doRedis.pdf
-for the package vignette, which contains many technical details and examples.
-
-See https://github.com/bwlewis/doRedis for the latest examples, bug fixes and
-documentation.
-
-Here is a copy of the compiled Windows binary package (32- and 64-bit). It will
-soon also be available on CRAN:
-http://bwlewis.github.io/doRedis/doRedis_1.1.1.zip
-
-
-IMPORTANT NOTES
-
-Users are encouraged to upgrade to Redis versions >= 2.6 that include server-side
-Lua scripting. doRedis can take advantage of that to enable new features outlined
-in the package vignette. Backwards compatibility with older versions of Redis
-is maintained, however.
-=======
 CHANGES IN VERSION 1.2.0
 
 This is a major change.
@@ -34,7 +15,6 @@ This is a major change.
   as outlined in the vignette.
 
 NOTE
->>>>>>> devel
 
 Set the following parameter in your redis.conf file before using doRedis:
 
@@ -53,9 +33,10 @@ the lingua Franca of parallel computing for R.
 
 Redis is a powerful, fast networked database with many innovative features,
 among them a blocking stack-like data structure (Redis "lists"). This feature
-makes Redis useful as a lightweight backend for parallel computing.  The rredis
-package provides a native R interface to Redis. The doRedis package defines a
-simple parallel backend for foreach that uses Redis.
+makes Redis useful as a lightweight backend for parallel computing, similar to
+REvolution Computing's NetWorkSpaces. The rredis package provides a native R
+interface to Redis. The doRedis package defines a simple parallel backend for
+foreach that uses Redis.
 
 Here is a quick example procedure for experimenting with doRedis:
 
