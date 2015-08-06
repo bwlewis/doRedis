@@ -206,7 +206,13 @@ setOK(SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
   int port = *(INTEGER(PORT));
   const char *key = CHAR(STRING_ELT(KEY, 0));
   const char *auth = CHAR(STRING_ELT(AUTH, 0));
-  int k = strlen(auth);
+  int j,k = strlen(auth);
+  if(go>0) return(R_NilValue);
+#ifdef Win32
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+  tcpconnect(host, port);
+  go = 1;
 /* check for AUTH and authorize if needed */
   if(k>0)
   {
@@ -215,12 +221,6 @@ setOK(SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
     j = msg(s, authorize, buf);
   }
 
-  if(go>0) return(R_NilValue);
-#ifdef Win32
-  WSAStartup(MAKEWORD(2, 2), &wsaData);
-#endif
-  tcpconnect(host, port);
-  go = 1;
 #ifdef Win32
   t = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ok, (LPVOID)key, 0,
 		   &dw_thread_id);
