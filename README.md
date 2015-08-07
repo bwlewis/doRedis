@@ -124,3 +124,8 @@ It's a convenient way to invoke several workers at once on your local box.
 
 Workers self-terminate when their work queues have been deleted with the
 `removeQueue` function.
+
+## Status
+<a href="https://travis-ci.org/bwlewis/doRedis">
+<img src="https://travis-ci.org/bwlewis/doRedis.svg?branch=master" alt="Travis CI status"></img>
+</a>
