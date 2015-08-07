@@ -81,7 +81,7 @@ Let's define a few terms before we describe how the above example works:
 * A _work queue_ is a collection of of any number of _tasks_ associated
   with number of _jobs_ submitted by one or more master R processes.
 
-The "jobs" parameter of the redisWorker and registerDoRedis function names a
+The "jobs" parameter above in  the `redisWorker` and `registerDoRedis` function names a
 Redis key used to transfer data between master and worker processes. Think of
 this name as a reference to a work queue. The master places tasks into the
 queue, worker R processes pull tasks out of the queue and then return their

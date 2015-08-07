@@ -1,0 +1,2 @@
+require(doRedis)
+redisConnect()
