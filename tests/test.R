@@ -1,6 +1,6 @@
 require(doRedis)
 
-if(Sys.getenv("TEST_DOREDIS")!="TRUE")
+if(Sys.getenv("TEST_DOREDIS")=="TRUE")
 {
   queue = "jobs"
   startLocalWorkers(n=2, queue, timeout=5)
