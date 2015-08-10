@@ -710,6 +710,21 @@ Redis 2\,GB value size limit. The example also avoids sending data to workers
 that they don't need. Each worker downloads just the data it needs and nothing
 more.
 
+\subsection{Canceling jobs}
+When a master R session is interrupted, for example by CTRL+C or by pressing
+the ``stop'' button in RStudio (or by pressing the Escape key on some systems),
+foreach will perform the following steps:
+\begin{enumerate}
+\item Delete all tasks associated with the active job in the corresponding work queue
+\item Stop collecting results for the active job
+\item Return control to the R console
+\end{enumerate}
+Importantly, interrupting a running job only prevents \emph{future} work from 
+running on the worker processes. Any in-process tasks on the workers will continue
+to run until they finish.
+
+
+
 
 \subsection{worker.init}
 

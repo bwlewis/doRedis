@@ -435,7 +435,7 @@ flushQueue <- function(queue, ID)
   redisSetPipeline(TRUE)
   redisMulti()
   redisLRange(queue,0L,1000000000L)  # retrieve everything
-  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete
+  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete inside multi
   redisExec()
   tasks <- redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
