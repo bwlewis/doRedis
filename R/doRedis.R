@@ -268,7 +268,7 @@ setPackages <- function(packages=c())
     runif(1)
 # Clean up the session ID and session environment
     unlink(ID_file)
-    redisDelete(queueEnv)
+    if(redisExists(queueEnv)) redisDelete(queueEnv)
     if(redisExists(queueOut)) redisDelete(queueOut)
   })
   RNGkind("L'Ecuyer-CMRG")

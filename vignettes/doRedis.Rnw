@@ -481,9 +481,9 @@ combine function in the {\tt foreach} loop.
 
 A \verb+foreach+ loop iteration is a parameterized R expression that represents
 a unit of work. The expression is the body of the \verb+foreach+ loop and the
-parameter, if it exists, is the loop variable value. (It is possible to use
+parameter, if it exists, is the loop variable. Note that it's also possible to use
 \verb+foreach+ non-parametrically with an anonymous iterator to simply
-replicate the loop body expression a number of times.)  Each iteration is
+replicate the loop body expression a number of times.  Each iteration is
 enumerated so that \verb+foreach+ can put the results together in order if
 required.
 
@@ -721,7 +721,10 @@ foreach will perform the following steps:
 \end{enumerate}
 Importantly, interrupting a running job only prevents \emph{future} work from 
 running on the worker processes. Any in-process tasks on the workers will continue
-to run until they finish.
+to run until they finish. A possible side-effect is that tasks from running
+jobs may place their result in orphaned result queues (Redis keys) at some
+point after the job has been cancelled. Spurious output may be manually
+cleaned up by deleting keys associated with the task queue and job ID.
 
 
 
