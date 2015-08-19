@@ -34,9 +34,6 @@ DAEMON_ARGS=/etc/doRedis.conf
 PIDFILE=/var/run/doRedis.pid
 SCRIPTNAME=/etc/init.d/doRedis
 
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
-
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
 . /lib/lsb/init-functions
@@ -46,7 +43,7 @@ SCRIPTNAME=/etc/init.d/doRedis
 #
 do_start()
 {
-  sudo -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
+  sudo -b -n -E -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
 }
 
 #
@@ -60,12 +57,10 @@ do_stop()
 
 case "\$1" in
   start)
-	log_daemon_msg "Starting Redis worker service"
-	do_start
+	do_start && log_success_msg "Started Redis R worker service" || log_failure_msg "Failed to start Redis R worker service"
 	;;
   stop)
-	log_daemon_msg "Stopping Redis worker service"
-	do_stop
+	do_stop && log_success_msg "Stoped Redis R worker service"
 	;;
   status)
        status_of_proc /user/local/bin/doRedis_worker "doRedis_worker" && exit 0 || exit 1
@@ -82,6 +77,7 @@ echo "Installing /usr/local/bin/doRedis_worker helper script..."
 cat > /usr/local/bin/doRedis_worker << 2ZZZ
 #!/bin/bash
 # doRedis R worker startup script
+export PATH="${PATH}:/usr/bin:/usr/local/bin"
 
 CONF=\$1
 
@@ -96,13 +92,13 @@ HOST=\$(cat \$CONF | sed -n /^host:/p | sed -e "s/.*:[[:blank:]*]//")
 PORT=\$(cat \$CONF | sed -n /^port:/p | sed -e "s/.*:[[:blank:]*]//")
 QUEUE=\$(cat \$CONF | sed -n /^queue:/p | sed -e "s/.*:[[:blank:]*]//")
 
-[ -z "${N}" ] && N=1
-[ -z "${R}" ] && R=R
-[ -z "${T}" ] && T=5
-[ -z "${I}" ] && I=Inf
-[ -z "${HOST}" ] && HOST=localhost
-[ -z "${PORT}" ] && PORT=6379
-[ -z "${QUEUE}" ] && QUEUE=RJOBS
+[ -z "\${N}" ] && N=1
+[ -z "\${R}" ] && R=R
+[ -z "\${T}" ] && T=5
+[ -z "\${I}" ] && I=Inf
+[ -z "\${HOST}" ] && HOST=localhost
+[ -z "\${PORT}" ] && PORT=6379
+[ -z "\${QUEUE}" ] && QUEUE=RJOBS
 
 Terminator ()
 {
@@ -116,7 +112,7 @@ trap "Terminator" SIGHUP SIGINT SIGTERM
 while :; do
   j=0
   while test \$j -lt \$N; do
-    bash -c "while :; do \${R} --slave -e \"require('doRedis'); tryCatch(redisWorker(queue=\\\\\\"\${QUEUE}\\\\\\", host=\\\\\\"\${HOST}\\\\\\", port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')\"  >/dev/null 2>&1 ;sleep 1;done" &
+    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')"  >/dev/null 2>&1  &
     j=\$((\$j + 1))
   done
   wait
@@ -149,5 +145,5 @@ queue: RJOBS
 
 
 chmod a+x /etc/init.d/doRedis
-update-rc.d doRedis defaults
+update-rc.d doRedis defaults || chkconfig --level 35 doRedis on
 /etc/init.d/doRedis start
