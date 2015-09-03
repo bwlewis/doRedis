@@ -140,9 +140,7 @@ iter: Inf
 host: localhost
 port: 6379
 queue: RJOBS
-
 3ZZZ
-
 
 chmod a+x /etc/init.d/doRedis
 update-rc.d doRedis defaults || chkconfig --level 35 doRedis on

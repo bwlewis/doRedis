@@ -80,10 +80,10 @@
 #' @importFrom stats runif
 #' @importFrom utils flush.console packageDescription
 #' @export
-registerDoRedis <- function(queue, host="localhost", port=6379, password)
+registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 {
-  if(missing(password)) redisConnect(host, port)
-  else redisConnect(host,port,password=password)
+  if(missing(password)) redisConnect(host, port, ...)
+  else redisConnect(host,port,password=password, ...)
   assign('queue', queue, envir=.doRedisGlobals)
 # Set a queue.live key that signals to workers that this queue is
 # valid. We need this because Redis removes the key associated with

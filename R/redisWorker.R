@@ -94,7 +94,7 @@
 #' @export
 startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
-  Rbin=paste(R.home(component='bin'),"R",sep="/"), password)
+  Rbin=paste(R.home(component='bin'),"R",sep="/"), password, ...)
 {
   m <- match.call()
   f <- formals()
@@ -104,6 +104,12 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
       queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
       timeout,", log=",deparse(l),sep="")
   if(!missing(password)) cmd <- sprintf("%s,password='%s'",cmd,password)
+  dots <- list(...)
+  if(length(dots)>0)
+  {
+    dots = paste(paste(names(dots),dots,sep="="),collapse=",")
+    cmd <- sprintf("%s,%s",cmd,dots)
+  }
   cmd <- sprintf("%s)",cmd)
 
   j=0
@@ -137,10 +143,10 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 #'
 #' @export
-redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL)
+redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL,...)
 {
   if (!connected)
-    redisConnect(host,port,password=password)
+    redisConnect(host,port,password=password,...)
   sink(type="message",append=TRUE,file=log)
   sink(type="output",append=TRUE,file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)

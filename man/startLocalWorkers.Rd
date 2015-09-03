@@ -6,7 +6,7 @@
 \usage{
 startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
   timeout = 30, log = stdout(), Rbin = paste(R.home(component = "bin"),
-  "R", sep = "/"), password)
+  "R", sep = "/"), password, ...)
 }
 \arguments{
 \item{n}{The number of workers to start.}
@@ -26,6 +26,7 @@ startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
 \item{Rbin}{The full path to the command-line R program.}
 
 \item{password}{Optional Redis database password.}
+\item{...}{Optional additional parameters to pass to redisConnect.}
 }
 \value{
 NULL is invisibly returned.

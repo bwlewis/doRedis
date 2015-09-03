@@ -4,7 +4,7 @@
 \alias{registerDoRedis}
 \title{Register the Redis back end for foreach.}
 \usage{
-registerDoRedis(queue, host = "localhost", port = 6379, password)
+registerDoRedis(queue, host = "localhost", port = 6379, password, ...)
 }
 \arguments{
 \item{queue}{A work queue name}
@@ -14,6 +14,7 @@ registerDoRedis(queue, host = "localhost", port = 6379, password)
 \item{port}{The Redis server port number}
 
 \item{password}{An optional Redis database password}
+\item{...}{Optional additional parameters to pass to redisConnect.}
 }
 \value{
 NULL is invisibly returned.
