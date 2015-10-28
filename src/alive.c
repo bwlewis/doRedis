@@ -151,7 +151,6 @@ sendall (int s, char *buf, size_t * len)
     }
 
   *len = total;                 // return number actually sent here
-
   return n == -1 ? -1 : 0;      // return -1 on failure, 0 on success
 }
 
@@ -179,16 +178,12 @@ msg (int sock, char *cmd, char *response)
 
 
 void
-thread_exit (int ex_code)
+thread_exit ()
 {
 #ifdef Win32
-  ExitThread ((DWORD) (ex_code));
+  ExitThread ((DWORD) (0));
 #else
-  /* exit code to pthread_exit cannot be a pointer to stack variable 
-   * In our case the thread is a singleton, so static is fine*/
-  static int _ex_code;
-  _ex_code = ex_code;
-  pthread_exit (&_ex_code);
+  pthread_exit (NULL);
 #endif
 }
 
@@ -201,9 +196,8 @@ void *
 ok (void *x)
 #endif
 {
-  /* this thread should be used as a singleton, so static variables are OK. */
-  static char set[BS_LARGE];
-  static char expire[BS_LARGE];
+  char set[BS_LARGE];
+  char expire[BS_LARGE];
   char buf[BS];                 /* asumption is that response is short */
   int pr_n = -1;
   int j, m;
@@ -211,7 +205,7 @@ ok (void *x)
   size_t k = strlen (key);
   if (k > BS_LARGE - 128)
     {
-      thread_exit (-2);
+      thread_exit ();
     }
   memset (set, 0, BS_LARGE);
   memset (expire, 0, BS_LARGE);
@@ -220,14 +214,14 @@ ok (void *x)
               (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
-      thread_exit (-2);
+      thread_exit ();
     }
   pr_n =
     snprintf (expire, BS_LARGE,
               "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
-      thread_exit (-2);
+      thread_exit ();
     }
 
 /* Check for thread termination every 1/10 sec, but only update Redis
@@ -243,12 +237,12 @@ ok (void *x)
           j = msg (s, set, buf);
           if (j < 0)
             {
-              thread_exit (j);
+              thread_exit ();
             }
           j = msg (s, expire, buf);
           if (j < 0)
             {
-              thread_exit (j);
+              thread_exit ();
             }
           m = 0;
         }
