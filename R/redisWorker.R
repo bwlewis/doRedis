@@ -3,7 +3,8 @@
 {
   if(missing(password)) password=""
   if(is.null(password)) password=""
-  .Call("setOK", as.integer(port), as.character(host), as.character(key),as.character(password), PACKAGE="doRedis")
+  .Call("setOK", as.integer(port), as.character(host),
+        as.character(key),as.character(password), PACKAGE="doRedis")
   invisible()
 }
 

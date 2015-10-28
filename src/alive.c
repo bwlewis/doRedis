@@ -169,7 +169,9 @@ msg (int sock, char *cmd, char *response)
   if (j < 0)
     return j;
   memset (response, 0, BS);
-  j = recv (sock, response, BS, 0);
+  j = (int)recv (sock, response, BS, 0);
+  if (j < 0)
+    return j;
   if (response[0] == '-')
     j = -1;
   return j;
@@ -199,42 +201,44 @@ void *
 ok (void *x)
 #endif
 {
-  /* this thread should be used as a singleton, so static variables are OK.
-   * BS_LARGE can be too large for stack variables. We can use calloc()
-   * instead, but then we have to handle user interrupts and other error 
-   * conditions and deallocate. */
+  /* this thread should be used as a singleton, so static variables are OK. */
   static char set[BS_LARGE];
   static char expire[BS_LARGE];
   char buf[BS];                 /* asumption is that response is short */
   int pr_n = -1;
   int j, m;
   char *key = (char *) x;
-  int k = strlen (key);
+  size_t k = strlen (key);
+  if (k > BS_LARGE - 128)
+    {
+      thread_exit (-2);
+    }
   memset (set, 0, BS_LARGE);
   memset (expire, 0, BS_LARGE);
   pr_n =
     snprintf (set, BS_LARGE, "*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n",
-              k, key);
+              (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
       thread_exit (-2);
     }
   pr_n =
     snprintf (expire, BS_LARGE,
-              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", k, key);
+              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
       thread_exit (-2);
     }
 
 /* Check for thread termination every 1/10 sec, but only update Redis
- * every 3s (expire alive key after 5s).
+ * every 3s (expire alive key after 5s). If messages to redis fail,
+ * exit this thread.
  */
-  m = -1;
+  m = 30;
   while (go > 0)
     {
       m += 1;
-      if (m == 0 || m > 30)
+      if (m > 30)
         {
           j = msg (s, set, buf);
           if (j < 0)
@@ -277,6 +281,7 @@ delOK ()
 SEXP
 setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 {
+fprintf(stderr,"Cazart!\n");
 #ifdef Win32
   WSADATA wsaData;
   DWORD dw_thread_id;
@@ -301,6 +306,7 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
       memset (authorize, 0, BS);
       snprintf (authorize, BS, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", k, auth);
       j = msg (s, authorize, buf);
+      if(j<0) error("Redis communication error during authentication");
     }
 
 #ifdef Win32
