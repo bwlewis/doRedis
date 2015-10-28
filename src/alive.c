@@ -49,7 +49,7 @@
 #include <Rinternals.h>
 
 #define BS 4096
-#define BS_LARGE 16777216
+#define BS_LARGE 16384
 
 int go;
 #ifdef Win32
@@ -61,53 +61,66 @@ pthread_t t;
 #endif
 
 /* tcpconnect
- * connect to the specified host and port, returning a socket
+ * connect to the specified host and port, setting the global
+ * socket value s to a socket connected to the host/port.
  */
 #ifdef Win32
-void tcpconnect(const char *host, int port)
+void
+tcpconnect (const char *host, int port)
 {
   int j;
   char portstr[16];
   struct addrinfo *a = NULL, *ap = NULL;
   struct addrinfo hints;
   s = INVALID_SOCKET;
-  snprintf(portstr, 16, "%d", port);
-  ZeroMemory( &hints, sizeof(hints) );
+  snprintf (portstr, 16, "%d", port);
+  ZeroMemory (&hints, sizeof (hints));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
-  j = getaddrinfo(host, portstr, &hints, &a);
-  ap = a;
-  s = socket(ap->ai_family, ap->ai_socktype, ap->ai_protocol);
-  j=connect(s, ap->ai_addr, (int)ap->ai_addrlen);
-  if(j!=0){
+  j = getaddrinfo (host, portstr, &hints, &a);
+  if(j!=0)
+  {
     s = INVALID_SOCKET;
+    return;
   }
+  ap = a;
+  s = socket (ap->ai_family, ap->ai_socktype, ap->ai_protocol);
+  if (s < 0)
+    return;
+  j = connect (s, ap->ai_addr, (int) ap->ai_addrlen);
+  if (j != 0)
+    {
+      close(s);
+      s = INVALID_SOCKET;
+    }
 }
 #else
 void
-tcpconnect(char *host, int port)
+tcpconnect (char *host, int port)
 {
   struct hostent *h;
   struct sockaddr_in sa;
   int j;
 
-  h = gethostbyname(host);
+  h = gethostbyname (host);
   if (!h)
     {
       s = -1;
     }
   else
     {
-      s = socket(AF_INET, SOCK_STREAM, 0);
-      memset((void *)&sa, 0, sizeof(sa));
+      s = socket (AF_INET, SOCK_STREAM, 0);
+      if (s < 0) return;
+      memset ((void *) &sa, 0, sizeof (sa));
       sa.sin_family = AF_INET;
-      sa.sin_port = htons(port);
+      sa.sin_port = htons (port);
       sa.sin_addr = *(struct in_addr *) h->h_addr;
-      j=connect(s, (struct sockaddr *) &sa, sizeof(sa));
+      j = connect (s, (struct sockaddr *) &sa, sizeof (sa));
       if (j < 0)
         {
-          close(s);
+          close (s);
+          s = -1;
           return;
         }
     }
@@ -118,64 +131,72 @@ tcpconnect(char *host, int port)
  * Keep sending until entire buffer is sent
  */
 #ifdef Win32
-int sendall(SOCKET s, char *buf, size_t *len)
+int
+sendall (SOCKET s, char *buf, size_t * len)
 #else
-int sendall(int s, char *buf, size_t *len)
+int
+sendall (int s, char *buf, size_t * len)
 #endif
 {
-    size_t total = 0;        // how many bytes we've sent
-    size_t bytesleft = *len; // how many we have left to send
-    int n;
+  size_t total = 0;             // how many bytes we've sent
+  size_t bytesleft = *len;      // how many we have left to send
+  int n;
 
-    while(total < *len) {
-        n = send(s, buf+total, bytesleft, 0);
-        if (n == -1) { break; }
-        total += n;
-        bytesleft -= n;
+  while (total < *len)
+    {
+      n = send (s, buf + total, bytesleft, 0);
+      if (n == -1) break;
+      total += n;
+      bytesleft -= n;
     }
 
-    *len = total; // return number actually sent here
+  *len = total;                 // return number actually sent here
 
-    return n==-1?-1:0; // return -1 on failure, 0 on success
-} 
+  return n == -1 ? -1 : 0;      // return -1 on failure, 0 on success
+}
 
 #ifdef Win32
 int
-msg(SOCKET sock, char *cmd, char *response)
+msg (SOCKET sock, char *cmd, char *response)
 #else
 int
-msg(int sock, char *cmd, char *response)
+msg (int sock, char *cmd, char *response)
 #endif
 {
   int j;
-  size_t cmd_len = strlen(cmd);
-  j = sendall(sock, cmd, &cmd_len);
-  if(j<0) return j;
-  memset(response,0,BS);
-  j = recv(sock, response, BS, 0);
-  if(response[0] == '-') j = -1;
+  size_t cmd_len = strlen (cmd);
+  j = sendall (sock, cmd, &cmd_len);
+  if (j < 0)
+    return j;
+  memset (response, 0, BS);
+  j = recv (sock, response, BS, 0);
+  if (response[0] == '-')
+    j = -1;
   return j;
 }
 
 
-void thread_exit(int ex_code)
+void
+thread_exit (int ex_code)
 {
 #ifdef Win32
-    ExitThread((DWORD)(ex_code));
+  ExitThread ((DWORD) (ex_code));
 #else
   /* exit code to pthread_exit cannot be a pointer to stack variable 
    * In our case the thread is a singleton, so static is fine*/
   static int _ex_code;
   _ex_code = ex_code;
-  pthread_exit(&_ex_code);
+  pthread_exit (&_ex_code);
 #endif
 }
 
 
 #ifdef Win32
-void *ok(LPVOID x)
+void *
+ok (LPVOID x)
 #else
-void *ok(void *x)
+void *
+ok (void *x)
 #endif
 {
   /* this thread should be used as a singleton, so static variables are OK.
@@ -184,66 +205,77 @@ void *ok(void *x)
    * conditions and deallocate. */
   static char set[BS_LARGE];
   static char expire[BS_LARGE];
-  char buf[BS]; /* asumption is that response is short */
+  char buf[BS];                 /* asumption is that response is short */
   int pr_n = -1;
   int j, m;
-  char *key = (char *)x;
-  int k = strlen(key);
-  memset(set,0,BS_LARGE);
-  memset(expire,0,BS_LARGE);
-  pr_n = snprintf(set,BS_LARGE,"*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n", k, key);
-  if(pr_n < 0 || pr_n >= BS_LARGE) {
-      thread_exit(-2);
-  }
-  pr_n = snprintf(expire,BS_LARGE,"*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", k, key);
-  if(pr_n < 0 || pr_n >= BS_LARGE) {
-      thread_exit(-2);
-  }
+  char *key = (char *) x;
+  int k = strlen (key);
+  memset (set, 0, BS_LARGE);
+  memset (expire, 0, BS_LARGE);
+  pr_n =
+    snprintf (set, BS_LARGE, "*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n",
+              k, key);
+  if (pr_n < 0 || pr_n >= BS_LARGE)
+    {
+      thread_exit (-2);
+    }
+  pr_n =
+    snprintf (expire, BS_LARGE,
+              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", k, key);
+  if (pr_n < 0 || pr_n >= BS_LARGE)
+    {
+      thread_exit (-2);
+    }
 
 /* Check for thread termination every 1/10 sec, but only update Redis
  * every 3s (expire alive key after 5s).
  */
   m = -1;
-  while(go>0){
-    m += 1;
-    if(m==0 || m>30) { 
-      j = msg(s, set, buf);
-      if(j<0) {
-          thread_exit(j);
-      }
-      j = msg(s, expire, buf);
-      if(j<0) {
-          thread_exit(j);
-      }
-      m = 0;
-    }
+  while (go > 0)
+    {
+      m += 1;
+      if (m == 0 || m > 30)
+        {
+          j = msg (s, set, buf);
+          if (j < 0)
+            {
+              thread_exit (j);
+            }
+          j = msg (s, expire, buf);
+          if (j < 0)
+            {
+              thread_exit (j);
+            }
+          m = 0;
+        }
 #ifdef Win32
-    Sleep(100);
+      Sleep (100);
 #else
-    usleep(100000);
+      usleep (100000);
 #endif
-  }
+    }
   return NULL;
 }
 
 SEXP
-delOK()
+delOK ()
 {
-  if(go==0) return(R_NilValue);
+  if (go == 0)
+    return (R_NilValue);
   go = 0;
 #ifdef Win32
-  closesocket(s);
-  WaitForSingleObject(t, INFINITE);
-  WSACleanup();
+  closesocket (s);
+  WaitForSingleObject (t, INFINITE);
+  WSACleanup ();
 #else
-  close(s);
-  pthread_join(t, NULL);
+  close (s);
+  pthread_join (t, NULL);
 #endif
-  return(R_NilValue);
+  return (R_NilValue);
 }
 
 SEXP
-setOK(SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
+setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 {
 #ifdef Win32
   WSADATA wsaData;
@@ -251,30 +283,31 @@ setOK(SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 #endif
   char authorize[BS];
   char buf[BS];
-  char *host = (char *)CHAR(STRING_ELT(HOST, 0));
-  int port = *(INTEGER(PORT));
-  const char *key = CHAR(STRING_ELT(KEY, 0));
-  const char *auth = CHAR(STRING_ELT(AUTH, 0));
-  int j,k = strlen(auth);
-  if(go>0) return(R_NilValue);
+  char *host = (char *) CHAR (STRING_ELT (HOST, 0));
+  int port = *(INTEGER (PORT));
+  const char *key = CHAR (STRING_ELT (KEY, 0));
+  const char *auth = CHAR (STRING_ELT (AUTH, 0));
+  int j, k = strlen (auth);
+  if (go > 0)
+    return (R_NilValue);
 #ifdef Win32
-  WSAStartup(MAKEWORD(2, 2), &wsaData);
+  WSAStartup (MAKEWORD (2, 2), &wsaData);
 #endif
-  tcpconnect(host, port);
+  tcpconnect (host, port);
   go = 1;
 /* check for AUTH and authorize if needed */
-  if(k>0)
-  {
-    memset(authorize,0,BS);
-    snprintf(authorize,BS,"*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", k, auth);
-    j = msg(s, authorize, buf);
-  }
+  if (k > 0)
+    {
+      memset (authorize, 0, BS);
+      snprintf (authorize, BS, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", k, auth);
+      j = msg (s, authorize, buf);
+    }
 
 #ifdef Win32
-  t = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)ok, (LPVOID)key, 0,
-		   &dw_thread_id);
+  t = CreateThread (NULL, 0, (LPTHREAD_START_ROUTINE) ok, (LPVOID) key, 0,
+                    &dw_thread_id);
 #else
-  pthread_create(&t, NULL, ok, (void *)key);
+  pthread_create (&t, NULL, ok, (void *) key);
 #endif
-  return(R_NilValue);
+  return (R_NilValue);
 }

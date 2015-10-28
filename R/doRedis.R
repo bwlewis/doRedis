@@ -141,6 +141,16 @@ removeQueue <- function(queue)
 #' foreach loop (see the examples).
 #'
 #' @return NULL is invisibly returned.
+#' @examples
+#' \dontrun{
+#' setChunkSize(5)
+#' foreach(j=1:10) %dopar% j
+#'
+#' # Same effect as:
+#' 
+#' foreach(j=1:10,
+#'         .options.redis=list(chunkSize=5)) %dopar% j
+#' }
 #'
 #' @export
 setChunkSize <- function(value=1)
@@ -328,7 +338,7 @@ setPackages <- function(packages=c())
   ntasks <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
-# Example: foreach(j=1,.options.redis=list(chuckSize=100)) %dopar% ...
+# Example: foreach(j=1,.options.redis=list(chunkSize=100)) %dopar% ...
   chunkSize <- 0
   if(exists('chunkSize',envir=.doRedisGlobals))
     chunkSize <- get('chunkSize',envir=.doRedisGlobals)
@@ -381,14 +391,14 @@ tryCatch(
     results <- redisBRPop(queueOut, timeout=ftinterval)
     if(is.null(results))
     {
-# Check for worker fault and re-submit tasks if required...
+      # Check for worker fault and re-submit tasks if required...
       started <- redisKeys(queueStart)
       started <- sub(paste(queue,"start","",sep="."),"",started)
       alive <- redisKeys(queueAlive)
       alive <- sub(paste(queue,"alive","",sep="."),"",alive)
       fault <- setdiff(started,alive)
       if(length(fault)>0) {
-  # One or more worker faults have occurred. Re-sumbit the work.
+        # One or more worker faults have occurred. Re-sumbit the work.
         fault <- paste(queue, "start", fault, sep=".")
         fjobs <- redisMGet(fault)
         redisDelete(fault)
@@ -432,10 +442,12 @@ tryCatch(
 # clean up redis work queue, removing all tasks in the job defined by ID
 flushQueue <- function(queue, ID)
 {
+  startkeys <- redisKeys(pattern=sprintf("%s.start*",queue))
   redisSetPipeline(TRUE)
   redisMulti()
-  redisLRange(queue,0L,1000000000L)  # retrieve everything
-  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete inside multi
+  redisLRange(queue,0L,1000000000L)  # retrieve everything on the queue first
+  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete inside multi?
+  tryCatch(redisDelete(startkeys), error=function(e) NULL)
   redisExec()
   tasks <- redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
