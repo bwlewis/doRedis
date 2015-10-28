@@ -161,6 +161,11 @@ redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30
   k <- 0
   while(k < iter) {
     work <- redisBLPop(queue,timeout=timeout)
+# XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
+# ---------------------------------------------------------------------------
+# From this point to the point similarly marked below, things are fragile.
+# The worker has downloaded a task but not yet set a started key. If a failure
+# occurs here, then the master can't detect it. XXX FIX ME!!!!!
     queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
     queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
 # We terminate the worker loop after a timeout when all specified work
@@ -180,19 +185,6 @@ redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30
      }
     else
      {
-      k <- k + 1
-      cat("Processing task(s)",names(work[[1]]$argsList),"from queue",names(work),"ID",work[[1]]$ID,"\n",file=log)
-      flush.console()
-# Check that the incoming work ID matches our current environment. If
-# not, we need to re-initialize our work environment with data from the
-# <queue>.env Redis string.
-      if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
-       {
-        initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
-                    names(work[[1]]$argsList)[[1]],log)
-        assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
-       }
 # FT support
       iters = names(work[[1]]$argsList)
       fttag <- sprintf("iters %s...%s host %s pid %s", iters[1], iters[length(iters)], Sys.info()["nodename"], Sys.getpid())
@@ -206,10 +198,31 @@ redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30
       on.exit(.delOK()) # In case we exit this function unexpectedly
       .setOK(port, host, fttag.alive, password=password) # Immediately set an alive key for this task
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
+# ---------------------------------------------------------------------------
+# XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
+# End of bad code section (see above). XXX FIX ME!!!
+# ---------------------------------------------------------------------------
 # Now do the work.
+      k <- k + 1
+      cat("Processing task(s)",names(work[[1]]$argsList),"from queue",names(work),"ID",work[[1]]$ID,"\n",file=log)
+      flush.console()
+# Check that the incoming work ID matches our current environment. If
+# not, we need to re-initialize our work environment with data from the
+# <queue>.env Redis string.
+      if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
+       {
+        initdata <- redisGet(queueEnv)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
+                    names(work[[1]]$argsList)[[1]],log)
+        assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
+       }
       result <- lapply(work[[1]]$argsList, .evalWrapper)
       names(result) <- names(work[[1]]$argsList)
       redisLPush(queueOut, result)
+# Importantly, the worker does not delete his start key until after the
+# result is successfully placed in a Redis queue. And then after that
+# the alive thread is terminated, allowing the corresponding alive key
+# to expire.
       tryCatch(redisDelete(fttag.start), error=function(e) invisible())
       .delOK()
     }

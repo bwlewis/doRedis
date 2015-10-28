@@ -392,6 +392,8 @@ tryCatch(
     if(is.null(results))
     {
       # Check for worker fault and re-submit tasks if required...
+      # This detects asymmetry between started and alive processes,
+      # resubmitting started tasks whose workers are no longer alive.
       started <- redisKeys(queueStart)
       started <- sub(paste(queue,"start","",sep="."),"",started)
       alive <- redisKeys(queueAlive)
