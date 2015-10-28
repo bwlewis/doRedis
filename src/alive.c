@@ -281,7 +281,6 @@ delOK ()
 SEXP
 setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 {
-fprintf(stderr,"Cazart!\n");
 #ifdef Win32
   WSADATA wsaData;
   DWORD dw_thread_id;
