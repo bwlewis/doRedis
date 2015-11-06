@@ -14,6 +14,8 @@ registerDoRedis(queue, host = "localhost", port = 6379, password, ...)
 \item{port}{The Redis server port number}
 
 \item{password}{An optional Redis database password}
+
+\item{...}{Optional arguments passed to \code{\link{redisConnect}}}
 }
 \value{
 NULL is invisibly returned.

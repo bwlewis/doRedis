@@ -8,4 +8,7 @@
 The doRedis package imlpements an elastic parallel back end
 for foreach using the Redis key/value database.
 }
+\seealso{
+\code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
+}
 

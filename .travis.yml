@@ -1,5 +1,6 @@
 language: r
-sudo: required
+sudo: false
+
 env:
   global:
     - TEST_DOREDIS=TRUE
@@ -11,6 +12,31 @@ warnings_are_errors: true
 
 r_github_packages:
   - jimhester/covr
+
+addons:
+  apt:
+    sources:
+      - r-packages-precise
+    packages:
+      - r-base-dev
+      - r-recommended
+      - pandoc
+
+env:
+  - R_LIBS_USER=~/R/library
+
+cache:
+  directories:
+    $R_LIBS_USER
+
+before_script:
+  - mkdir -p "$R_LIBS_USER"
+  - Rscript -e 'if (length(find.package("devtools", quiet = TRUE)) == 0L) { install.packages("devtools", repos = "http://cran.rstudio.com") }'
+  - Rscript -e 'devtools::update_packages("devtools", repos = "http://cran.rstudio.com")'
+  - Rscript -e 'devtools::install_deps(repos = "http://cran.rstudio.com", dependencies = TRUE)'
+
+script:
+  - Rscript -e 'devtools::check()'
 
 after_success:
   - Rscript -e 'library(doRedis); covr::codecov()'
