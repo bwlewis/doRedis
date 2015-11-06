@@ -84,13 +84,13 @@ CONF=\$1
 [ ! -x \$CONF ]  || echo "Can't find configuration file doRedis.conf, exiting"
 [ ! -x \$CONF ] || exit 1
 
-N=\$(cat \$CONF | sed -n /^n:/p | sed -e "s/.*:[[:blank:]*]//")
-R=\$(cat \$CONF | sed -n /^R:/p | sed -e "s/.*:[[:blank:]*]//")
-T=\$(cat \$CONF | sed -n /^timeout:/p | sed -e "s/.*:[[:blank:]*]//")
-I=\$(cat \$CONF | sed -n /^iter:/p | sed -e "s/.*:[[:blank:]*]//")
-HOST=\$(cat \$CONF | sed -n /^host:/p | sed -e "s/.*:[[:blank:]*]//")
-PORT=\$(cat \$CONF | sed -n /^port:/p | sed -e "s/.*:[[:blank:]*]//")
-QUEUE=\$(cat \$CONF | sed -n /^queue:/p | sed -e "s/.*:[[:blank:]*]//")
+N=\$(cat \$CONF | sed -n /^n:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+R=\$(cat \$CONF | sed -n /^R:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+T=\$(cat \$CONF | sed -n /^timeout:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+I=\$(cat \$CONF | sed -n /^iter:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+HOST=\$(cat \$CONF | sed -n /^host:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+PORT=\$(cat \$CONF | sed -n /^port:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+QUEUE=\$(cat \$CONF | sed -n /^queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 
 [ -z "\${N}" ] && N=1
 [ -z "\${R}" ] && R=R
@@ -103,19 +103,23 @@ QUEUE=\$(cat \$CONF | sed -n /^queue:/p | sed -e "s/.*:[[:blank:]*]//")
 Terminator ()
 {
   for j in \$(jobs -p); do
-    kill \$j
+    kill \$j 2>/dev/null
   done
   exit
 }
 trap "Terminator" SIGHUP SIGINT SIGTERM
 
+timeout=10
 while :; do
-  j=0
-  while test \$j -lt \$N; do
+  # Initial start up
+  j=\$(jobs -p | wc -l)
+  if test \$j -lt \$N; then
     \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')"  >/dev/null 2>&1  &
-    j=\$((\$j + 1))
-  done
-  wait
+    timeout=2
+  else
+    timeout=10
+  fi
+  sleep \$timeout
 done
 2ZZZ
 

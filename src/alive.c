@@ -38,6 +38,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <signal.h>
 #endif
 
 #include <string.h>
@@ -52,52 +53,80 @@
 #define BS_LARGE 16384
 
 int go;
+int n_sentinel = 0;
 #ifdef Win32
 HANDLE t;
 SOCKET s;
 #else
-int s;
+int s = 0;
 pthread_t t;
 #endif
 
+typedef struct
+{
+  int port;
+  char host[BS];
+} Conn;
+
+void
+snooze (int milliseconds)
+{
+#ifdef Win32
+  Sleep (milliseconds);
+#else
+  usleep (1000 * milliseconds);
+#endif
+}
+
+void
+die ()
+{
+#ifdef Win32
+  ExitProcess (-1);
+#else
+  kill(getpid(), 15);
+  exit (-1);
+#endif
+}
+
 /* tcpconnect
- * connect to the specified host and port, setting the global
+ * connect to the specified host and port, setting the
  * socket value s to a socket connected to the host/port.
  */
 #ifdef Win32
 void
-tcpconnect (const char *host, int port)
+tcpconnect (SOCKET * s, const char *host, int port)
 {
   int j;
   char portstr[16];
   struct addrinfo *a = NULL, *ap = NULL;
   struct addrinfo hints;
-  s = INVALID_SOCKET;
+  *s = INVALID_SOCKET;
   snprintf (portstr, 16, "%d", port);
   ZeroMemory (&hints, sizeof (hints));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
   j = getaddrinfo (host, portstr, &hints, &a);
-  if(j!=0)
-  {
-    s = INVALID_SOCKET;
-    return;
-  }
-  ap = a;
-  s = socket (ap->ai_family, ap->ai_socktype, ap->ai_protocol);
-  if (s < 0)
-    return;
-  j = connect (s, ap->ai_addr, (int) ap->ai_addrlen);
   if (j != 0)
     {
-      close(s);
-      s = INVALID_SOCKET;
+      *s = INVALID_SOCKET;
+      return;
+    }
+  ap = a;
+  *s = socket (ap->ai_family, ap->ai_socktype, ap->ai_protocol);
+  if (*s < 0)
+    return;
+  j = connect (*s, ap->ai_addr, (int) ap->ai_addrlen);
+  if (j != 0)
+    {
+      close (*s);
+      *s = INVALID_SOCKET;
     }
 }
 #else
 void
-tcpconnect (char *host, int port)
+tcpconnect (int *s, char *host, int port)
 {
   struct hostent *h;
   struct sockaddr_in sa;
@@ -106,21 +135,22 @@ tcpconnect (char *host, int port)
   h = gethostbyname (host);
   if (!h)
     {
-      s = -1;
+      *s = -1;
     }
   else
     {
-      s = socket (AF_INET, SOCK_STREAM, 0);
-      if (s < 0) return;
+      *s = socket (AF_INET, SOCK_STREAM, 0);
+      if (s < 0)
+        return;
       memset ((void *) &sa, 0, sizeof (sa));
       sa.sin_family = AF_INET;
       sa.sin_port = htons (port);
       sa.sin_addr = *(struct in_addr *) h->h_addr;
-      j = connect (s, (struct sockaddr *) &sa, sizeof (sa));
+      j = connect (*s, (struct sockaddr *) &sa, sizeof (sa));
       if (j < 0)
         {
-          close (s);
-          s = -1;
+          close (*s);
+          *s = -1;
           return;
         }
     }
@@ -145,7 +175,8 @@ sendall (int s, char *buf, size_t * len)
   while (total < *len)
     {
       n = send (s, buf + total, bytesleft, 0);
-      if (n == -1) break;
+      if (n == -1)
+        break;
       total += n;
       bytesleft -= n;
     }
@@ -168,7 +199,7 @@ msg (int sock, char *cmd, char *response)
   if (j < 0)
     return j;
   memset (response, 0, BS);
-  j = (int)recv (sock, response, BS, 0);
+  j = (int) recv (sock, response, BS, 0);
   if (j < 0)
     return j;
   if (response[0] == '-')
@@ -211,14 +242,14 @@ ok (void *x)
   memset (expire, 0, BS_LARGE);
   pr_n =
     snprintf (set, BS_LARGE, "*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n",
-              (int)k, key);
+              (int) k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
       thread_exit ();
     }
   pr_n =
     snprintf (expire, BS_LARGE,
-              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", (int)k, key);
+              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", (int) k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
       thread_exit ();
@@ -246,11 +277,7 @@ ok (void *x)
             }
           m = 0;
         }
-#ifdef Win32
-      Sleep (100);
-#else
-      usleep (100000);
-#endif
+      snooze (100);
     }
   return NULL;
 }
@@ -291,7 +318,7 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 #ifdef Win32
   WSAStartup (MAKEWORD (2, 2), &wsaData);
 #endif
-  tcpconnect (host, port);
+  tcpconnect (&s, host, port);
   go = 1;
 /* check for AUTH and authorize if needed */
   if (k > 0)
@@ -299,14 +326,111 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
       memset (authorize, 0, BS);
       snprintf (authorize, BS, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", k, auth);
       j = msg (s, authorize, buf);
-      if(j<0) error("Redis communication error during authentication");
+      if (j < 0)
+        error ("Redis communication error during authentication");
     }
-
 #ifdef Win32
   t = CreateThread (NULL, 0, (LPTHREAD_START_ROUTINE) ok, (LPVOID) key, 0,
                     &dw_thread_id);
 #else
-  pthread_create (&t, NULL, ok, (void *) key);
+  pthread_create (&t, NULL, &ok, (void *) key);
 #endif
+  return (R_NilValue);
+}
+
+/* At most one of these threads are allowed to run at a time.
+ * Input: pointer to a Conn struct
+ * This function does not return. It pings the redis server specified
+ * in the Conn struct every 10 seconds. If a connection cannot be established
+ * the function terminates R. If the connection is lost once established,
+ * the function attempts to regain it three times. If after those tries
+ * a connection can't be established, the function terminates R.
+ */
+#ifdef Win32
+void *
+sentinel_thread (LPVOID x)
+#else
+void *
+sentinel_thread (void *x)
+#endif
+{
+#ifdef Win32
+  SOCKET q;
+#else
+  int q = 0;
+#endif
+  int j, try = 0;
+  Conn conn;
+  memcpy (&conn, (Conn *) x, sizeof (conn));
+  const char *buf = "time\r\n";
+  size_t len = strlen (buf);
+  tcpconnect (&q, conn.host, conn.port);
+  if (q < 0)
+    {
+      Rprintf ("sentinel could not connect to Redis\n");
+      die ();
+    }
+  for (;;)
+    {
+      j = send (q, buf, len, MSG_NOSIGNAL);
+      Rprintf ("%s:%d  %d\n", conn.host, conn.port, j);
+      if (j < 0)
+        {
+          try++;
+          if (try < 3)
+            {
+              Rprintf ("Connection lost, retrying %d\n", try);
+              close (q);
+              snooze (2000);
+              tcpconnect (&q, conn.host, conn.port);
+              if (q >= 0)
+                try = 0;
+            }
+          else
+            {
+              Rprintf ("Connection lost, exiting\n");
+              die ();
+            }
+        }
+      snooze (10000);
+    }
+}
+
+/* Interface to the sentinel_thread function above. */
+SEXP
+sentinel (SEXP PORT, SEXP HOST)
+{
+#ifdef Win32
+  HANDLE t;
+  WSADATA wsaData;
+  DWORD dw_thread_id;
+#else
+  pthread_t st;
+#endif
+  Conn conn;
+  /* Only allow at most one sentinel thread */
+  if (n_sentinel > 0)
+    return (R_NilValue);
+  conn.port = *(INTEGER (PORT));
+  snprintf (conn.host, BS, "%s", (char *) CHAR (STRING_ELT (HOST, 0)));
+#ifdef Win32
+  st =
+    CreateThread (NULL, 0, (LPTHREAD_START_ROUTINE) sentinel_thread,
+                  (LPVOID) & conn, 0, &dw_thread_id);
+  if (st == NULL)
+    {
+      Rprintf ("error creating sentinel thread\n");
+      die ();
+    }
+  CloseHandle (st);
+#else
+  if (pthread_create (&st, NULL, &sentinel_thread, (void *) &conn) != 0)
+    {
+      Rprintf ("error creating sentinel thread\n");
+      die ();
+    }
+  pthread_detach (st);
+#endif
+  n_sentinel++;
   return (R_NilValue);
 }

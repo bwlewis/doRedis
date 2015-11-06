@@ -1,3 +1,4 @@
+# Do not use .setOK from interactive R sessions.
 # .setOK and .delOK support worker fault tolerance
 `.setOK` <- function(port, host, key, password)
 {
@@ -76,6 +77,8 @@
 #' @param log Log messages to the specified file connection.
 #' @param Rbin The full path to the command-line R program.
 #' @param password Optional Redis database password.
+#' @param sentinel Optional logical value, if TRUE start a sentinal thread (see \code{\link{redisWorker}}).
+#' @param ... Optional additional parameters passed to the \code{\link{redisWorker}} function.
 #'
 #' @return NULL is invisibly returned.
 #'
@@ -95,7 +98,7 @@
 #' @export
 startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
-  Rbin=paste(R.home(component='bin'),"R",sep="/"), password, ...)
+  Rbin=paste(R.home(component='bin'),"R",sep="/"), password, sentinel, ...)
 {
   m <- match.call()
   f <- formals()
@@ -103,8 +106,9 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   if(is.null(l)) l <- f$log
   cmd <- paste("require(doRedis);redisWorker(queue='",
       queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
-      timeout,", log=",deparse(l),sep="")
-  if(!missing(password)) cmd <- sprintf("%s,password='%s'",cmd,password)
+      timeout, ", log=", deparse(l), sep="")
+  if(!missing(sentinel)) cmd <- sprintf("%s,sentinel=%s", cmd, sentinel)
+  if(!missing(password)) cmd <- sprintf("%s,password='%s'", cmd, password)
   dots <- list(...)
   if(length(dots)>0)
   {
@@ -116,7 +120,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   j=0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
   while(j<n) {
-# system2(Rbin,args=args,wait=FALSE,stdout=NULL)
+# Alternate: ?? system2(Rbin,args=args,wait=FALSE,stdout=NULL)
     system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
     j = j + 1
   }
@@ -138,20 +142,36 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @param log Log messages to the specified file connection.
 #' @param connected Is the R session creating the worker already connected to Redis?
 #' @param password Optional Redis database password.
+#' @param sentinel If \code{TRUE} start a sentinel thread (see Note).
+#' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #'
 #' @return NULL is invisibly returned.
+#' @note The \code{sentinel} option defaults to \code{TRUE} in non-interactive
+#' R sessions. When \code{TRUE}, a rather Draconian sentinel thread is started
+#' that terminates the R process if a connection to Redis is lost for too long.
+#' The thread checks for Redis connectivity every 10 seconds and will retry a
+#' connection up to three times before exiting.
+#'
+#' The sentinel thread is useful in circumstances where R worker processes are
+#' run in a loop, for example using the example daemon process in available
+#' from the \code{scripts/redis-worker-installer.sh} script installed with the package.
+#' Using the sentinel helps worker processes tolerate failure of the master Redis
+#' node, recovering eventually in a new R process when Redis is available again.
 #'
 #' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 #'
 #' @export
-redisWorker <- function(queue, host="localhost", port=6379, iter=Inf, timeout=30, log=stdout(), connected=FALSE, password=NULL,...)
+redisWorker <- function(queue, host="localhost", port=6379,
+                        iter=Inf, timeout=30, log=stdout(),
+                        connected=FALSE, password=NULL, sentinel=!interactive(), ...)
 {
+  if(sentinel) .Call("sentinel", as.integer(port), as.character(host), PACKAGE="doRedis")
   if (!connected)
-    redisConnect(host,port,password=password,...)
-  sink(type="message",append=TRUE,file=log)
-  sink(type="output",append=TRUE,file=log)
+    redisConnect(host, port, password=password, ...)
+  sink(type="message", append=TRUE, file=log)
+  sink(type="output", append=TRUE, file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
-  queueLive <- paste(queue,"live",sep=".")
+  queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
   queueCount <- paste(queue,"count",sep=".")
   for(j in queueCount)
