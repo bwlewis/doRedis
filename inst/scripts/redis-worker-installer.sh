@@ -102,7 +102,7 @@ QUEUE=\$(cat \$CONF | sed -n /^queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]/
 
 Terminator ()
 {
-  for j in \$(jobs -p); do
+  for j in \$(jobs -p -r); do
     kill \$j 2>/dev/null
   done
   exit
@@ -112,7 +112,7 @@ trap "Terminator" SIGHUP SIGINT SIGTERM
 timeout=10
 while :; do
   # Initial start up
-  j=\$(jobs -p | wc -l)
+  j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then
     \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')"  >/dev/null 2>&1  &
     timeout=2
@@ -140,7 +140,7 @@ R: R
 # Set timeout to wait period after job queue is deleted before exiting
 timeout: 5
 # Set iter to maximum number of iterations to run before exiting
-iter: Inf
+iter: 50
 host: localhost
 port: 6379
 queue: RJOBS

@@ -386,7 +386,6 @@ sentinel_thread (void *x)
   for (;;)
     {
       j = send (q, buf, len, MSG_NOSIGNAL);
-      Rprintf ("%s:%d  %d\n", conn.host, conn.port, j);
       if (j < 0)
         {
           try++;
