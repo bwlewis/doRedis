@@ -17,10 +17,10 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
   compare(ans,55, "foreach")
 
 # setX tests
-  setChunkSize(5)
   x <- 0
   setExport("x")
   setPackages("rredis")
+  setChunkSize(5)
   ans <- foreach(j=1:10, .combine=sum, .noexport="x") %dopar% {
     j + x
   }
