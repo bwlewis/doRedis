@@ -8,8 +8,6 @@ env:
 services:
   - redis-server
 
-warnings_are_errors: true
-
 addons:
   apt:
     sources:
