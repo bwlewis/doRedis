@@ -78,14 +78,27 @@ snooze (int milliseconds)
 #endif
 }
 
+/* NOTE!
+ * The https://cran.r-project.org/doc/manuals/R-exts.html manual states
+ *
+ *     Compiled code should not call entry points which might terminate R ...
+ *
+ * However, that outcome is explicitly desired here. When the connection to
+ * Redis is lost, the R worker process might get stuck in a very slow to
+ * timeout blocking connection, for example. We desire to terminate the R
+ * process sooner rather than later. That way, doRedis can re-schedule the
+ * failed task and a management wrapper like thie one in the inst/scripts
+ * directory can start a fresh worker process going.
+ */
 void
 die ()
 {
 #ifdef Win32
   ExitProcess (-1);
 #else
-  kill(getpid(), 15);
-  exit (-1);
+  kill (getpid(), 15);
+  snooze (1000);
+  kill (getpid(), 9);
 #endif
 }
 

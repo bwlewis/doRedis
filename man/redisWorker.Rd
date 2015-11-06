@@ -6,7 +6,7 @@
 \usage{
 redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
   timeout = 30, log = stdout(), connected = FALSE, password = NULL,
-  sentinel = interactive(), ...)
+  sentinel = !interactive(), ...)
 }
 \arguments{
 \item{queue}{The doRedis work queue name or a vector of queue names.}

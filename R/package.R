@@ -5,6 +5,8 @@
 #'
 #' @name doRedis-package
 #' 
+#' @useDynLib doRedis
+#' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 #' @docType package
 NULL
 

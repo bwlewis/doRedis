@@ -2,8 +2,8 @@
 # .setOK and .delOK support worker fault tolerance
 `.setOK` <- function(port, host, key, password)
 {
-  if(missing(password)) password=""
-  if(is.null(password)) password=""
+  if(missing(password)) password <- ""
+  if(is.null(password)) password <- ""
   .Call("setOK", as.integer(port), as.character(host),
         as.character(key),as.character(password), PACKAGE="doRedis")
   invisible()
@@ -26,10 +26,10 @@
       if(!is.null(exportenv$worker.init))
         if(is.function(exportenv$worker.init))
           do.call(exportenv$worker.init, list(), envir=globalenv())
-    }, error=function(e) cat(as.character(e),'\n',file=log)
+    }, error=function(e) cat(as.character(e), "\n", file=log)
   )
-  assign('expr', expr, .doRedisGlobals)
-  assign('exportenv', exportenv, .doRedisGlobals)
+  assign("expr", expr, .doRedisGlobals)
+  assign("exportenv", exportenv, .doRedisGlobals)
 # XXX This use of parent.env should be changed. It's used here to
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
@@ -41,7 +41,6 @@
   tryCatch({
       lapply(names(args), function(n)
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
-# eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
       if(exists(".Random.seed",envir=.doRedisGlobals$exportenv))
       {
         assign(".Random.seed",.doRedisGlobals$exportenv$.Random.seed, envir=globalenv())
@@ -49,11 +48,10 @@
       tryCatch(
       {
 # Override the function set.seed.worker to roll your own RNG.
-        if(exists('set.seed.worker',envir=.doRedisGlobals$exportenv))
-          do.call('set.seed.worker',list(0),envir=.doRedisGlobals$exportenv)
-       }, error=function(e) cat(as.character(e),'\n',file=log))
+        if(exists("set.seed.worker",envir=.doRedisGlobals$exportenv))
+          do.call("set.seed.worker",list(0),envir=.doRedisGlobals$exportenv)
+       }, error=function(e) cat(as.character(e),"\n",file=log))
       eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
-     # evalq(eval(.doRedisGlobals$expr), envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
   )
@@ -98,7 +96,7 @@
 #' @export
 startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   iter=Inf, timeout=30, log=stdout(),
-  Rbin=paste(R.home(component='bin'),"R",sep="/"), password, sentinel, ...)
+  Rbin=paste(R.home(component="bin"),"R",sep="/"), password, sentinel, ...)
 {
   m <- match.call()
   f <- formals()
@@ -110,19 +108,19 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   if(!missing(sentinel)) cmd <- sprintf("%s,sentinel=%s", cmd, sentinel)
   if(!missing(password)) cmd <- sprintf("%s,password='%s'", cmd, password)
   dots <- list(...)
-  if(length(dots)>0)
+  if(length(dots) > 0)
   {
-    dots = paste(paste(names(dots),dots,sep="="),collapse=",")
+    dots <- paste(paste(names(dots),dots,sep="="),collapse=",")
     cmd <- sprintf("%s,%s",cmd,dots)
   }
   cmd <- sprintf("%s)",cmd)
 
-  j=0
+  j <- 0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
-  while(j<n) {
-# Alternate: ?? system2(Rbin,args=args,wait=FALSE,stdout=NULL)
+  while(j < n)
+  {
     system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
-    j = j + 1
+    j <- j + 1
   }
 }
 
@@ -174,7 +172,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
   queueCount <- paste(queue,"count",sep=".")
-  for(j in queueCount)
+  for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
   cat("Waiting for doRedis jobs.\n", file=log)
   flush.console()
@@ -193,20 +191,20 @@ redisWorker <- function(queue, host="localhost", port=6379,
     if(is.null(work[[1]]))
      {
       ok <- FALSE
-      for(j in queueLive) ok <- ok || redisExists(j)
+      for (j in queueLive) ok <- ok || redisExists(j)
       if(!ok) {
 # If we get here, ALL our queues were deleted. Clean up and exit worker loop.
-        for(j in queueOut) if(redisExists(j)) redisDelete(j)
-        for(j in queueEnv) if(redisExists(j)) redisDelete(j)
-        for(j in queueCount) if(redisExists(j)) redisDelete(j)
-        for(j in queue) if(redisExists(j)) redisDelete(j)
+        for (j in queueOut) if(redisExists(j)) redisDelete(j)
+        for (j in queueEnv) if(redisExists(j)) redisDelete(j)
+        for (j in queueCount) if(redisExists(j)) redisDelete(j)
+        for (j in queue) if(redisExists(j)) redisDelete(j)
         break
       }
      }
     else
      {
 # FT support
-      iters = names(work[[1]]$argsList)
+      iters <- names(work[[1]]$argsList)
       fttag <- sprintf("iters %s...%s host %s pid %s", iters[1], iters[length(iters)], Sys.info()["nodename"], Sys.getpid())
       fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
       fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
@@ -249,7 +247,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   }
 # Either the queue has been deleted, or we've exceeded the number of
 # specified work iterations.
-  for(j in queueCount) if(redisExists(j)) redisDecr(j)
+  for (j in queueCount) if(redisExists(j)) redisDecr(j)
   cat("Worker exit.\n", file=log)
   if (!connected)
     redisClose()
