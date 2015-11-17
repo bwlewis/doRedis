@@ -455,7 +455,7 @@ flushQueue <- function(queue, ID)
 # Restore tasks not matching ID
   lapply(tasks[[4]][[1]], function(j)
   {
-    if(j$ID != ID) redisRPush(queue, list(ID=j$ID, argsList=j$argsList))
+    if(j["ID"] != ID) redisRPush(queue, list(ID=j["ID"], argsList=j["argsList"]))
   })
 }
 

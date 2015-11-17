@@ -222,7 +222,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # ---------------------------------------------------------------------------
 # Now do the work.
       k <- k + 1
-      cat("Processing task(s)",names(work[[1]]$argsList),"from queue",names(work),"ID",work[[1]]$ID,"\n",file=log)
+      cat("Processing task(s)", names(work[[1]]$argsList), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
       flush.console()
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
@@ -234,7 +234,12 @@ redisWorker <- function(queue, host="localhost", port=6379,
                     names(work[[1]]$argsList)[[1]],log)
         assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
+# Close open redis connections prior to work to avoid
+# connection issues from use of fork, for example...
+if (!connected) redisClose()
       result <- lapply(work[[1]]$argsList, .evalWrapper)
+# ...and reconnect when done...
+if (!connected) redisConnect(host, port, password=password, ...)
       names(result) <- names(work[[1]]$argsList)
       redisLPush(queueOut, result)
 # Importantly, the worker does not delete his start key until after the
@@ -249,6 +254,5 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # specified work iterations.
   for (j in queueCount) if(redisExists(j)) redisDecr(j)
   cat("Worker exit.\n", file=log)
-  if (!connected)
-    redisClose()
+  if (!connected) redisClose()
 }
