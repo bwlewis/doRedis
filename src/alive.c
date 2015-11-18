@@ -380,7 +380,7 @@ sentinel_thread (void *x)
   tcpconnect (&q, conn.host, conn.port);
   if (q < 0)
     {
-      Rprintf ("sentinel could not connect to Redis\n");
+      Rprintf ("sentinel could not connect to Redis %d\n", q);
       die ();
     }
   for (;;)

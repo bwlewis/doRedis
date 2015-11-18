@@ -4,16 +4,14 @@
 {
   if(missing(password)) password <- ""
   if(is.null(password)) password <- ""
-  .Call("setOK", as.integer(port), as.character(host),
-        as.character(key),as.character(password), PACKAGE="doRedis")
-  redisSet(key, "")
-  invisible()
+  invisible(
+    .Call("setOK", as.integer(port), as.character(host),
+        as.character(key),as.character(password), PACKAGE="doRedis"))
 }
 
 `.delOK` <- function()
 {
-  .Call("delOK",PACKAGE="doRedis")
-  invisible()
+  invisible(.Call("delOK",PACKAGE="doRedis"))
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
@@ -178,7 +176,9 @@ redisWorker <- function(queue, host="localhost", port=6379,
   cat("Waiting for doRedis jobs.\n", file=log)
   flush.console()
   k <- 0
-  while(k < iter) {
+  on.exit(.delOK()) # In case we exit this function unexpectedly
+  while(k < iter)
+  {
     work <- redisBLPop(queue,timeout=timeout)
 # XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
 # ---------------------------------------------------------------------------
@@ -214,7 +214,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
-      on.exit(.delOK()) # In case we exit this function unexpectedly
       .setOK(port, host, fttag.alive, password=password) # Immediately set an alive key for this task
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
 # ---------------------------------------------------------------------------
@@ -235,12 +234,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
                     names(work[[1]]$argsList)[[1]],log)
         assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
-# Close open redis connections prior to work to avoid
-# connection issues from use of fork, for example...
-if (!connected) redisClose()
       result <- lapply(work[[1]]$argsList, .evalWrapper)
-# ...and reconnect when done...
-if (!connected) redisConnect(host, port, password=password, ...)
       names(result) <- names(work[[1]]$argsList)
       redisLPush(queueOut, result)
 # Importantly, the worker does not delete his start key until after the

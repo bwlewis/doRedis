@@ -39,10 +39,15 @@ queues at any time and can be used by running foreach computations.
 \note{
 All doRedis functions require access to a Redis database server (not included
 with this package).
+
 The doRedis package sets RNG streams across the worker processes using the
 L'Ecuyer-CMRG method from R's parallel package for reproducible pseudorandom
 numbers independent of the number of workers or task distribution. See the
 package vignette for more details and additional options.
+
+Avoid using fork-based parallel functions within doRedis expressions.
+Use of \code{mclapply} and similar functions in the body of a doRedis foreach
+loop can result in deadlocks or even crashes in some cases.
 }
 \examples{
 \dontrun{

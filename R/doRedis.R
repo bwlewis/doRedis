@@ -45,11 +45,15 @@
 #' @note 
 #' All doRedis functions require access to a Redis database server (not included
 #' with this package).
-#"
+#'
 #' The doRedis package sets RNG streams across the worker processes using the
 #' L'Ecuyer-CMRG method from R's parallel package for reproducible pseudorandom
 #' numbers independent of the number of workers or task distribution. See the
 #' package vignette for more details and additional options.
+#'
+#' Avoid using fork-based parallel functions within doRedis expressions.
+#' Use of \code{mclapply} and similar functions in the body of a doRedis foreach
+#' loop can result in deadlocks or even crashes in some cases.
 #'
 #' @return
 #' NULL is invisibly returned.
@@ -266,6 +270,12 @@ setPackages <- function(packages=c())
 
   if (!inherits(obj, "foreach"))
     stop("obj must be a foreach object")
+
+# A quick and dirty check for fork operations in expr
+  if(any(grepl("mclapply",as.character(expr))))
+  {
+    warning("Use of `mclapply` or any fork operation with doRedis is unreliable", immediate.=TRUE)
+  }
 
 # Manage default parallel RNG, restoring an advanced old RNG state on exit
   .seed <- NULL
