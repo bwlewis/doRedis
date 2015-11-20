@@ -11,3 +11,5 @@
 NULL
 
 .doRedisGlobals <- new.env(parent=emptyenv())
+
+REDIS_MAX_VALUE_SIZE <- 524288000

@@ -340,8 +340,13 @@ setPackages <- function(packages=c())
              pos=exportenv, inherits=FALSE)
     }
   }
-# Create a job environment for the workers to use
-# XXX catch error here (too big)
+# Create a job environment for the workers to use, making sure that it
+# fits in Redis.
+  if(object.size(exportenv) > REDIS_MAX_VALUE_SIZE)
+  {
+    message("The exported environment size is too large.\nConsider breaking up your data across multiple Redis keys.")
+    stop("exportenv too big")
+  }
   redisSet(queueEnv, list(expr=expr,
                           exportenv=exportenv, packages=obj$packages))
   results <- NULL
@@ -416,8 +421,7 @@ tryCatch(
         for (resub in fjobs) {
           block <- argsList[unlist(resub)]
           names(block) <- unlist(resub)
-          if (obj$verbose)
-            cat("Worker fault: resubmitting jobs", names(block), "\n")
+          warning(sprintf("Worker fault: resubmitting jobs %s", names(block)), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
       }
@@ -456,16 +460,19 @@ flushQueue <- function(queue, ID)
   startkeys <- redisKeys(pattern=sprintf("%s.start*",queue))
   redisSetPipeline(TRUE)
   redisMulti()
-  redisLRange(queue,0L,1000000000L)  # retrieve everything on the queue first
-  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete inside multi?
-  tryCatch(redisDelete(startkeys), error=function(e) NULL)
+  redisLRange(queue,0L,1000000000L)  # retrieve everything on the work queue
+  tryCatch(redisDelete(queue), error=function(e) NULL) # delete the queue
+  if(!is.null(startkeys)) tryCatch(redisDelete(startkeys), error=function(e) NULL)
   redisExec()
   tasks <- redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
-# Restore tasks not matching ID
-  lapply(tasks[[4]][[1]], function(j)
+# Re-queue tasks not matching ID. First we need to locate the IDs, if any, in
+# the result.
+  idx <- grep("ID", tasks)
+  if(length(idx) == 0) return()
+  lapply(tasks[[idx]][[1]], function(j)
   {
-    if(j["ID"] != ID) redisRPush(queue, list(ID=j["ID"], argsList=j["argsList"]))
+    if(j$ID != ID) redisRPush(queue, list(ID=j$ID, argsList=j$argsList))
   })
 }
 
