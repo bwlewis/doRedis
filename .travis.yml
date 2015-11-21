@@ -13,6 +13,8 @@ addons:
       - r-recommended
       - pandoc
       - texinfo
+      - texlive-latex-extra
+      - texlive-latex-recommended
 
 env:
   global:
