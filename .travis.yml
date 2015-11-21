@@ -15,8 +15,9 @@ addons:
       - texinfo
 
 env:
-  - TEST_DOREDIS=TRUE
-  - R_LIBS_USER=~/R/library
+  global:
+    - TEST_DOREDIS=TRUE
+    - R_LIBS_USER=~/R/library
 
 cache:
   directories:
