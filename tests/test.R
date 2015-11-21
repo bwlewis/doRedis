@@ -1,8 +1,8 @@
 require(doRedis)
 
-compare <- function(x,y,label="unexpected result")
+compare <- function(x, y, label="unexpected result")
 {
-  if(!isTRUE(all.equal(x,y))) stop(label)
+  if(!isTRUE(all.equal(x, y))) stop(label)
 }
 
 if(Sys.getenv("TEST_DOREDIS") == "TRUE")

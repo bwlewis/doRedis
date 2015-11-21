@@ -380,6 +380,7 @@ setPackages <- function(packages=c())
 # The task order is encoded in names(argsList).
   nout <- 1
   j <- 1
+  done <- c()  # A vector of completed tasks
 # To speed this up, we added nonblocking calls to rredis and use them.
   redisSetPipeline(TRUE)
   redisMulti()
@@ -408,10 +409,8 @@ tryCatch(
       # Check for worker fault and re-submit tasks if required...
       # This detects asymmetry between started and alive processes,
       # resubmitting started tasks whose workers are no longer alive.
-      started <- redisKeys(queueStart)
-      started <- sub(paste(queue,"start","",sep="."),"",started)
-      alive <- redisKeys(queueAlive)
-      alive <- sub(paste(queue,"alive","",sep="."),"",alive)
+      started <- sub(paste(queue, "start", "", sep="."), "", redisKeys(queueStart))
+      alive <- sub(paste(queue, "alive", "",sep="."), "", redisKeys(queueAlive))
       fault <- setdiff(started,alive)
       if(length(fault) > 0) {
         # One or more worker faults have occurred. Re-sumbit the work.
@@ -421,7 +420,18 @@ tryCatch(
         for (resub in fjobs) {
           block <- argsList[unlist(resub)]
           names(block) <- unlist(resub)
-          warning(sprintf("Worker fault: resubmitting jobs %s", names(block)), immediate.=TRUE)
+          warning(sprintf("Worker fault: resubmitting job(s) %s", names(block)), immediate.=TRUE)
+          redisRPush(queue, list(ID=ID, argsList=block))
+        }
+      }
+      # Check for lost results
+      qlen <- as.integer(redisLLen(queue))
+      if(qlen == 0 && length(started) == 0)
+      {
+        for(resub in setdiff(1:nout, done)) {
+          block <- argsList[resub]
+          names(block) <- resub
+          warning(sprintf("Worker fault: resubmitting job(s) %s", names(block)), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
       }
@@ -429,9 +439,11 @@ tryCatch(
     else
     {
       j <- j + 1
-      tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
+      n <- as.numeric(names(results[[1]]))
+      done <- c(done, n)
+      tryCatch(accumulator(results[[1]], n),
         error=function(e) {
-          cat("error calling combine function:\n")
+          cat("error calling combine function:\n", file=stderr())
           print(e)
       })
     }
@@ -466,8 +478,8 @@ flushQueue <- function(queue, ID)
   redisExec()
   tasks <- redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
-# Re-queue tasks not matching ID. First we need to locate the IDs, if any, in
-# the result.
+# Re-queue jobs not matching ID (these are other jobs submitted to the queue).
+# First we need to locate the IDs, if any, in the result.
   idx <- grep("ID", tasks)
   if(length(idx) == 0) return()
   lapply(tasks[[idx]][[1]], function(j)

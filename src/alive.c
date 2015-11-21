@@ -295,6 +295,7 @@ ok (void *x)
   return NULL;
 }
 
+/* OK to call delOK repeatedly */
 SEXP
 delOK ()
 {
