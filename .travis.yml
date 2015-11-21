@@ -12,8 +12,10 @@ addons:
       - r-base-dev
       - r-recommended
       - pandoc
+      - texinfo
 
 env:
+  - TEST_DOREDIS=TRUE
   - R_LIBS_USER=~/R/library
 
 cache:
