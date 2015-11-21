@@ -165,11 +165,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
   while(k < iter)
   {
     work <- redisBLPop(queue, timeout=timeout)
-# XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-# ---------------------------------------------------------------------------
-# From this point to the point similarly marked below, things are fragile.
-# The worker has downloaded a task but not yet set a started key. If a failure
-# occurs here, then the master can't detect it. XXX FIX ME!!!!!
+# Note the apparent fragility here. The worker has downloaded a task but
+# not yet set alive/started keys. If a failure occurs before that, it
+# seems like the task has been consumed and finished but no matching result
+# appears in the output queue. But, the master keeps track of missing output
+# as of version 1.2.0 and will eventually re-submit such lost tasks.
     queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
     queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
 # We terminate the worker loop after a timeout when all specified work
@@ -201,10 +201,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # by fault tolerant code to resubmit the associated jobs.
       .setOK(port, host, fttag.alive, password=password) # Immediately set an alive key for this task
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
-# ---------------------------------------------------------------------------
-# XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-# End of bad code section (see above). XXX FIX ME!!!
-# ---------------------------------------------------------------------------
 # Now do the work.
       k <- k + 1
       cat("Processing task(s)", names(work[[1]]$argsList), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)

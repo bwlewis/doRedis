@@ -61,12 +61,6 @@ int s = 0;
 pthread_t t;
 #endif
 
-typedef struct
-{
-  int port;
-  char host[BS];
-} Conn;
-
 void
 snooze (int milliseconds)
 {
@@ -74,30 +68,6 @@ snooze (int milliseconds)
   Sleep (milliseconds);
 #else
   usleep (1000 * milliseconds);
-#endif
-}
-
-/* NOTE!
- * The https://cran.r-project.org/doc/manuals/R-exts.html manual states
- *
- *     Compiled code should not call entry points which might terminate R ...
- *
- * However, that outcome is explicitly desired here. When the connection to
- * Redis is lost, the R worker process might get stuck in a very slow to
- * timeout blocking connection, for example. We desire to terminate the R
- * process sooner rather than later. That way, doRedis can re-schedule the
- * failed task and a management wrapper like thie one in the inst/scripts
- * directory can start a fresh worker process going.
- */
-void
-die ()
-{
-#ifdef Win32
-  ExitProcess (-1);
-#else
-  kill (getpid(), 15);
-  snooze (1000);
-  kill (getpid(), 9);
 #endif
 }
 
@@ -231,6 +201,9 @@ thread_exit ()
 }
 
 
+/* This thread keeps the Redis ephemeral 'alive' key alive.
+ * Only one copy of this thread ever runs.
+ */
 #ifdef Win32
 void *
 ok (LPVOID x)
@@ -315,6 +288,8 @@ delOK ()
 SEXP
 setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 {
+  if (go > 0)
+    return (R_NilValue);
 #ifdef Win32
   WSADATA wsaData;
   DWORD dw_thread_id;
@@ -326,8 +301,6 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
   const char *key = CHAR (STRING_ELT (KEY, 0));
   const char *auth = CHAR (STRING_ELT (AUTH, 0));
   int j, k = strlen (auth);
-  if (go > 0)
-    return (R_NilValue);
 #ifdef Win32
   WSAStartup (MAKEWORD (2, 2), &wsaData);
 #endif
