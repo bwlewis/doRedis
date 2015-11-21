@@ -6,7 +6,7 @@
 \usage{
 startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
   timeout = 30, log = stdout(), Rbin = paste(R.home(component = "bin"),
-  "R", sep = "/"), password, sentinel, ...)
+  "R", sep = "/"), password, ...)
 }
 \arguments{
 \item{n}{The number of workers to start.}
@@ -26,8 +26,6 @@ startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
 \item{Rbin}{The full path to the command-line R program.}
 
 \item{password}{Optional Redis database password.}
-
-\item{sentinel}{Optional logical value, if TRUE start a sentinal thread (see \code{\link{redisWorker}}).}
 
 \item{...}{Optional additional parameters passed to the \code{\link{redisWorker}} function.}
 }

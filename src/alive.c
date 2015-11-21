@@ -53,7 +53,6 @@
 #define BS_LARGE 16384
 
 int go;
-int n_sentinel = 0;
 #ifdef Win32
 HANDLE t;
 SOCKET s;
@@ -349,101 +348,5 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 #else
   pthread_create (&t, NULL, &ok, (void *) key);
 #endif
-  return (R_NilValue);
-}
-
-/* At most one of these threads are allowed to run at a time.
- * Input: pointer to a Conn struct
- * This function does not return. It pings the redis server specified
- * in the Conn struct every 10 seconds. If a connection cannot be established
- * the function terminates R. If the connection is lost once established,
- * the function attempts to regain it three times. If after those tries
- * a connection can't be established, the function terminates R.
- */
-#ifdef Win32
-void *
-sentinel_thread (LPVOID x)
-#else
-void *
-sentinel_thread (void *x)
-#endif
-{
-#ifdef Win32
-  SOCKET q;
-#else
-  int q = 0;
-#endif
-  int j, try = 0;
-  Conn conn;
-  memcpy (&conn, (Conn *) x, sizeof (conn));
-  const char *buf = "time\r\n";
-  size_t len = strlen (buf);
-  tcpconnect (&q, conn.host, conn.port);
-  if (q < 0)
-    {
-      Rprintf ("sentinel could not connect to Redis %d\n", q);
-      die ();
-    }
-  for (;;)
-    {
-      j = send (q, buf, len, MSG_NOSIGNAL);
-      if (j < 0)
-        {
-          try++;
-          if (try < 3)
-            {
-              Rprintf ("Connection lost, retrying %d\n", try);
-              close (q);
-              snooze (2000);
-              tcpconnect (&q, conn.host, conn.port);
-              if (q >= 0)
-                try = 0;
-            }
-          else
-            {
-              Rprintf ("Connection lost, exiting\n");
-              die ();
-            }
-        }
-      snooze (10000);
-    }
-}
-
-/* Interface to the sentinel_thread function above. */
-SEXP
-sentinel (SEXP PORT, SEXP HOST)
-{
-#ifdef Win32
-  HANDLE t;
-  WSADATA wsaData;
-  DWORD dw_thread_id;
-#else
-  pthread_t st;
-#endif
-  Conn conn;
-  /* Only allow at most one sentinel thread */
-  if (n_sentinel > 0)
-    return (R_NilValue);
-  conn.port = *(INTEGER (PORT));
-  snprintf (conn.host, BS, "%s", (char *) CHAR (STRING_ELT (HOST, 0)));
-#ifdef Win32
-  st =
-    CreateThread (NULL, 0, (LPTHREAD_START_ROUTINE) sentinel_thread,
-                  (LPVOID) & conn, 0, &dw_thread_id);
-  if (st == NULL)
-    {
-      Rprintf ("error creating sentinel thread\n");
-      die ();
-    }
-  CloseHandle (st);
-#else
-  if (pthread_create (&st, NULL, &sentinel_thread, (void *) &conn) != 0)
-    {
-      Rprintf ("error creating sentinel thread\n");
-      die ();
-    }
-  pthread_detach (st);
-#endif
-  n_sentinel++;
   return (R_NilValue);
 }

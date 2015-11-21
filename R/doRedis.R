@@ -431,7 +431,7 @@ tryCatch(
         for(resub in setdiff(1:nout, done)) {
           block <- argsList[resub]
           names(block) <- resub
-          warning(sprintf("Worker fault: resubmitting job(s) %s", names(block)), immediate.=TRUE)
+          warning(sprintf("Worker fault: resubmitting task %s", names(block)), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
       }

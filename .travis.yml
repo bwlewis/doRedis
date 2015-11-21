@@ -15,7 +15,6 @@ addons:
 
 env:
   - R_LIBS_USER=~/R/library
-  - TEST_DOREDIS=TRUE
 
 cache:
   directories:

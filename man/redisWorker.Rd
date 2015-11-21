@@ -5,8 +5,7 @@
 \title{Initialize a doRedis worker process.}
 \usage{
 redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
-  timeout = 30, log = stdout(), connected = FALSE, password = NULL,
-  sentinel = !interactive(), ...)
+  timeout = 30, log = stdout(), connected = FALSE, password = NULL, ...)
 }
 \arguments{
 \item{queue}{The doRedis work queue name or a vector of queue names.}
@@ -25,8 +24,6 @@ redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
 
 \item{password}{Optional Redis database password.}
 
-\item{sentinel}{If \code{TRUE} start a sentinel thread (see Note).}
-
 \item{...}{Optional additional parameters passed to \code{\link{redisConnect}}}
 }
 \value{
@@ -38,19 +35,6 @@ more doRedis worker pools specified by the work queue names. The worker
 loop takes over the R session until the work queue(s) are deleted, after
 which at most \code{timeout} seconds the worker loop exits, or until
 the worker has processed \code{iter} tasks.
-}
-\note{
-The \code{sentinel} option defaults to \code{TRUE} in non-interactive
-R sessions. When \code{TRUE}, a rather Draconian sentinel thread is started
-that terminates the R process if a connection to Redis is lost for too long.
-The thread checks for Redis connectivity every 10 seconds and will retry a
-connection up to three times before exiting.
-
-The sentinel thread is useful in circumstances where R worker processes are
-run in a loop, for example using the example daemon process in available
-from the \code{scripts/redis-worker-installer.sh} script installed with the package.
-Using the sentinel helps worker processes tolerate failure of the master Redis
-node, recovering eventually in a new R process when Redis is available again.
 }
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
