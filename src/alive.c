@@ -212,8 +212,7 @@ void *
 ok (void *x)
 #endif
 {
-  char set[BS_LARGE];
-  char expire[BS_LARGE];
+  char transaction[BS_LARGE];
   char buf[BS];                 /* asumption is that response is short */
   int pr_n = -1;
   int j, m;
@@ -223,26 +222,15 @@ ok (void *x)
     {
       thread_exit ();
     }
-  memset (set, 0, BS_LARGE);
-  memset (expire, 0, BS_LARGE);
-  pr_n =
-    snprintf (set, BS_LARGE, "*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n",
-              (int) k, key);
+  pr_n = snprintf(transaction, BS_LARGE, 
+    "*1\r\n$5\r\nMULTI\r\n*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n*1\r\n$4\r\nEXEC\r\n",
+    (int)k, key, (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
       thread_exit ();
     }
-  pr_n =
-    snprintf (expire, BS_LARGE,
-              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", (int) k, key);
-  if (pr_n < 0 || pr_n >= BS_LARGE)
-    {
-      thread_exit ();
-    }
-
-/* Check for thread termination every 1/10 sec, but only update Redis
- * every 3s (expire alive key after 5s). If messages to redis fail,
- * exit this thread.
+/* Check for thread termination every 1/10 sec, update Redis every 3s (expire
+ * alive key after 5s). Exit the thread if the transaction fails.
  */
   m = 30;
   while (go > 0)
@@ -250,12 +238,7 @@ ok (void *x)
       m += 1;
       if (m > 30)
         {
-          j = msg (s, set, buf);
-          if (j < 0)
-            {
-              thread_exit ();
-            }
-          j = msg (s, expire, buf);
+          j = msg (s, transaction, buf);
           if (j < 0)
             {
               thread_exit ();
