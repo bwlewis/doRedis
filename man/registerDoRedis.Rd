@@ -47,7 +47,7 @@ package vignette for more details and additional options.
 
 Avoid using fork-based parallel functions within doRedis expressions.
 Use of \code{mclapply} and similar functions in the body of a doRedis foreach
-loop can result in deadlocks or even crashes in some cases.
+loop can result in worker faults.
 }
 \examples{
 \dontrun{

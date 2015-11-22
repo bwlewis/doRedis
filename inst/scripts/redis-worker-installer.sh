@@ -91,6 +91,7 @@ I=\$(cat \$CONF | sed -n /^iter:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 HOST=\$(cat \$CONF | sed -n /^host:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 PORT=\$(cat \$CONF | sed -n /^port:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 QUEUE=\$(cat \$CONF | sed -n /^queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+LOG=\$(cat \$CONF | sed -n /^log:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 
 [ -z "\${N}" ] && N=1
 [ -z "\${R}" ] && R=R
@@ -99,6 +100,7 @@ QUEUE=\$(cat \$CONF | sed -n /^queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]/
 [ -z "\${HOST}" ] && HOST=localhost
 [ -z "\${PORT}" ] && PORT=6379
 [ -z "\${QUEUE}" ] && QUEUE=RJOBS
+[ -z "\${LOG}" ] && LOG=/dev/null
 
 Terminator ()
 {
@@ -114,7 +116,7 @@ while :; do
   # Initial start up
   j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then
-    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')"  >/dev/null 2>&1  &
+    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
     timeout=2
   else
     timeout=10
