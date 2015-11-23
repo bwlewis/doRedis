@@ -20,6 +20,12 @@
 \usepackage{tabularx}
 \usepackage{listings,relsize}
 \usepackage{upquote}
+
+\usepackage[absolute]{textpos}
+\setlength{\TPHorizModule}{40mm}
+\setlength{\TPVertModule}{\TPHorizModule}
+\textblockorigin{0mm}{0mm}
+
 \lstloadlanguages{R}
 \lstset{frame=none, basicstyle=\footnotesize\ttfamily, commentstyle=\rmfamily\small, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
 \usepackage{caption}
@@ -75,13 +81,16 @@
 \renewcommand{\headrulewidth}{1pt}
 \renewcommand{\footrulewidth}{1pt}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\title{Introduction to the {\tt doRedis} Package}
+\title{Elastic computing with R and Redis}
 \author{Bryan W. Lewis \\ 
 blewis@illposed.net}
 
 \begin{document}
 
 \maketitle
+\begin{textblock}{3}(0,1)
+\resizebox{0.5\textwidth}{!}{\rotatebox{0}{\includegraphics{elastic}}}
+\end{textblock}
 
 \thispagestyle{empty}
 
@@ -89,24 +98,24 @@ blewis@illposed.net}
 
 The {\tt doRedis} package provides a parallel back end for {\tt foreach} using
 Redis and the corresponding {\tt rredis} package. It lets users easily run
-parallel jobs across multiple R sessions.
+parallel jobs across multiple R sessions across one or more computers.
 
 Steve Weston's {\tt foreach} package is a remarkable parallel computing
-framework for the R language. Similarly to lapply-like functions, foreach maps
-functions to data and aggregates results. Even better, foreach lets you do this
-in parallel across multiple CPU cores and computers.  And even better yet,
-foreach abstracts the parallel computing details away into modular back end
-code. Code written using foreach works sequentially in the absence of a
-parallel back end, and works uniformly across different back ends, allowing
-programmers to write code independently of specific parallel computing
-implementations. The {\tt foreach} package has many other wonderful features
-outlined in its package documentation.
+framework for the R language, similar to {\tt lapply}-like functions but
+structured as a for loop. Similarly to R's native {\tt parLapply} and {\tt
+mclapply} functions, foreach lets you do this in parallel across multiple CPU
+cores and computers, abstacting the parallel computing details away into
+modular back end code. Code written using foreach works sequentially in the
+absence of a parallel back end, and works uniformly across different back ends,
+allowing programmers to write code independently of specific parallel computing
+implementations. The {\tt foreach} package has many nice features outlined in
+its package documentation.
 
-Redis is a fast, persistent, networked database with many innovative features,
-among them a blocking queue-like data structure (Redis ``lists''). This feature
-makes Redis useful as a lightweight back end for parallel computing.  The
-{\tt rredis} package provides a native R interface to Redis used by
-{\tt doRedis}.
+Redis is a fast, persistent, networked in-memory key/value database with many
+innovative features, among them a blocking queue-like data structure (Redis
+``lists'').  This feature makes Redis useful as a lightweight back end for
+parallel computing.  The {\tt rredis} package provides a native R interface to
+Redis used by {\tt doRedis}.
 
 \subsection{Why doRedis?}
 
@@ -114,8 +123,8 @@ Why write a {\tt doRedis} package? After all, the {\tt foreach} package already
 has available many parallel back end packages, including {\tt doMC}, 
 {\tt doSNOW} and {\tt doMPI}.
 
-The key differentiating features of {\tt doRedis} are elasticity and fault-tolerance,
-and portability across operating system platforms. The {\tt doRedis} package is
+The key features of {\tt doRedis} are elasticity, fault-tolerance, and
+portability across operating system platforms. The {\tt doRedis} package is
 well-suited to small to medium-sized parallel computing jobs, especially across
 ad hoc collections of computing resources.
 
@@ -142,8 +151,8 @@ R worker processes are effectively anonymous--they may run anywhere as long as
 all the R package dependencies required by the task at hand are available.
 
 \item Like all {\tt foreach} parallel back-ends, intermediate results may be
-aggregated incrementally, significantly reducing required memory overhead for
-problems that return large data.
+aggregated incrementally and in- or out-of order, significantly reducing
+required memory overhead for problems that return large data.
 
 \end{itemize}
 
@@ -164,7 +173,10 @@ The Redis server is completely configured by the file \verb+redis.conf+.  It's
 important to make sure that the \verb+timeout+ setting is set to \verb+0+ in
 the \verb+redis.conf+ file when using {\tt doRedis}.  You may wish to peruse
 the rest of the configuration file and experiment with the other server
-settings as well.
+settings. In particular if you plan to contact Redis from more than one
+computer make sure that it's configured to listen on all appropriate network
+interfaces.
+
 
 
 \section{doRedis Examples}
@@ -495,7 +507,7 @@ iterations in the \verb+foreach+ loop. Each job is assigned a unique
 identifier.
 
 Jobs are submitted as a sequence of tasks to a \emph{work queue}--technically,
-a special Redis key called a ``list'' that supports blocking reads. Users
+a special Redis value called a ``list'' that supports blocking reads. Users
 choose the name of the work queue in the \verb+registerDoRedis+ function.
 Master R programs that issue jobs wait for results on yet another blocking
 Redis list, a result queue associated with the job.
@@ -603,6 +615,13 @@ failure.  In such cases, results for tasks might be returned more than once in
 the result queue, but \verb+doRedis+ is prepared for this and simply discards
 repeated results for the same task ID.
 
+Another possible failure may occur if a worker consumes and completes a task
+but is somehow unable to push its results into the results queue.  When all the
+tasks in a queue have been consumed by workers, the master checks for such
+``lost'' results--tasks whose results have not been recieved nor exhibit a
+corresponding ``start'' key indicating that they are in process.  If such a
+task imbalance is found, affected tasks are re-submitted.
+
 
 \subsection{Random Number Generator Seeds}
 
@@ -616,12 +635,13 @@ loop as you would do in a sequential program.
 
 Note that, although \verb+doRedis+ uses the L'Ecuyer random number generator
 internally, it records and restores the state and kind of random number
-generator prior to the \verb+foreach+ loop.
+generator in use in your R session prior to the \verb+foreach+ loop.
 
-
-The {\tt doRedis} package includes a mechanism to define an arbitrary random
+Although the standard L'Ecuyer-CMRG method is preferred for typical operation,
+the {\tt doRedis} package includes a mechanism to define an arbitrary random
 seed initialization function. Such a function could be used, for example, with
-the {\tt SPRNG} library or with the \verb+doRNG+ package for \verb+foreach+.
+the {\tt SPRNG} library or with the \verb+doRNG+ package for \verb+foreach+,
+or for manual experimentation.
 
 The user-defined random seed initialization function must be called {\tt
 set.seed.worker}, take one argument and must be exported to the workers
@@ -727,8 +747,6 @@ point after the job has been cancelled. Spurious output may be manually
 cleaned up by deleting keys associated with the task queue and job ID.
 
 
-
-
 \subsection{worker.init}
 
 If you export a function named \verb+worker.init+ that takes no arguments, it
@@ -736,5 +754,20 @@ will be run by the workers once just after downloading a new job environment.
 The function may contain any worker initialization code not be appropriate for
 the body of the \verb+foreach+ loop that only needs to run once per job,
 independently of the number of tasks that might run on a particular worker.
+
+
+\subsection{Worker queues}
+
+Worker R processes consume work from work queues on a first-come, first-served
+basis. Tasks are evaluated in an environment specific to each submitted job,
+thus it is possible and normal for workers to interleave tasks for multiple
+jobs submitted to a given work queue.
+
+Worker R processes can also block on {\it multiple} work queues, pulling first
+available tasks as they arrive, see {\tt ?redisWorker} and {\tt
+?startLocalWorkers} for details. The advantage of using multiple work queues is
+that they can be managed independently, for example making multi-user use of
+shared R workers somewhat simpler to administrate.
+
 
 \end{document}
