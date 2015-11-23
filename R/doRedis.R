@@ -40,15 +40,20 @@
 #' @param host The Redis server host name or IP address
 #' @param port The Redis server port number
 #' @param password An optional Redis database password
+#' @param ...  Optional arguments passed to \code{\link{redisConnect}}
 #'
 #' @note 
 #' All doRedis functions require access to a Redis database server (not included
 #' with this package).
-#"
+#'
 #' The doRedis package sets RNG streams across the worker processes using the
 #' L'Ecuyer-CMRG method from R's parallel package for reproducible pseudorandom
 #' numbers independent of the number of workers or task distribution. See the
 #' package vignette for more details and additional options.
+#'
+#' Avoid using fork-based parallel functions within doRedis expressions.
+#' Use of \code{mclapply} and similar functions in the body of a doRedis foreach
+#' loop can result in worker faults.
 #'
 #' @return
 #' NULL is invisibly returned.
@@ -84,7 +89,7 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 {
   if(missing(password)) redisConnect(host, port, ...)
   else redisConnect(host,port,password=password, ...)
-  assign('queue', queue, envir=.doRedisGlobals)
+  assign("queue", queue, envir=.doRedisGlobals)
 # Set a queue.live key that signals to workers that this queue is
 # valid. We need this because Redis removes the key associated with
 # empty lists.
@@ -113,14 +118,14 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 removeQueue <- function(queue)
 {
   if(redisExists(queue)) redisDelete(queue)
-  queueEnv = redisKeys(pattern=sprintf("%s\\.env.*",queue))
-  for(j in queueEnv) redisDelete(j)
-  queueOut = redisKeys(pattern=sprintf("%s\\.out",queue))
-  for(j in queueOut) redisDelete(j)
-  queueCount = redisKeys(pattern=sprintf("%s\\.count",queue))
-  for(j in queueCount) redisDelete(j)
-  queueLive = redisKeys(pattern=sprintf("%s\\.live",queue))
-  for(j in queueLive) redisDelete(j)
+  queueEnv <- redisKeys(pattern=sprintf("%s\\.env.*",queue))
+  for (j in queueEnv) redisDelete(j)
+  queueOut <- redisKeys(pattern=sprintf("%s\\.out",queue))
+  for (j in queueOut) redisDelete(j)
+  queueCount <- redisKeys(pattern=sprintf("%s\\.count",queue))
+  for (j in queueCount) redisDelete(j)
+  queueLive <- redisKeys(pattern=sprintf("%s\\.live",queue))
+  for (j in queueLive) redisDelete(j)
 }
 
 #' Set the default granularity of distributed tasks.
@@ -157,7 +162,7 @@ setChunkSize <- function(value=1)
 {
   if(!is.numeric(value)) stop("setChunkSize requires a numeric argument")
   value <- max(round(value - 1),0)
-  assign('chunkSize', value, envir=.doRedisGlobals)
+  assign("chunkSize", value, envir=.doRedisGlobals)
 }
 
 #' Manually set symbol names to the worker environment export list.
@@ -199,7 +204,7 @@ setChunkSize <- function(value=1)
 #' @export
 setExport <- function(names=c())
 {
-  assign('export', names, envir=.doRedisGlobals)
+  assign("export", names, envir=.doRedisGlobals)
 }
 
 #' Manually set package names to the worker environment package list.
@@ -220,7 +225,7 @@ setExport <- function(names=c())
 #' @export
 setPackages <- function(packages=c())
 {
-  assign('packages', packages, envir=.doRedisGlobals)
+  assign("packages", packages, envir=.doRedisGlobals)
 }
 
 .info <- function(data, item) {
@@ -230,12 +235,12 @@ setPackages <- function(packages=c())
              tryCatch(
                {
                  n <- redisGet(
-                         paste(.doRedisGlobals$queue,'count',sep='.'))
-                 if(length(n)==0) n <- 0
+                         paste(.doRedisGlobals$queue,"count",sep="."))
+                 if(length(n) == 0) n <- 0
                  else n <- as.numeric(n)
                }, error=function(e) 0),
-           name='doRedis',
-           version=packageDescription('doRedis', fields='Version'),
+           name="doRedis",
+           version=packageDescription("doRedis", fields="Version"),
            NULL)
 }
 
@@ -249,10 +254,10 @@ setPackages <- function(packages=c())
 # ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
-  ID_file <- tempfile("doRedis")
-  zz <- file(ID_file,"w")
+  IDfile <- tempfile("doRedis")
+  zz <- file(IDfile,"w")
   close(zz)
-  ID <- basename(ID_file)
+  ID <- basename(IDfile)
 # The backslash escape charater present in Windows paths causes problems.
   ID <- gsub("\\\\","_",ID)
   queue <- data$queue
@@ -263,13 +268,19 @@ setPackages <- function(packages=c())
   queueAlive <- paste(queue,"alive",ID, sep=".")
   queueAlive <- paste(queueAlive, "*", sep="")
 
-  if (!inherits(obj, 'foreach'))
-    stop('obj must be a foreach object')
+  if (!inherits(obj, "foreach"))
+    stop("obj must be a foreach object")
+
+# A quick and dirty check for fork operations in expr
+  if(any(grepl("mclapply",as.character(expr))))
+  {
+    warning("Use of `mclapply` or any fork operation with doRedis is unreliable", immediate.=TRUE)
+  }
 
 # Manage default parallel RNG, restoring an advanced old RNG state on exit
-  .seed = NULL
-  if(exists(".Random.seed",envir=globalenv())) .seed=get(".Random.seed",envir=globalenv())
-  RNG_STATE = list(kind=RNGkind()[[1]], seed=.seed)
+  .seed <- NULL
+  if(exists(".Random.seed",envir=globalenv())) .seed <- get(".Random.seed",envir=globalenv())
+  RNG_STATE <- list(kind=RNGkind()[[1]], seed=.seed)
   on.exit(
   {
 # Reset RNG
@@ -277,12 +288,11 @@ setPackages <- function(packages=c())
     assign(".Random.seed",RNG_STATE$seed,envir=globalenv())
     runif(1)
 # Clean up the session ID and session environment
-    unlink(ID_file)
+    unlink(IDfile)
     if(redisExists(queueEnv)) redisDelete(queueEnv)
     if(redisExists(queueOut)) redisDelete(queueOut)
   })
   RNGkind("L'Ecuyer-CMRG")
-  .rngseed <- .Random.seed
 
   it <- iter(obj)
   argsList <- .to.list(it)
@@ -303,45 +313,49 @@ setPackages <- function(packages=c())
   vars <- ls(exportenv)
   if (obj$verbose) {
     if (length(vars) > 0) {
-      cat('automatically exporting the following objects',
-          'from the local environment:\n')
-      cat(' ', paste(vars, collapse=', '), '\n')
+      cat("automatically exporting the following objects",
+          "from the local environment:\n")
+      cat(" ", paste(vars, collapse=", "), "\n")
     } else {
-      cat('no objects are automatically exported\n')
+      cat("no objects are automatically exported\n")
     }
   }
 # Compute list of variables to export
   export <- unique(c(obj$export,.doRedisGlobals$export))
   ignore <- intersect(export, vars)
   if (length(ignore) > 0) {
-    warning(sprintf('already exporting objects(s): %s',
-            paste(ignore, collapse=', ')))
+    warning(sprintf("already exporting objects(s): %s",
+            paste(ignore, collapse=", ")))
     export <- setdiff(export, ignore)
   }
 # Add explicitly exported variables to exportenv
   if (length(export) > 0) {
     if (obj$verbose)
-      cat(sprintf('explicitly exporting objects(s): %s\n',
-                  paste(export, collapse=', ')))
+      cat(sprintf("explicitly exporting objects(s): %s\n",
+                  paste(export, collapse=", ")))
     for (sym in export) {
       if (!exists(sym, envir, inherits=TRUE))
-        stop(sprintf('unable to find variable "%s"', sym))
+        stop(sprintf("unable to find variable \"%s\"", sym))
       assign(sym, get(sym, envir, inherits=TRUE),
              pos=exportenv, inherits=FALSE)
     }
   }
-# Create a job environment for the workers to use
-# XXX catch error here (too big)
-  redisSet(queueEnv, list(expr=expr, 
+# Create a job environment for the workers to use, making sure that it
+# fits in Redis.
+  if(object.size(exportenv) > REDIS_MAX_VALUE_SIZE)
+  {
+    message("The exported environment size is too large.\nConsider breaking up your data across multiple Redis keys.")
+    stop("exportenv too big")
+  }
+  redisSet(queueEnv, list(expr=expr,
                           exportenv=exportenv, packages=obj$packages))
   results <- NULL
   ntasks <- length(argsList)
 # foreach lets one pass options to a backend with the .options.<label>
 # argument. We check for a user-supplied chunkSize option.
-# Example: foreach(j=1,.options.redis=list(chunkSize=100)) %dopar% ...
   chunkSize <- 0
-  if(exists('chunkSize',envir=.doRedisGlobals))
-    chunkSize <- get('chunkSize',envir=.doRedisGlobals)
+  if(exists("chunkSize", envir=.doRedisGlobals))
+    chunkSize <- get("chunkSize", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$chunkSize))
    {
     tryCatch(
@@ -366,12 +380,13 @@ setPackages <- function(packages=c())
 # The task order is encoded in names(argsList).
   nout <- 1
   j <- 1
+  done <- c()  # A vector of completed tasks
 # To speed this up, we added nonblocking calls to rredis and use them.
   redisSetPipeline(TRUE)
   redisMulti()
   while(j <= ntasks)
    {
-    k <- min(j+chunkSize,ntasks)
+    k <- min(j + chunkSize,ntasks)
     block <- argsList[j:k]
     names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
@@ -392,21 +407,31 @@ tryCatch(
     if(is.null(results))
     {
       # Check for worker fault and re-submit tasks if required...
-      started <- redisKeys(queueStart)
-      started <- sub(paste(queue,"start","",sep="."),"",started)
-      alive <- redisKeys(queueAlive)
-      alive <- sub(paste(queue,"alive","",sep="."),"",alive)
+      # This detects asymmetry between started and alive processes,
+      # resubmitting started tasks whose workers are no longer alive.
+      started <- sub(paste(queue, "start", "", sep="."), "", redisKeys(queueStart))
+      alive <- sub(paste(queue, "alive", "",sep="."), "", redisKeys(queueAlive))
       fault <- setdiff(started,alive)
-      if(length(fault)>0) {
+      if(length(fault) > 0) {
         # One or more worker faults have occurred. Re-sumbit the work.
         fault <- paste(queue, "start", fault, sep=".")
         fjobs <- redisMGet(fault)
         redisDelete(fault)
-        for(resub in fjobs) {
+        for (resub in fjobs) {
           block <- argsList[unlist(resub)]
           names(block) <- unlist(resub)
-          if (obj$verbose)
-            cat("Worker fault: resubmitting jobs", names(block), "\n")
+          warning(sprintf("Worker fault: resubmitting job(s) %s", names(block)), immediate.=TRUE)
+          redisRPush(queue, list(ID=ID, argsList=block))
+        }
+      }
+      # Check for lost results
+      qlen <- as.integer(redisLLen(queue))
+      if(qlen == 0 && length(started) == 0)
+      {
+        for(resub in setdiff(1:nout, done)) {
+          block <- argsList[resub]
+          names(block) <- resub
+          warning(sprintf("Worker fault: resubmitting task %s", names(block)), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
       }
@@ -414,23 +439,25 @@ tryCatch(
     else
     {
       j <- j + 1
-      tryCatch(accumulator(results[[1]], as.numeric(names(results[[1]]))),
+      n <- as.numeric(names(results[[1]]))
+      done <- c(done, n)
+      tryCatch(accumulator(results[[1]], n),
         error=function(e) {
-          cat('error calling combine function:\n')
+          cat("error calling combine function:\n", file=stderr())
           print(e)
       })
     }
   }
 }, interrupt=function(e) flushQueue(queue,ID), error=function(e) flushQueue(queue,ID))
 
- 
+
 # check for errors
   errorValue <- getErrorValue(it)
   errorIndex <- getErrorIndex(it)
 
 # throw an error or return the combined results
-  if (identical(obj$errorHandling, 'stop') && !is.null(errorValue)) {
-    msg <- sprintf('task %d failed - "%s"', errorIndex,
+  if (identical(obj$errorHandling, "stop") && !is.null(errorValue)) {
+    msg <- sprintf("task %d failed - \"%s\"", errorIndex,
                    conditionMessage(errorValue))
     stop(simpleError(msg, call=expr))
   } else {
@@ -445,14 +472,17 @@ flushQueue <- function(queue, ID)
   startkeys <- redisKeys(pattern=sprintf("%s.start*",queue))
   redisSetPipeline(TRUE)
   redisMulti()
-  redisLRange(queue,0L,1000000000L)  # retrieve everything on the queue first
-  tryCatch(redisDelete(queue), error=function(e) NULL)  # bug in redisDelete inside multi?
-  tryCatch(redisDelete(startkeys), error=function(e) NULL)
+  redisLRange(queue,0L,1000000000L)  # retrieve everything on the work queue
+  tryCatch(redisDelete(queue), error=function(e) NULL) # delete the queue
+  if(!is.null(startkeys)) tryCatch(redisDelete(startkeys), error=function(e) NULL)
   redisExec()
   tasks <- redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
-# Restore tasks not matching ID
-  lapply(tasks[[4]][[1]], function(j)
+# Re-queue jobs not matching ID (these are other jobs submitted to the queue).
+# First we need to locate the IDs, if any, in the result.
+  idx <- grep("ID", tasks)
+  if(length(idx) == 0) return()
+  lapply(tasks[[idx]][[1]], function(j)
   {
     if(j$ID != ID) redisRPush(queue, list(ID=j$ID, argsList=j$argsList))
   })
@@ -462,7 +492,7 @@ flushQueue <- function(queue, ID)
 .to.list <- function(x) {
   seed <- .Random.seed
   n <- 64
-  a <- vector('list', length=n)
+  a <- vector("list", length=n)
   i <- 0
   tryCatch({
     repeat {
@@ -477,19 +507,9 @@ flushQueue <- function(queue, ID)
     }
   },
   error=function(e) {
-    if (!identical(conditionMessage(e), 'StopIteration'))
+    if (!identical(conditionMessage(e), "StopIteration"))
       stop(e)
   })
   length(a) <- i
   a
-}
-
-.onLoad <- function(libname, pkgname)
-{
-  library.dynam('doRedis', pkgname, libname)
-}
-
-.onUnload <- function (libpath)
-{
-  library.dynam.unload('doRedis', libpath)
 }

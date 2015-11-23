@@ -5,7 +5,11 @@
 #'
 #' @name doRedis-package
 #' 
+#' @useDynLib doRedis
+#' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 #' @docType package
 NULL
 
 .doRedisGlobals <- new.env(parent=emptyenv())
+
+REDIS_MAX_VALUE_SIZE <- 524288000

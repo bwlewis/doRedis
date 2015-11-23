@@ -23,6 +23,11 @@ Set the following parameter in your redis.conf file before using doRedis:
 timeout 0
 ```
 
+**Do not** use `doRedis` together with `doMC` or any  fork-based R
+functions like `mclapply`. If you require a local inner parallel code
+section, use `parLapply` and `makePSOCKcluster` or the related `doParallel`
+functions instead of fork-based methods.
+
 ## DESCRIPTION
 
 Steve Weston's foreach package is a remarkable parametric evaluation device for

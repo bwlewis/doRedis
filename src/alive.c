@@ -33,11 +33,13 @@
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h> // TCP_NODELAY
 #include <netinet/in.h>
 #include <netdb.h>
 #include <errno.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <signal.h>
 #endif
 
 #include <string.h>
@@ -56,74 +58,90 @@ int go;
 HANDLE t;
 SOCKET s;
 #else
-int s;
+int s = 0;
 pthread_t t;
 #endif
 
+void
+snooze (int milliseconds)
+{
+#ifdef Win32
+  Sleep (milliseconds);
+#else
+  usleep (1000 * milliseconds);
+#endif
+}
+
 /* tcpconnect
- * connect to the specified host and port, setting the global
+ * connect to the specified host and port, setting the
  * socket value s to a socket connected to the host/port.
  */
 #ifdef Win32
 void
-tcpconnect (const char *host, int port)
+tcpconnect (SOCKET * s, const char *host, int port)
 {
   int j;
   char portstr[16];
   struct addrinfo *a = NULL, *ap = NULL;
   struct addrinfo hints;
-  s = INVALID_SOCKET;
+  *s = INVALID_SOCKET;
   snprintf (portstr, 16, "%d", port);
   ZeroMemory (&hints, sizeof (hints));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
   j = getaddrinfo (host, portstr, &hints, &a);
-  if(j!=0)
-  {
-    s = INVALID_SOCKET;
-    return;
-  }
-  ap = a;
-  s = socket (ap->ai_family, ap->ai_socktype, ap->ai_protocol);
-  if (s < 0)
-    return;
-  j = connect (s, ap->ai_addr, (int) ap->ai_addrlen);
   if (j != 0)
     {
-      close(s);
-      s = INVALID_SOCKET;
+      *s = INVALID_SOCKET;
+      return;
+    }
+  ap = a;
+  *s = socket (ap->ai_family, ap->ai_socktype, ap->ai_protocol);
+  if (*s < 0)
+    return;
+  j = connect (*s, ap->ai_addr, (int) ap->ai_addrlen);
+  if (j != 0)
+    {
+      close (*s);
+      *s = INVALID_SOCKET;
     }
 }
 #else
 void
-tcpconnect (char *host, int port)
+tcpconnect (int *s, char *host, int port)
 {
   struct hostent *h;
+  socklen_t len;
   struct sockaddr_in sa;
   int j;
 
   h = gethostbyname (host);
   if (!h)
     {
-      s = -1;
+      *s = -1;
     }
   else
     {
-      s = socket (AF_INET, SOCK_STREAM, 0);
-      if (s < 0) return;
+      *s = socket (AF_INET, SOCK_STREAM, 0);
+      if (s < 0)
+        return;
       memset ((void *) &sa, 0, sizeof (sa));
       sa.sin_family = AF_INET;
       sa.sin_port = htons (port);
       sa.sin_addr = *(struct in_addr *) h->h_addr;
-      j = connect (s, (struct sockaddr *) &sa, sizeof (sa));
+      j = connect (*s, (struct sockaddr *) &sa, sizeof (sa));
       if (j < 0)
         {
-          close (s);
-          s = -1;
+          close (*s);
+          *s = -1;
           return;
         }
     }
+  /* Try to disable Nagle; proceed regardless of success. */
+  j = 1;
+  len = sizeof(j);
+  setsockopt(*s, IPPROTO_TCP, TCP_NODELAY, (const void *)&j, len);
 }
 #endif
 
@@ -145,13 +163,13 @@ sendall (int s, char *buf, size_t * len)
   while (total < *len)
     {
       n = send (s, buf + total, bytesleft, 0);
-      if (n == -1) break;
+      if (n == -1)
+        break;
       total += n;
       bytesleft -= n;
     }
 
   *len = total;                 // return number actually sent here
-
   return n == -1 ? -1 : 0;      // return -1 on failure, 0 on success
 }
 
@@ -169,7 +187,9 @@ msg (int sock, char *cmd, char *response)
   if (j < 0)
     return j;
   memset (response, 0, BS);
-  j = recv (sock, response, BS, 0);
+  j = (int) recv (sock, response, BS, 0);
+  if (j < 0)
+    return j;
   if (response[0] == '-')
     j = -1;
   return j;
@@ -177,20 +197,19 @@ msg (int sock, char *cmd, char *response)
 
 
 void
-thread_exit (int ex_code)
+thread_exit ()
 {
 #ifdef Win32
-  ExitThread ((DWORD) (ex_code));
+  ExitThread ((DWORD) (0));
 #else
-  /* exit code to pthread_exit cannot be a pointer to stack variable 
-   * In our case the thread is a singleton, so static is fine*/
-  static int _ex_code;
-  _ex_code = ex_code;
-  pthread_exit (&_ex_code);
+  pthread_exit (NULL);
 #endif
 }
 
 
+/* This thread keeps the Redis ephemeral 'alive' key alive.
+ * Only one copy of this thread ever runs.
+ */
 #ifdef Win32
 void *
 ok (LPVOID x)
@@ -199,64 +218,45 @@ void *
 ok (void *x)
 #endif
 {
-  /* this thread should be used as a singleton, so static variables are OK.
-   * BS_LARGE can be too large for stack variables. We can use calloc()
-   * instead, but then we have to handle user interrupts and other error 
-   * conditions and deallocate. */
-  static char set[BS_LARGE];
-  static char expire[BS_LARGE];
+  char transaction[BS_LARGE];
   char buf[BS];                 /* asumption is that response is short */
   int pr_n = -1;
   int j, m;
   char *key = (char *) x;
-  int k = strlen (key);
-  memset (set, 0, BS_LARGE);
-  memset (expire, 0, BS_LARGE);
-  pr_n =
-    snprintf (set, BS_LARGE, "*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n",
-              k, key);
+  size_t k = strlen (key);
+  if (k > BS_LARGE - 128)
+    {
+      thread_exit ();
+    }
+  pr_n = snprintf(transaction, BS_LARGE, 
+    "*1\r\n$5\r\nMULTI\r\n*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n*1\r\n$4\r\nEXEC\r\n",
+    (int)k, key, (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
-      thread_exit (-2);
+      thread_exit ();
     }
-  pr_n =
-    snprintf (expire, BS_LARGE,
-              "*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n", k, key);
-  if (pr_n < 0 || pr_n >= BS_LARGE)
-    {
-      thread_exit (-2);
-    }
-
-/* Check for thread termination every 1/10 sec, but only update Redis
- * every 3s (expire alive key after 5s).
+/* Check for thread termination every 1/10 sec, update Redis every 3s (expire
+ * alive key after 5s). Exit the thread if the transaction fails.
  */
-  m = -1;
+  m = 30;
   while (go > 0)
     {
       m += 1;
-      if (m == 0 || m > 30)
+      if (m > 30)
         {
-          j = msg (s, set, buf);
+          j = msg (s, transaction, buf);
           if (j < 0)
             {
-              thread_exit (j);
-            }
-          j = msg (s, expire, buf);
-          if (j < 0)
-            {
-              thread_exit (j);
+              thread_exit ();
             }
           m = 0;
         }
-#ifdef Win32
-      Sleep (100);
-#else
-      usleep (100000);
-#endif
+      snooze (100);
     }
   return NULL;
 }
 
+/* OK to call delOK repeatedly */
 SEXP
 delOK ()
 {
@@ -277,6 +277,8 @@ delOK ()
 SEXP
 setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
 {
+  if (go > 0)
+    return (R_NilValue);
 #ifdef Win32
   WSADATA wsaData;
   DWORD dw_thread_id;
@@ -288,12 +290,10 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
   const char *key = CHAR (STRING_ELT (KEY, 0));
   const char *auth = CHAR (STRING_ELT (AUTH, 0));
   int j, k = strlen (auth);
-  if (go > 0)
-    return (R_NilValue);
 #ifdef Win32
   WSAStartup (MAKEWORD (2, 2), &wsaData);
 #endif
-  tcpconnect (host, port);
+  tcpconnect (&s, host, port);
   go = 1;
 /* check for AUTH and authorize if needed */
   if (k > 0)
@@ -301,13 +301,14 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
       memset (authorize, 0, BS);
       snprintf (authorize, BS, "*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n", k, auth);
       j = msg (s, authorize, buf);
+      if (j < 0)
+        error ("Redis communication error during authentication");
     }
-
 #ifdef Win32
   t = CreateThread (NULL, 0, (LPTHREAD_START_ROUTINE) ok, (LPVOID) key, 0,
                     &dw_thread_id);
 #else
-  pthread_create (&t, NULL, ok, (void *) key);
+  pthread_create (&t, NULL, &ok, (void *) key);
 #endif
   return (R_NilValue);
 }

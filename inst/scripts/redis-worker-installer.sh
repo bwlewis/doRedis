@@ -9,6 +9,12 @@
 # and configures the doRedis init script to start in the usual runlevels.
 # Edit the /etc/doRedis.conf file to point to the right Redis server and
 # to set other configuration parameters.
+#
+# Usage:
+# sudo ./redis-worker-installer.sh
+#
+# On AWS EC2 systems, use:
+# sudo ./redis-worker-installer.sh EC2
 
 echo "Installing /etc/init.d/doRedis script..."
 cat > /etc/init.d/doRedis <<1ZZZ
@@ -33,16 +39,24 @@ DAEMON=/usr/local/bin/doRedis_worker
 DAEMON_ARGS=/etc/doRedis.conf
 PIDFILE=/var/run/doRedis.pid
 SCRIPTNAME=/etc/init.d/doRedis
+EC2=$1
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
 . /lib/lsb/init-functions
 
 #
-# Function that starts the daemon/service
+# Function that starts the daemon/service, optionally initializing
+# configuration file from EC2 user data.
 #
 do_start()
 {
+  if test "\${EC2}" == "EC2"; then
+    U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
+    if test -n "\${U}";  then
+      echo \${U} > /etc/doRedis.conf
+    fi
+  fi
   sudo -b -n -E -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
 }
 
@@ -84,38 +98,45 @@ CONF=\$1
 [ ! -x \$CONF ]  || echo "Can't find configuration file doRedis.conf, exiting"
 [ ! -x \$CONF ] || exit 1
 
-N=\$(cat \$CONF | sed -n /^n:/p | sed -e "s/.*:[[:blank:]*]//")
-R=\$(cat \$CONF | sed -n /^R:/p | sed -e "s/.*:[[:blank:]*]//")
-T=\$(cat \$CONF | sed -n /^timeout:/p | sed -e "s/.*:[[:blank:]*]//")
-I=\$(cat \$CONF | sed -n /^iter:/p | sed -e "s/.*:[[:blank:]*]//")
-HOST=\$(cat \$CONF | sed -n /^host:/p | sed -e "s/.*:[[:blank:]*]//")
-PORT=\$(cat \$CONF | sed -n /^port:/p | sed -e "s/.*:[[:blank:]*]//")
-QUEUE=\$(cat \$CONF | sed -n /^queue:/p | sed -e "s/.*:[[:blank:]*]//")
+N=\$(cat \$CONF | sed -n /^n:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+R=\$(cat \$CONF | sed -n /^R:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+T=\$(cat \$CONF | sed -n /^timeout:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+I=\$(cat \$CONF | sed -n /^iter:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+HOST=\$(cat \$CONF | sed -n /^host:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+PORT=\$(cat \$CONF | sed -n /^port:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+QUEUE=\$(cat \$CONF | sed -n /^queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+LOG=\$(cat \$CONF | sed -n /^log:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 
-[ -z "\${N}" ] && N=1
-[ -z "\${R}" ] && R=R
-[ -z "\${T}" ] && T=5
-[ -z "\${I}" ] && I=Inf
-[ -z "\${HOST}" ] && HOST=localhost
-[ -z "\${PORT}" ] && PORT=6379
+# Set default values
+[ -z "\${N}" ]     && N=2
+[ -z "\${R}" ]     && R=R
+[ -z "\${T}" ]     && T=5
+[ -z "\${I}" ]     && I=Inf
+[ -z "\${HOST}" ]  && HOST=localhost
+[ -z "\${PORT}" ]  && PORT=6379
 [ -z "\${QUEUE}" ] && QUEUE=RJOBS
+[ -z "\${LOG}" ]   && LOG=/dev/null
 
 Terminator ()
 {
-  for j in \$(jobs -p); do
-    kill \$j
+  for j in \$(jobs -p -r); do
+    kill \$j 2>/dev/null
   done
   exit
 }
 trap "Terminator" SIGHUP SIGINT SIGTERM
 
+timeout=10
 while :; do
-  j=0
-  while test \$j -lt \$N; do
-    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}),error=function(e) q(save='no'));q(save='no')"  >/dev/null 2>&1  &
-    j=\$((\$j + 1))
-  done
-  wait
+  # Initial start up
+  j=\$(jobs -p -r| wc -l)
+  if test \$j -lt \$N; then
+    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
+    timeout=2
+  else
+    timeout=10
+  fi
+  sleep \$timeout
 done
 2ZZZ
 
@@ -130,13 +151,13 @@ cat > /etc/doRedis.conf << 3ZZZ
 # may apper in any order.
 #
 # Set n to the number of workers to start.
-n: 1
+n: 2
 # Set R to the path to R (default assumes 'R' is in the PATH)
 R: R
 # Set timeout to wait period after job queue is deleted before exiting
 timeout: 5
 # Set iter to maximum number of iterations to run before exiting
-iter: Inf
+iter: 50
 host: localhost
 port: 6379
 queue: RJOBS
