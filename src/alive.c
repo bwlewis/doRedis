@@ -33,6 +33,7 @@
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h> // TCP_NODELAY
 #include <netinet/in.h>
 #include <netdb.h>
 #include <errno.h>
@@ -111,6 +112,7 @@ void
 tcpconnect (int *s, char *host, int port)
 {
   struct hostent *h;
+  socklen_t len;
   struct sockaddr_in sa;
   int j;
 
@@ -136,6 +138,10 @@ tcpconnect (int *s, char *host, int port)
           return;
         }
     }
+  /* Try to disable Nagle; proceed regardless of success. */
+  j = 1;
+  len = sizeof(j);
+  setsockopt(*s, IPPROTO_TCP, TCP_NODELAY, (const void *)&j, len);
 }
 #endif
 
