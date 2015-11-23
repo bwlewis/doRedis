@@ -11,10 +11,10 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
   queue <- "jobs"
   redisConnect()
   removeQueue(queue)
-  startLocalWorkers(n=2, queue, timeout=5)
+  startLocalWorkers(n=2, queue, timeout=2)
   registerDoRedis(queue)
   ans <- foreach(j=1:10, .combine=sum) %dopar% j
-  compare(ans,55, "foreach")
+  compare(ans, 55, "foreach")
 
 # setX tests
   x <- 0
@@ -25,6 +25,9 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
     j + x
   }
   compare(ans, 55, "foreach")
+
+# covr code coverage can't discern that we're excercising the worker
+# code in the above tests.
 
 # Shut down
   removeQueue(queue)
