@@ -25,7 +25,7 @@
       if(!is.null(exportenv$worker.init))
         if(is.function(exportenv$worker.init))
           do.call(exportenv$worker.init, list(), envir=globalenv())
-    }, error=function(e) cat(as.character(e), "\n", file=log)
+    }, error=function(e) cat(as.character(e), "\n")
   )
   assign("expr", expr, .doRedisGlobals)
   assign("exportenv", exportenv, .doRedisGlobals)
@@ -49,7 +49,7 @@
 # Override the function set.seed.worker to roll your own RNG.
         if(exists("set.seed.worker",envir=.doRedisGlobals$exportenv))
           do.call("set.seed.worker",list(0),envir=.doRedisGlobals$exportenv)
-       }, error=function(e) cat(as.character(e),"\n",file=log))
+       }, error=function(e) cat(as.character(e),"\n"))
       eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
@@ -150,15 +150,18 @@ redisWorker <- function(queue, host="localhost", port=6379,
 {
   if (!connected)
     redisConnect(host, port, password=password, ...)
-  sink(type="message", append=TRUE, file=log)
-  sink(type="output", append=TRUE, file=log)
+  tryCatch(
+  {
+    sink(type="message", append=TRUE, file=log)
+    sink(type="output", append=TRUE, file=log)
+  }, warning=invisible)
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
   queueCount <- paste(queue,"count",sep=".")
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
-  cat("Waiting for doRedis jobs.\n", file=log)
+  cat("Waiting for doRedis jobs.\n")
   flush.console()
   k <- 0
   on.exit(.delOK()) # In case we exit this function unexpectedly
@@ -203,7 +206,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       k <- k + 1
-      cat("Processing task(s)", names(work[[1]]$argsList), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
+      cat("Processing task(s)", names(work[[1]]$argsList), "from queue", names(work), "ID", work[[1]]$ID, "\n")
       flush.console()
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
@@ -229,6 +232,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # Either the queue has been deleted, or we've exceeded the number of
 # specified work iterations.
   for (j in queueCount) if(redisExists(j)) redisDecr(j)
-  cat("Worker exit.\n", file=log)
+  cat("Worker exit.\n")
   if (!connected) redisClose()
 }
