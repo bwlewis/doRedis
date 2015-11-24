@@ -150,11 +150,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
 {
   if (!connected)
     redisConnect(host, port, password=password, ...)
-#  tryCatch(
-#  {
-#    sink(type="message", append=TRUE, file=log)
-#    sink(type="output", append=TRUE, file=log)
-#  }, warning=invisible)
+  tryCatch(
+  {
+    sink(type="message", append=TRUE, file=log)
+    sink(type="output", append=TRUE, file=log)
+  }, warning=invisible)
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
