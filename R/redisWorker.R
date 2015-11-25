@@ -162,7 +162,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
   cat("Waiting for doRedis jobs.\n")
-  flush.console()
   k <- 0
   on.exit(.delOK()) # In case we exit this function unexpectedly
   while(k < iter)
@@ -207,7 +206,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # Now do the work.
       k <- k + 1
       cat("Processing task(s)", names(work[[1]]$argsList), "from queue", names(work), "ID", work[[1]]$ID, "\n")
-      flush.console()
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.

@@ -11,7 +11,7 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
   queue <- "jobs"
   redisConnect()
   removeQueue(queue)
-  startLocalWorkers(n=2, queue, timeout=2)
+  startLocalWorkers(n=2, queue, timeout=1)
   registerDoRedis(queue)
   ans <- foreach(j=1:10, .combine=sum) %dopar% j
   compare(ans, 55, "foreach")
@@ -31,4 +31,5 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
 
 # Shut down
   removeQueue(queue)
+  Sys.sleep(2)  # Allow time for workers to terminate
 }
