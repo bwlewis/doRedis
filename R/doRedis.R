@@ -228,8 +228,10 @@ setPackages <- function(packages=c())
   assign("packages", packages, envir=.doRedisGlobals)
 }
 
-.info <- function(data, item) {
-# The number of workers should be considered an estimate that may change.
+# An internal foreach function required of backends The number of workers
+# reported here is only an estimate.
+.info <- function(data, item)
+{
     switch(item,
            workers=
              tryCatch(
@@ -244,7 +246,9 @@ setPackages <- function(packages=c())
            NULL)
 }
 
-.makeDotsEnv <- function(...) {
+# internal function, see below for use
+.makeDotsEnv <- function(...)
+{
   list(...)
   function() NULL
 }
@@ -271,12 +275,6 @@ setPackages <- function(packages=c())
   if (!inherits(obj, "foreach"))
     stop("obj must be a foreach object")
 
-# A quick and dirty check for fork operations in expr
-  if(any(grepl("mclapply",as.character(expr))))
-  {
-    warning("Use of `mclapply` or any fork operation with doRedis is unreliable", immediate.=TRUE)
-  }
-
 # Manage default parallel RNG, restoring an advanced old RNG state on exit
   .seed <- NULL
   if(exists(".Random.seed",envir=globalenv())) .seed <- get(".Random.seed",envir=globalenv())
@@ -297,6 +295,8 @@ setPackages <- function(packages=c())
   it <- iter(obj)
   argsList <- .to.list(it)
   accumulator <- makeAccum(it)
+
+# Set up distributed gather
 
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
@@ -340,8 +340,8 @@ setPackages <- function(packages=c())
              pos=exportenv, inherits=FALSE)
     }
   }
-# Create a job environment for the workers to use, making sure that it
-# fits in Redis.
+# Upload `exportenv` as a common job environment for the workers, making
+# sure that it fits in Redis.
   if(object.size(exportenv) > REDIS_MAX_VALUE_SIZE)
   {
     message("The exported environment size is too large.\nConsider breaking up your data across multiple Redis keys.")
@@ -385,17 +385,17 @@ setPackages <- function(packages=c())
   redisSetPipeline(TRUE)
   redisMulti()
   while(j <= ntasks)
-   {
-    k <- min(j + chunkSize,ntasks)
+  {
+    k <- min(j + chunkSize, ntasks)
     block <- argsList[j:k]
     names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
-   }
-   redisExec()
-   redisGetResponse(all=TRUE)
-   redisSetPipeline(FALSE)
+  }
+  redisExec()
+  redisGetResponse(all=TRUE)
+  redisSetPipeline(FALSE)
 
 # Collect the results and pass through the accumulator
   j <- 1
@@ -489,7 +489,8 @@ flushQueue <- function(queue, ID)
 }
 
 # Convert the iterator to a list
-.to.list <- function(x) {
+.to.list <- function(x)
+{
   seed <- .Random.seed
   n <- 64
   a <- vector("list", length=n)

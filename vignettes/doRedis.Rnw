@@ -770,4 +770,17 @@ that they can be managed independently, for example making multi-user use of
 shared R workers somewhat simpler to administrate.
 
 
+\subsection{Rationale for the \verb+set*+ functions}
+
+The package includes the \verb+setChunkSize()+, \verb+setExport()+,
+\verb+setPackages()+, and \verb+setGather()+ functions as alternatives to setting
+parameters using the \verb+foreach+ \verb+.options.redis+  and related
+arguments.
+
+The package provides these duplicate functions to facilitate working with R
+packages that use \verb+foreach+ internally. In such cases it is not practical
+to directly supply arguments to the \verb+foreach+ invocation within the
+package. The \verb+set*+ functions provide a way to register an external
+\verb+foreach+ back end and control its behavior.
+
 \end{document}
