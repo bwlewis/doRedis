@@ -165,39 +165,38 @@ setChunkSize <- function(value=1)
   assign("chunkSize", value, envir=.doRedisGlobals)
 }
 
-#' Set distributed accumulation
+#' Set distributed reduction
 #'
-#' When \code{TRUE}, run the \code{.combine} function on workers prior to gathering
-#' results at the master. Only affects runs with \code{chunkSize} greater
-#' than one.
+#' Instruct doRedis to perform the \code{.combine} reduction per task on the
+#' workers before returning results. Combined results are then processed through
+#' the specified \code{fun} function. The gather function \code{fun} is an
+#' 'outer' combine function.  Only applies when \code{chunkSize} greater than
+#' one, and implies that \code{.multicombine=FALSE}.
 #'
-#' @param value logical value; the default value is \code{FALSE}.
+#' @param fun a function of two arguments, set to NULL to disable gather
 #'
 #' @note
 #' This value is overriden by setting the 'gather' option in the
 #' foreach loop (see the examples).
 #'
-#' Be aware that some \code{.combine} functions may perform differently when
-#' their invocation is distributed.
-#'
 #' @return \code{NULL}
+#' @seealso \code{\link{foreach}}, \code{\link{setChunkSize}}
 #' @examples
 #' \dontrun{
-#' setChunkSize(5)
-#' setGather(TRUE)
+#' setChunkSize(3)
+#' setGather(list)
 #' foreach(j=1:10, .combine=c) %dopar% j
 #'
 #' # Same effect as:
 #' 
 #' foreach(j=1:10, .combine=c,
-#'         .options.redis=list(chunksize=5, gather=TRUE)) %dopar% j
+#'         .options.redis=list(chunksize=3, gather=list)) %dopar% j
 #' }
-#'
 #' @export
-setGather <- function(value=FALSE)
+setGather <- function(fun=NULL)
 {
-  if(!is.logical(value)) stop("setGather requires a logical argument")
-  assign("gather", value, envir=.doRedisGlobals)
+  if(!(is.function(fun) || is.null(fun))) stop("setGather requires a function or NULL")
+  assign("gather", fun, envir=.doRedisGlobals)
 }
 
 #' Manually set symbol names to the worker environment export list.
@@ -331,7 +330,7 @@ setPackages <- function(packages=c())
   argsList <- .to.list(it)
 
 # Distributed gather
-  gather <- FALSE
+  gather <- NULL
   if(exists("gather", envir=.doRedisGlobals))
     gather <- get("gather", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$gather))
@@ -396,7 +395,7 @@ setPackages <- function(packages=c())
     chunkSize <- obj$options$redis$chunkSize
   chunkSize <- tryCatch(max(chunkSize - 1, 0), error=function(e) 0)
 
-  if(gather)
+  if(!is.null(gather))
   {
 # Modify iterator to include the combine function
     redisSet(queueEnv, list(expr=expr,
@@ -429,7 +428,7 @@ setPackages <- function(packages=c())
   {
     k <- min(j + chunkSize, ntasks)
     block <- argsList[j:k]
-    if(gather) names(block) <- rep(nout, k - j + 1)
+    if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
@@ -439,20 +438,17 @@ setPackages <- function(packages=c())
   redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
 
-# Adjust iterator for distributed accumulation
-# Adjust the _default_ accumulator function, in the (unfortunately) two places
-# that it is found...
-  if(gather)
+# Adjust iterator for distributed accumulation and the accumulator function in
+# the two places that it is found...
+  if(!is.null(gather))
   {
+    cfun <- it$combineInfo$fun
     it$state$numValues <- nout - 1
-    if(isTRUE(all.equal(function(a, ...) c(a, list(...)), it$combineInfo$fun)))
-    {
-      it$combineInfo$fun <- c
-      it$state$fun <- c
-      it$combineInfo$multi.combine <- FALSE
-      it$combineInfo$has.init <- FALSE
-      it$combineInfo$init <- c()
-    }
+    it$combineInfo$fun <- gather
+    it$state$fun <- gather # this is the only one that matters?
+    it$combineInfo$multi.combine <- FALSE
+    it$combineInfo$has.init <- FALSE
+    it$combineInfo$init <- c()
   }
   accumulator <- makeAccum(it)
 

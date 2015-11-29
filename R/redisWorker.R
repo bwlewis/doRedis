@@ -218,9 +218,8 @@ redisWorker <- function(queue, host="localhost", port=6379,
        }
       result <- lapply(work[[1]]$argsList, .evalWrapper)
       names(result) <- names(work[[1]]$argsList)
-      if(!is.null(.doRedisGlobals$combineInfo)) # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+      if(!is.null(.doRedisGlobals$combineInfo))
       {
-
         result <- list(Reduce(.doRedisGlobals$combineInfo$fun, result)) ## XXX init?
         names(result) <- names(work[[1]]$argsList[1])
       }

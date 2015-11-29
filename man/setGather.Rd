@@ -2,39 +2,40 @@
 % Please edit documentation in R/doRedis.R
 \name{setGather}
 \alias{setGather}
-\title{Set distributed accumulation}
+\title{Set distributed reduction}
 \usage{
-setGather(value = FALSE)
+setGather(fun = NULL)
 }
 \arguments{
-\item{value}{logical value; the default value is \code{FALSE}.}
+\item{fun}{a function of two arguments, set to NULL to disable gather}
 }
 \value{
 \code{NULL}
 }
 \description{
-When \code{TRUE}, run the \code{.combine} function on workers prior to gathering
-results at the master. Only affects runs with \code{chunkSize} greater
-than one.
+Instruct doRedis to perform the \code{.combine} reduction per task on the
+workers before returning results. Combined results are then processed through
+the specified \code{fun} function. The gather function \code{fun} is an
+'outer' combine function.  Only applies when \code{chunkSize} greater than
+one, and implies that \code{.multicombine=FALSE}.
 }
 \note{
 This value is overriden by setting the 'gather' option in the
 foreach loop (see the examples).
-
-Be aware that some \code{.combine} functions may perform differently when
-their invocation is distributed.
 }
 \examples{
 \dontrun{
-setChunkSize(5)
-setGather(TRUE)
+setChunkSize(3)
+setGather(list)
 foreach(j=1:10, .combine=c) \%dopar\% j
 
 # Same effect as:
 
 foreach(j=1:10, .combine=c,
-        .options.redis=list(chunksize=5, gather=TRUE)) \%dopar\% j
+        .options.redis=list(chunksize=3, gather=list)) \%dopar\% j
 }
-
+}
+\seealso{
+\code{\link{foreach}}, \code{\link{setChunkSize}}
 }
 
