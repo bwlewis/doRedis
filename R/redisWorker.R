@@ -15,7 +15,7 @@
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
-`.workerInit` <- function(expr, exportenv, packages, seed, log)
+`.workerInit` <- function(expr, exportenv, packages, combineInfo)
 {
   tryCatch(
     {
@@ -29,6 +29,7 @@
   )
   assign("expr", expr, .doRedisGlobals)
   assign("exportenv", exportenv, .doRedisGlobals)
+  assign("combineInfo", combineInfo, .doRedisGlobals)
 # XXX This use of parent.env should be changed. It's used here to
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
@@ -40,15 +41,15 @@
   tryCatch({
       lapply(names(args), function(n)
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
-      if(exists(".Random.seed",envir=.doRedisGlobals$exportenv))
+      if(exists(".Random.seed", envir=.doRedisGlobals$exportenv))
       {
-        assign(".Random.seed",.doRedisGlobals$exportenv$.Random.seed, envir=globalenv())
+        assign(".Random.seed", .doRedisGlobals$exportenv$.Random.seed, envir=globalenv())
       }
       tryCatch(
       {
 # Override the function set.seed.worker to roll your own RNG.
-        if(exists("set.seed.worker",envir=.doRedisGlobals$exportenv))
-          do.call("set.seed.worker",list(0),envir=.doRedisGlobals$exportenv)
+        if(exists("set.seed.worker", envir=.doRedisGlobals$exportenv))
+          do.call("set.seed.worker", list(0), envir=.doRedisGlobals$exportenv)
        }, error=function(e) cat(as.character(e),"\n"))
       eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
     },
@@ -212,12 +213,17 @@ redisWorker <- function(queue, host="localhost", port=6379,
       if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
        {
         initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$packages,
-                    names(work[[1]]$argsList)[[1]],log)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$packages, initdata$combineInfo)
         assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
       result <- lapply(work[[1]]$argsList, .evalWrapper)
       names(result) <- names(work[[1]]$argsList)
+      if(!is.null(.doRedisGlobals$combineInfo)) # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+      {
+
+        result <- list(Reduce(.doRedisGlobals$combineInfo$fun, result)) ## XXX init?
+        names(result) <- names(work[[1]]$argsList[1])
+      }
       redisLPush(queueOut, result)
 # Importantly, the worker does not delete his start key until after the
 # result is successfully placed in a Redis queue. And then after that

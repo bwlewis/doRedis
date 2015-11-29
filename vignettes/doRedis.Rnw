@@ -770,7 +770,7 @@ that they can be managed independently, for example making multi-user use of
 shared R workers somewhat simpler to administrate.
 
 
-\subsection{Rationale for the \verb+set*+ functions}
+\subsection{Rationale for the set* functions}
 
 The package includes the \verb+setChunkSize()+, \verb+setExport()+,
 \verb+setPackages()+, and \verb+setGather()+ functions as alternatives to setting

@@ -161,8 +161,43 @@ removeQueue <- function(queue)
 setChunkSize <- function(value=1)
 {
   if(!is.numeric(value)) stop("setChunkSize requires a numeric argument")
-  value <- max(round(value - 1),0)
+  value <- max(round(value), 1)
   assign("chunkSize", value, envir=.doRedisGlobals)
+}
+
+#' Set distributed accumulation
+#'
+#' When \code{TRUE}, run the \code{.combine} function on workers prior to gathering
+#' results at the master. Only affects runs with \code{chunkSize} greater
+#' than one.
+#'
+#' @param value logical value; the default value is \code{FALSE}.
+#'
+#' @note
+#' This value is overriden by setting the 'gather' option in the
+#' foreach loop (see the examples).
+#'
+#' Be aware that some \code{.combine} functions may perform differently when
+#' their invocation is distributed.
+#'
+#' @return \code{NULL}
+#' @examples
+#' \dontrun{
+#' setChunkSize(5)
+#' setGather(TRUE)
+#' foreach(j=1:10, .combine=c) %dopar% j
+#'
+#' # Same effect as:
+#' 
+#' foreach(j=1:10, .combine=c,
+#'         .options.redis=list(chunksize=5, gather=TRUE)) %dopar% j
+#' }
+#'
+#' @export
+setGather <- function(value=FALSE)
+{
+  if(!is.logical(value)) stop("setGather requires a logical argument")
+  assign("gather", value, envir=.doRedisGlobals)
 }
 
 #' Manually set symbol names to the worker environment export list.
@@ -294,9 +329,13 @@ setPackages <- function(packages=c())
 
   it <- iter(obj)
   argsList <- .to.list(it)
-  accumulator <- makeAccum(it)
 
-# Set up distributed gather
+# Distributed gather
+  gather <- FALSE
+  if(exists("gather", envir=.doRedisGlobals))
+    gather <- get("gather", envir=.doRedisGlobals)
+  if(!is.null(obj$options$redis$gather))
+    gather <- obj$options$redis$gather
 
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
@@ -340,30 +379,32 @@ setPackages <- function(packages=c())
              pos=exportenv, inherits=FALSE)
     }
   }
-# Upload `exportenv` as a common job environment for the workers, making
-# sure that it fits in Redis.
+# Upload `exportenv` and related data as common job data for the workers
+# making sure the data fit in Redis.
   if(object.size(exportenv) > REDIS_MAX_VALUE_SIZE)
   {
     message("The exported environment size is too large.\nConsider breaking up your data across multiple Redis keys.")
     stop("exportenv too big")
   }
-  redisSet(queueEnv, list(expr=expr,
-                          exportenv=exportenv, packages=obj$packages))
   results <- NULL
   ntasks <- length(argsList)
-# foreach lets one pass options to a backend with the .options.<label>
-# argument. We check for a user-supplied chunkSize option.
+
   chunkSize <- 0
   if(exists("chunkSize", envir=.doRedisGlobals))
     chunkSize <- get("chunkSize", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$chunkSize))
-   {
-    tryCatch(
-      chunkSize <- obj$options$redis$chunkSize - 1,
-      error=function(e) {chunkSize <<- 0; warning(e)}
-    )
-   }
-  chunkSize <- max(chunkSize,0)
+    chunkSize <- obj$options$redis$chunkSize
+  chunkSize <- tryCatch(max(chunkSize - 1, 0), error=function(e) 0)
+
+  if(gather)
+  {
+# Modify iterator to include the combine function
+    redisSet(queueEnv, list(expr=expr,
+                            exportenv=exportenv,
+                            packages=obj$packages,
+                            combineInfo=it$combineInfo))
+  } else redisSet(queueEnv, list(expr=expr,
+                                 exportenv=exportenv, packages=obj$packages))
 # Check for a fault-tolerance check interval (in seconds), do not
 # allow it to be less than 3 seconds (see alive.c thread code).
   ftinterval <- 30
@@ -388,7 +429,8 @@ setPackages <- function(packages=c())
   {
     k <- min(j + chunkSize, ntasks)
     block <- argsList[j:k]
-    names(block) <- j:k
+    if(gather) names(block) <- rep(nout, k - j + 1)
+    else names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
@@ -396,6 +438,23 @@ setPackages <- function(packages=c())
   redisExec()
   redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
+
+# Adjust iterator for distributed accumulation
+# Adjust the _default_ accumulator function, in the (unfortunately) two places
+# that it is found...
+  if(gather)
+  {
+    it$state$numValues <- nout - 1
+    if(isTRUE(all.equal(function(a, ...) c(a, list(...)), it$combineInfo$fun)))
+    {
+      it$combineInfo$fun <- c
+      it$state$fun <- c
+      it$combineInfo$multi.combine <- FALSE
+      it$combineInfo$has.init <- FALSE
+      it$combineInfo$init <- c()
+    }
+  }
+  accumulator <- makeAccum(it)
 
 # Collect the results and pass through the accumulator
   j <- 1
