@@ -182,7 +182,8 @@ setChunkSize <- function(value=1)
 #' This value is overriden by setting the 'reduce' option in the
 #' foreach loop (see the examples).
 #'
-#' @return \code{NULL}
+#' @return \code{fun} is invisibly returned, or TRUE is returned for
+#'  deferred function assignment.
 #' @seealso \code{\link{foreach}}, \code{\link{setChunkSize}}
 #' @examples
 #' \dontrun{
@@ -202,8 +203,7 @@ setReduce <- function(fun=NULL)
   {
 # Special case: defer assignment of the function until foreach is called,
 # then set it equal to the .combine function.
-    assign("gather", TRUE, envir=.doRedisGlobals)
-    return()
+    invisible(assign("gather", TRUE, envir=.doRedisGlobals))
   }
 # Otherwise explicitly set or clear the function
   if(!(is.function(fun) || is.null(fun))) stop("setGather requires a function or NULL")
@@ -414,10 +414,12 @@ setPackages <- function(packages=c())
   if(!is.null(gather))
   {
 # Modify iterator to include the combine function
+    exportCombineInfo = it$combineInfo
+    environment(exportCombineInfo$fun) <- emptyenv()
     redisSet(queueEnv, list(expr=expr,
                             exportenv=exportenv,
                             packages=obj$packages,
-                            combineInfo=it$combineInfo))
+                            combineInfo=exportCombineInfo))
   } else redisSet(queueEnv, list(expr=expr,
                                  exportenv=exportenv, packages=obj$packages))
 # Check for a fault-tolerance check interval (in seconds), do not
