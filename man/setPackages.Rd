@@ -2,7 +2,7 @@
 % Please edit documentation in R/doRedis.R
 \name{setPackages}
 \alias{setPackages}
-\title{Manually set package names to the worker environment package list.}
+\title{Manually set package names in the worker environment package list.}
 \usage{
 setPackages(packages = c())
 }
@@ -10,16 +10,16 @@ setPackages(packages = c())
 \item{packages}{A character vector of package names.}
 }
 \value{
-NULL is invisibly returned.
+The value of \code{packages} is invisibly returned.
 }
 \description{
-The setPackages function lets users manually declare packages
+The \code{setPackages} function lets users manually declare packages
 that R worker processes need to load before running their tasks.
 }
 \details{
 The \code{foreach} function includes a similar \code{.packages} parameter.
 
-We provide this supplemental packages option for users without direct access
+Defines a way to set the foreach \code{.packages} option for users without direct access
 to the \code{foreach} function, for example, when \code{foreach} is used
 inside another package.
 }

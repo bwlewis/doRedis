@@ -10,7 +10,7 @@ setExport(names = c())
 \item{names}{A character vector of symbol names to export.}
 }
 \value{
-NULL is invisibly returned.
+\code{names} is invisibly returned.
 }
 \description{
 The setExport function lets users manually declare symbol names

@@ -95,8 +95,8 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 # empty lists.
   queueLive <- paste(queue,"live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
-
   setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
+  invisible()
 }
 
 #' Remove a doRedis queue and delete all associated keys from Redis.
@@ -126,6 +126,7 @@ removeQueue <- function(queue)
   for (j in queueCount) redisDelete(j)
   queueLive <- redisKeys(pattern=sprintf("%s\\.live",queue))
   for (j in queueLive) redisDelete(j)
+  invisible()
 }
 
 #' Set the default granularity of distributed tasks.
@@ -145,7 +146,7 @@ removeQueue <- function(queue)
 #' This value is overriden by setting the 'chunkSize' option in the
 #' foreach loop (see the examples).
 #'
-#' @return NULL is invisibly returned.
+#' @return \code{value} is invisibly returned.
 #' @examples
 #' \dontrun{
 #' setChunkSize(5)
@@ -167,13 +168,14 @@ setChunkSize <- function(value=1)
 
 #' Set distributed reduction
 #'
-#' Instruct doRedis to perform the \code{.combine} reduction per task on the
-#' workers before returning results. Combined results are then processed through
-#' the specified \code{fun} function. The gather function \code{fun} is an
-#' 'outer' combine function.  Only applies when \code{chunkSize} greater than
-#' one, and implies that \code{.multicombine=FALSE}.
+#' Instruct doRedis to perform the \code{.combine} reduction per task on each
+#' worker before returning results. Combined results are then processed through
+#' the specified \code{fun} function, providing two levels of reduction
+#' functions. This option only applies when \code{chunkSize} greater than
+#' one, and automatically sets \code{.multicombine=FALSE}.
 #'
-#' @param fun a function of two arguments, set to NULL to disable gather
+#' @param fun a function of two arguments, set to NULL to disable gather or
+#'  leave missing to set the gather function identical to the \code{.combine} function.
 #'
 #' @note
 #' This value is overriden by setting the 'gather' option in the
@@ -195,6 +197,14 @@ setChunkSize <- function(value=1)
 #' @export
 setGather <- function(fun=NULL)
 {
+  if(missing(fun))
+  {
+# Special case: defer assignment of the function until foreach is called,
+# then set it equal to the .combine function.
+    assign("gather", TRUE, envir=.doRedisGlobals)
+    return()
+  }
+# Otherwise explicitly set or clear the function
   if(!(is.function(fun) || is.null(fun))) stop("setGather requires a function or NULL")
   assign("gather", fun, envir=.doRedisGlobals)
 }
@@ -212,7 +222,7 @@ setGather <- function(fun=NULL)
 #'
 #' @param names A character vector of symbol names to export.
 #'
-#' @return NULL is invisibly returned.
+#' @return \code{names} is invisibly returned.
 #'
 #' @examples
 #' \dontrun{
@@ -241,20 +251,20 @@ setExport <- function(names=c())
   assign("export", names, envir=.doRedisGlobals)
 }
 
-#' Manually set package names to the worker environment package list.
+#' Manually set package names in the worker environment package list.
 #'
-#' The setPackages function lets users manually declare packages
+#' The \code{setPackages} function lets users manually declare packages
 #' that R worker processes need to load before running their tasks.
 #'
 #' The \code{foreach} function includes a similar \code{.packages} parameter.
 #'
-#' We provide this supplemental packages option for users without direct access
+#' Defines a way to set the foreach \code{.packages} option for users without direct access
 #' to the \code{foreach} function, for example, when \code{foreach} is used
 #' inside another package.
 #'
 #' @param packages A character vector of package names.
 #'
-#' @return NULL is invisibly returned.
+#' @return The value of \code{packages} is invisibly returned.
 #'
 #' @export
 setPackages <- function(packages=c())
@@ -335,6 +345,10 @@ setPackages <- function(packages=c())
     gather <- get("gather", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$gather))
     gather <- obj$options$redis$gather
+  if(is.logical(gather) && isTRUE(gather))
+  {
+    gather <- it$combineInfo$fun
+  }
 
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
@@ -438,8 +452,7 @@ setPackages <- function(packages=c())
   redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
 
-# Adjust iterator for distributed accumulation and the accumulator function in
-# the two places that it is found...
+# Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
   {
     cfun <- it$combineInfo$fun

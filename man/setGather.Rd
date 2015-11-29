@@ -7,17 +7,18 @@
 setGather(fun = NULL)
 }
 \arguments{
-\item{fun}{a function of two arguments, set to NULL to disable gather}
+\item{fun}{a function of two arguments, set to NULL to disable gather or
+leave missing to set the gather function identical to the \code{.combine} function.}
 }
 \value{
 \code{NULL}
 }
 \description{
-Instruct doRedis to perform the \code{.combine} reduction per task on the
-workers before returning results. Combined results are then processed through
-the specified \code{fun} function. The gather function \code{fun} is an
-'outer' combine function.  Only applies when \code{chunkSize} greater than
-one, and implies that \code{.multicombine=FALSE}.
+Instruct doRedis to perform the \code{.combine} reduction per task on each
+worker before returning results. Combined results are then processed through
+the specified \code{fun} function, providing two levels of reduction
+functions. This option only applies when \code{chunkSize} greater than
+one, and automatically sets \code{.multicombine=FALSE}.
 }
 \note{
 This value is overriden by setting the 'gather' option in the
