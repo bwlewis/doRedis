@@ -166,19 +166,20 @@ setChunkSize <- function(value=1)
   assign("chunkSize", value, envir=.doRedisGlobals)
 }
 
-#' Set distributed reduction
+#' Set two-level distributed reduction
 #'
 #' Instruct doRedis to perform the \code{.combine} reduction per task on each
 #' worker before returning results. Combined results are then processed through
-#' the specified \code{fun} function, providing two levels of reduction
+#' the specified function \code{fun} for two levels of reduction
 #' functions. This option only applies when \code{chunkSize} greater than
 #' one, and automatically sets \code{.multicombine=FALSE}.
 #'
 #' @param fun a function of two arguments, set to NULL to disable gather or
-#'  leave missing to set the gather function identical to the \code{.combine} function.
+#'  leave missing to set the gather function formally identical to the
+#'  \code{.combine} function but with an empty environment.
 #'
 #' @note
-#' This value is overriden by setting the 'gather' option in the
+#' This value is overriden by setting the 'reduce' option in the
 #' foreach loop (see the examples).
 #'
 #' @return \code{NULL}
@@ -186,16 +187,16 @@ setChunkSize <- function(value=1)
 #' @examples
 #' \dontrun{
 #' setChunkSize(3)
-#' setGather(list)
+#' setReduce(list)
 #' foreach(j=1:10, .combine=c) %dopar% j
 #'
 #' # Same effect as:
 #' 
 #' foreach(j=1:10, .combine=c,
-#'         .options.redis=list(chunksize=3, gather=list)) %dopar% j
+#'         .options.redis=list(chunksize=3, reduce=list)) %dopar% j
 #' }
 #' @export
-setGather <- function(fun=NULL)
+setReduce <- function(fun=NULL)
 {
   if(missing(fun))
   {
@@ -339,15 +340,16 @@ setPackages <- function(packages=c())
   it <- iter(obj)
   argsList <- .to.list(it)
 
-# Distributed gather
+# Distributed reduce
   gather <- NULL
   if(exists("gather", envir=.doRedisGlobals))
     gather <- get("gather", envir=.doRedisGlobals)
-  if(!is.null(obj$options$redis$gather))
-    gather <- obj$options$redis$gather
+  if(!is.null(obj$options$redis$reduce))
+    gather <- obj$options$redis$reduce
   if(is.logical(gather) && isTRUE(gather))
   {
     gather <- it$combineInfo$fun
+    environment(gather) <- emptyenv()
   }
 
 # Setup the parent environment by first attempting to create an environment
