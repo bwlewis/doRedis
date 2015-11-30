@@ -220,6 +220,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
       names(result) <- names(work[[1]]$argsList)
       if(!is.null(.doRedisGlobals$combineInfo))
       {
+        environment(.doRedisGlobals$combineInfo$fun) <- initdata$exportenv
         result <- list(Reduce(.doRedisGlobals$combineInfo$fun, result)) ## XXX init?
         names(result) <- names(work[[1]]$argsList[1])
       }

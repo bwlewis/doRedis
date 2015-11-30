@@ -174,6 +174,10 @@ setChunkSize <- function(value=1)
 #' functions. This option only applies when \code{chunkSize} greater than
 #' one, and automatically sets \code{.multicombine=FALSE}.
 #'
+#' This approach can improve performance when the \code{.combine} function is
+#' expensive to compute, and when function emits significantly less data than
+#' it consumes.
+#'
 #' @param fun a function of two arguments, set to NULL to disable gather or
 #'  leave missing to set the gather function formally identical to the
 #'  \code{.combine} function but with an empty environment.
@@ -203,7 +207,7 @@ setReduce <- function(fun=NULL)
   {
 # Special case: defer assignment of the function until foreach is called,
 # then set it equal to the .combine function.
-    invisible(assign("gather", TRUE, envir=.doRedisGlobals))
+    return(assign("gather", TRUE, envir=.doRedisGlobals))
   }
 # Otherwise explicitly set or clear the function
   if(!(is.function(fun) || is.null(fun))) stop("setGather requires a function or NULL")
@@ -322,7 +326,7 @@ setPackages <- function(packages=c())
 
 # Manage default parallel RNG, restoring an advanced old RNG state on exit
   .seed <- NULL
-  if(exists(".Random.seed",envir=globalenv())) .seed <- get(".Random.seed",envir=globalenv())
+  if(exists(".Random.seed", envir=globalenv())) .seed <- get(".Random.seed", envir=globalenv())
   RNG_STATE <- list(kind=RNGkind()[[1]], seed=.seed)
   on.exit(
   {
@@ -349,7 +353,6 @@ setPackages <- function(packages=c())
   if(is.logical(gather) && isTRUE(gather))
   {
     gather <- it$combineInfo$fun
-    environment(gather) <- emptyenv()
   }
 
 # Setup the parent environment by first attempting to create an environment
