@@ -23,10 +23,14 @@ Set the following parameter in your redis.conf file before using doRedis:
 timeout 0
 ```
 
-**Do not** use `doRedis` together with `doMC` or any  fork-based R
+**Avoid** using `doRedis` together with `doMC` or any  fork-based R
 functions like `mclapply`. If you require a local inner parallel code
-section, use `parLapply` and `makePSOCKcluster` or the related `doParallel`
-functions instead of fork-based methods.
+section, consider using `parLapply` and `makePSOCKcluster` or the related `doParallel`
+functions instead of fork-based methods. The fork-based functions can work in some
+cases, but might also lead to trouble because the children share certain resources
+with the parent process like open socket descriptors. I have in particular run in
+to trouble with some fast BLAS libraries and fork--in particular the AMD ACML
+can't be used in this way at all. Again, excercise caution with fork and `doRedis`!
 
 ## DESCRIPTION
 
