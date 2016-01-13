@@ -57,7 +57,7 @@ do_start()
       echo \${U} > /etc/doRedis.conf
     fi
   fi
-  sudo -b -n -E -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf >/dev/null 2>&1 &
+  sudo -b -n -E -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf start >/dev/null 2>&1 &
 }
 
 #
@@ -77,7 +77,7 @@ case "\$1" in
 	do_stop && log_success_msg "Stoped Redis R worker service"
 	;;
   status)
-       status_of_proc /user/local/bin/doRedis_worker "doRedis_worker" && exit 0 || exit 1
+       [[ \$(ps -aux | grep doRedis_worker | grep doRedis.conf | wc -l) -gt 0 ]] && exit 0 || exit 1
        ;;
   *)
 	echo "Usage: doRedis {start|stop|status}" >&2
@@ -94,6 +94,12 @@ cat > /usr/local/bin/doRedis_worker << 2ZZZ
 export PATH="${PATH}:/usr/bin:/usr/local/bin"
 
 CONF=\$1
+
+if test \$# -eq 2; then
+  nohup "\${0}" "\${CONF}" 0<&- &>/dev/null &
+  disown
+  exit 0
+fi
 
 [ ! -x \$CONF ]  || echo "Can't find configuration file doRedis.conf, exiting"
 [ ! -x \$CONF ] || exit 1
@@ -126,15 +132,12 @@ Terminator ()
 }
 trap "Terminator" SIGHUP SIGINT SIGTERM
 
-timeout=10
+timeout=1
 while :; do
   # Initial start up
   j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then
     \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
-    timeout=2
-  else
-    timeout=10
   fi
   sleep \$timeout
 done

@@ -22,3 +22,4 @@ echo "Un-installing the doRedis service..."
 update-rc.d -f doRedis remove || chkconfig --del doRedis
 rm -f /etc/init.d/doRedis
 rm -f /etc/doRedis.conf
+rm -f /usr/local/bin/doRedis_worker
