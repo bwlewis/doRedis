@@ -98,14 +98,14 @@ CONF=\$1
 [ ! -x \$CONF ]  || echo "Can't find configuration file doRedis.conf, exiting"
 [ ! -x \$CONF ] || exit 1
 
-N=\$(cat \$CONF | sed -n /^n:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-R=\$(cat \$CONF | sed -n /^R:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-T=\$(cat \$CONF | sed -n /^timeout:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-I=\$(cat \$CONF | sed -n /^iter:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-HOST=\$(cat \$CONF | sed -n /^host:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-PORT=\$(cat \$CONF | sed -n /^port:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-QUEUE=\$(cat \$CONF | sed -n /^queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-LOG=\$(cat \$CONF | sed -n /^log:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+N=\$(cat \$CONF | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+R=\$(cat \$CONF | sed -n /^[[:blank:]]*R:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+T=\$(cat \$CONF | sed -n /^[[:blank:]]*timeout:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+I=\$(cat \$CONF | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+HOST=\$(cat \$CONF | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+QUEUE=\$(cat \$CONF | sed -n /^[[:blank:]]*queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
 
 # Set default values
 [ -z "\${N}" ]     && N=2
