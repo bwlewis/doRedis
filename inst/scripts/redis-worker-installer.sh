@@ -51,7 +51,7 @@ EC2=$1
 #
 do_start()
 {
-  if test "\${EC2}" == "EC2"; then
+  if test -n "\${EC2}"; then
     U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
     if test -n "\${U}";  then
       echo \${U} > /etc/doRedis.conf
