@@ -169,25 +169,26 @@ setChunkSize <- function(value=1)
 #' Set two-level distributed reduction
 #'
 #' Instruct doRedis to perform the \code{.combine} reduction per task on each
-#' worker before returning results. Combined results are then processed through
+#' worker before returning results, cf. \code{\link{foreach}}.
+#' Combined results are then processed through
 #' the specified function \code{fun} for two levels of reduction
-#' functions. This option only applies when \code{chunkSize} greater than
+#' functions. This option only applies when the \code{chunkSize} option is greater than
 #' one, and automatically sets \code{.multicombine=FALSE}.
 #'
 #' This approach can improve performance when the \code{.combine} function is
 #' expensive to compute, and when function emits significantly less data than
 #' it consumes.
 #'
-#' @param fun a function of two arguments, set to NULL to disable gather or
-#'  leave missing to set the gather function formally identical to the
+#' @param fun a function of two arguments, set to NULL to disable combining, or
+#'  leave missing to implicitly set the gather function formally identical to the
 #'  \code{.combine} function but with an empty environment.
 #'
 #' @note
 #' This value is overriden by setting the 'reduce' option in the
 #' foreach loop (see the examples).
 #'
-#' @return \code{fun} is invisibly returned, or TRUE is returned for
-#'  deferred function assignment.
+#' @return \code{fun} is invisibly returned, or TRUE is returned when
+#'  \code{fun} is missing (in which case the \code{.combine} function is used).
 #' @seealso \code{\link{foreach}}, \code{\link{setChunkSize}}
 #' @examples
 #' \dontrun{

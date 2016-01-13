@@ -267,12 +267,12 @@ estimation of $\pi$ using 1,000,000 points.
 Parallel computations managed by {\tt doRedis} tolerate failures among the back
 end worker R processes. Examples of failures include crashed back end R
 sessions, operating system crash or reboot, power outages, or simply dialing
-down elastic workers by turning them off. When a failure is detected, affected tasks are
-automatically re-submitted to the work queue. The option {\tt ftinterval}
-controls how frequently {\tt doRedis} checks for failure. The default value is
-15 seconds, and the minimum allowed value is three seconds. (Very frequent checks
-for failure increase overhead and will slow computations down--the default
-value is usually reasonable.)
+down elastic workers by turning them off. When a failure is detected, affected
+tasks are automatically re-submitted to the work queue. The option {\tt
+ftinterval} sets an upper bound on how frequently {\tt doRedis} checks for
+failure. The default value is 30 seconds, and the minimum allowed value is
+three seconds. (Very frequent checks for failure increase overhead and will
+slow computations down--the default value is usually reasonable.)
 
 Listing \ref{fault} presents a contrived, but entirely self-contained
 example of fault tolerance. Verbose logging output is enabled to help document
