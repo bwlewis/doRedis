@@ -1,2 +1,3 @@
 .travis.yml
 .lintr
+vignettes/AMAZON.Rmd
