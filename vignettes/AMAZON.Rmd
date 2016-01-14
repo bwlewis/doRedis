@@ -85,6 +85,8 @@ node:
 n: 2\n
 host: 172.31.20.55\n
 ```
+This configures 2 R workers to run per Amazon instance, communicating with the Redis
+host at 172.31.20.55, (using a default job queue named `RJOBS` in Redis).
 Note the explicit `\n` escaped-newline character at the end of each line (required).
 You can supply that to newly launched nodes by pasting that in to the user data box
 in the EC2 control panel web GUI.
