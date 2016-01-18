@@ -308,12 +308,11 @@ setPackages <- function(packages=c())
 # ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
-  IDfile <- tempfile("doRedis")
-  zz <- file(IDfile,"w")
-  close(zz)
-  ID <- basename(IDfile)
+  ID <- basename(tempfile(""))
 # The backslash escape charater present in Windows paths causes problems.
-  ID <- gsub("\\\\","_",ID)
+  ID <- gsub("\\\\", "", ID)
+  ID <- paste(ID, Sys.info()["user"], Sys.info()["nodename"], Sys.time(), sep="_")
+  ID <- gsub(" ", "-", ID)
   queue <- data$queue
   queueEnv <- paste(queue,"env", ID, sep=".")
   queueOut <- paste(queue,"out", ID, sep=".")
@@ -336,7 +335,6 @@ setPackages <- function(packages=c())
     assign(".Random.seed",RNG_STATE$seed,envir=globalenv())
     runif(1)
 # Clean up the session ID and session environment
-    unlink(IDfile)
     if(redisExists(queueEnv)) redisDelete(queueEnv)
     if(redisExists(queueOut)) redisDelete(queueOut)
   })
@@ -474,6 +472,7 @@ setPackages <- function(packages=c())
   accumulator <- makeAccum(it)
 
 # Collect the results and pass through the accumulator
+# Note! at this point, nout = number of tasks + 1
   j <- 1
 tryCatch(
 {
@@ -504,10 +503,23 @@ tryCatch(
       qlen <- as.integer(redisLLen(queue))
       if(qlen == 0 && length(started) == 0)
       {
-        for(resub in setdiff(1:nout, done)) {
+        resub_init = TRUE
+        for(resub in setdiff(1:(nout - 1), done)) {
+          if(resub_init)
+          {
+            # Reset the job environment just in case
+            if(!is.null(gather))
+            {
+              redisSet(queueEnv, list(expr=expr,
+                            exportenv=exportenv,
+                            packages=obj$packages,
+                            combineInfo=exportCombineInfo))
+            } else redisSet(queueEnv, list(expr=expr, exportenv=exportenv, packages=obj$packages))
+            resub_init = FALSE
+          }
           block <- argsList[resub]
           names(block) <- resub
-          warning(sprintf("Worker fault: resubmitting task %s", names(block)), immediate.=TRUE)
+          warning(sprintf("Lost result: resubmitting task %s", names(block)), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
       }
