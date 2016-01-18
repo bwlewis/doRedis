@@ -212,7 +212,9 @@ redisWorker <- function(queue, host="localhost", port=6379,
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       k <- k + 1
-      cat("Processing task(s)", paste(head(names(work[[1]]$argsList),1),tail(names(work[[1]]$argsList),1),sep="...",collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n")
+      cat("Processing task(s)",
+        paste(head(names(work[[1]]$argsList),1),
+          tail(names(work[[1]]$argsList),1), sep="...", collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n")
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.

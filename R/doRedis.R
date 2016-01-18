@@ -416,7 +416,7 @@ setPackages <- function(packages=c())
   if(!is.null(gather))
   {
 # Modify iterator to include the combine function
-    exportCombineInfo = it$combineInfo
+    exportCombineInfo <- it$combineInfo
     environment(exportCombineInfo$fun) <- emptyenv()
     redisSet(queueEnv, list(expr=expr,
                             exportenv=exportenv,
@@ -461,7 +461,6 @@ setPackages <- function(packages=c())
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
   {
-    cfun <- it$combineInfo$fun
     it$state$numValues <- nout - 1
     it$combineInfo$fun <- gather
     it$state$fun <- gather # this is the only one that matters?
@@ -503,7 +502,7 @@ tryCatch(
       qlen <- as.integer(redisLLen(queue))
       if(qlen == 0 && length(started) == 0)
       {
-        resub_init = TRUE
+        resub_init <- TRUE
         for(resub in setdiff(1:(nout - 1), done)) {
           if(resub_init)
           {
@@ -515,7 +514,7 @@ tryCatch(
                             packages=obj$packages,
                             combineInfo=exportCombineInfo))
             } else redisSet(queueEnv, list(expr=expr, exportenv=exportenv, packages=obj$packages))
-            resub_init = FALSE
+            resub_init <- FALSE
           }
           block <- argsList[resub]
           names(block) <- resub
@@ -601,4 +600,52 @@ flushQueue <- function(queue, ID)
   })
   length(a) <- i
   a
+}
+
+#' List doRedis jobs
+#' @param queue List jobs for the specified queue, or set to "*" to list jobs for all queues
+#' @return a data frame listing jobs by row with variables queue, id, user, host and time (submitted).
+#' @export
+jobs <- function(queue="*")
+{
+  x <- redisKeys(paste(queue, ".env.*", sep=""))
+  if(length(x) < 1) return(data.frame())
+  ans <- data.frame(rbind(Reduce(rbind,
+           lapply(strsplit(x, "_"), function(x) c(strsplit(x[1], "\\.")[[1]][-2], x[-1])))),
+             stringsAsFactors=FALSE, row.names=NULL)
+  names(ans) <- c("queue", "id", "user", "host", "time")
+  ans
+}
+
+#' List running doRedis tasks
+#' @param queue List jobs for the specified queue, or set to "*" to list jobs for all queues
+#' @param id List tasks for the specified job id, or set to "*" to list tasks for all job ids
+#' @return a data frame listing jobs by row with variables queue, id, user, master, time, iter, host, pid
+#' @note The returned values indicate
+#' \enumerate{
+#' \item \code{queue} the doRedis queue name
+#' \item \code{id} the doRedis job id
+#' \item \code{user} the user running the job
+#' \item \code{master} the host name or I.P. address where the job was submitted (and the master R process runs)
+#' \item \code{time} system time on the master host when the job was submitted
+#' \item \code{iter} the loop iterations being run by the task
+#' \item \code{host} the host name or I.P. address where the task is running
+#' \item \code{pid} the process ID of the R worker running the task on \code{host}
+#' }
+#' Tasks are listed until a key associated with them expires in Redis. Thus running tasks
+#' are not explicitly removed from the task list immediately when they terminate, but may
+#' linger on the list for a short while after (a few seconds).
+#' @export
+tasks <- function(queue="*", id="*")
+{
+  x <- redisKeys(sprintf("%s.alive.%s*", queue, id))
+  if(length(x) < 1) return(data.frame())
+# I know, this is a bit much...
+  ans <- data.frame(rbind(Reduce(rbind,
+           lapply(lapply(strsplit(x, "_"),
+             function(x) c(strsplit(x[1], "\\.")[[1]], x[-1])),
+               function(x) c(x[-c(2,6)], strsplit(x[6], " ")[[1]][c(1,2,4,6)])))), stringsAsFactors=FALSE, row.names=NULL)
+  names(ans) <- c("queue", "id", "user", "master", "time", "iter", "host", "pid")
+  ans$time <- gsub("\\.iters", "", ans$time)
+  ans
 }
