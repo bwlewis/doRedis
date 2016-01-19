@@ -83,17 +83,17 @@
 #' @importFrom parallel nextRNGStream
 #' @importFrom iterators nextElem iter
 #' @importFrom stats runif
-#' @importFrom utils flush.console packageDescription
+#' @importFrom utils packageDescription
 #' @export
 registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 {
   if(missing(password)) redisConnect(host, port, ...)
-  else redisConnect(host,port,password=password, ...)
+  else redisConnect(host, port, password=password, ...)
   assign("queue", queue, envir=.doRedisGlobals)
 # Set a queue.live key that signals to workers that this queue is
 # valid. We need this because Redis removes the key associated with
 # empty lists.
-  queueLive <- paste(queue,"live", sep=".")
+  queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
   setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
   invisible()
@@ -472,12 +472,31 @@ setPackages <- function(packages=c())
 
 # Collect the results and pass through the accumulator
 # Note! at this point, nout = number of tasks + 1
+  ctx <- redisGetContext()
   j <- 1
 tryCatch(
 {
   while(j < nout)
   {
-    results <- redisBRPop(queueOut, timeout=ftinterval)
+    retry <- TRUE
+    recon <- 1L
+    while(retry)
+    {
+      results <- tryCatch(redisBRPop(queueOut, timeout=ftinterval),
+                   error=function(e)
+                   {
+                     if(is.numeric(recon))
+                     {
+                       message("There is a problem with the Redis connection!")
+                       message("doRedis will periodically retry connecting to Redis. Press CTRL + C to break out of this loop.")
+                     } else cat(".")
+                     Sys.sleep(max(floor(ftinterval/3), 10))
+                     recon <<- tryCatch(redisConnect(host=ctx$host, port=ctx$port), error=function (e) TRUE)
+                     if(is.null(recon)) message("Connection to Redis reestablished!")
+                     e
+                   })
+      retry <- "condition" %in% class(results)
+    }
     if(is.null(results))
     {
       # Check for worker fault and re-submit tasks if required...
@@ -535,7 +554,13 @@ tryCatch(
       })
     }
   }
-}, interrupt=function(e) flushQueue(queue,ID), error=function(e) flushQueue(queue,ID))
+}, interrupt=function(e) 
+   {
+     flushQueue(queue, ID)
+   }, error=function(e)
+   {
+     flushQueue(queue, ID)
+   })
 
 
 # check for errors
