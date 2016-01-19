@@ -674,3 +674,24 @@ tasks <- function(queue="*", id="*")
   ans$time <- gsub("\\.iters", "", ans$time)
   ans
 }
+
+#' Remove Redis keys associated with one or more doRedis jobs
+#' @param job Either a named character vector with "queue" and "id" entries corresponding to a doRedis
+#'  job queue and job id, or a list with equal-length "queue" and "id" entries, or a data frame with
+#'  "queue" and "id" entries, for example as returned by \code{\link{jobs}}.
+#' @return NULL is invisibly returned
+#' @export
+removeJob <- function(job)
+{
+  if(is.data.frame(job))
+  {
+    job <- as.list(job)
+  }
+  if(!all(c("queue", "id") %in% names(job))) stop("job must include named queue and id fields")
+  patterns <- sprintf("%s*", paste(job[["queue"]], job[["id"]], sep=".*."))
+  ans <- lapply(patterns, function(k)
+  {
+    tryCatch(redisDelete(redisKeys(k)), error=function(e) warning(e))
+  })
+  invisible()
+}
