@@ -490,7 +490,7 @@ tryCatch(
                        message("There is a problem with the Redis connection!")
                        message("doRedis will periodically retry connecting to Redis. Press CTRL + C to break out of this loop.")
                      } else cat(".")
-                     Sys.sleep(max(floor(ftinterval/3), 10))
+                     Sys.sleep(max(floor(ftinterval / 3), 10))
                      recon <<- tryCatch(redisConnect(host=ctx$host, port=ctx$port), error=function (e) TRUE)
                      if(is.null(recon)) message("Connection to Redis reestablished!")
                      e
@@ -554,7 +554,7 @@ tryCatch(
       })
     }
   }
-}, interrupt=function(e) 
+}, interrupt=function(e)
    {
      flushQueue(queue, ID)
    }, error=function(e)
