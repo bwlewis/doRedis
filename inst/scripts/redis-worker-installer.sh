@@ -57,7 +57,9 @@ do_start()
       echo \${U} > /etc/doRedis.conf
     fi
   fi
-  sudo -b -n -E -u nobody /usr/local/bin/doRedis_worker /etc/doRedis.conf start >/dev/null 2>&1 &
+  USER=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*user:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+  [ -z "\${USER}" ]   && USER=nobody
+  sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf start >/dev/null 2>&1 &
 }
 
 #
@@ -117,7 +119,7 @@ LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/.*:[[:bl
 [ -z "\${N}" ]     && N=2
 [ -z "\${R}" ]     && R=R
 [ -z "\${T}" ]     && T=5
-[ -z "\${I}" ]     && I=Inf
+[ -z "\${I}" ]     && I=50
 [ -z "\${HOST}" ]  && HOST=localhost
 [ -z "\${PORT}" ]  && PORT=6379
 [ -z "\${QUEUE}" ] && QUEUE=RJOBS
