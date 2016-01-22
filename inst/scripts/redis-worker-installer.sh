@@ -57,7 +57,7 @@ do_start()
       echo \${U} > /etc/doRedis.conf
     fi
   fi
-  USER=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*user:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+  USER=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*user:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   [ -z "\${USER}" ]   && USER=nobody
   sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf start >/dev/null 2>&1 &
 }
@@ -79,7 +79,7 @@ case "\$1" in
 	do_stop && log_success_msg "Stoped Redis R worker service"
 	;;
   status)
-       [[ \$(ps -aux | grep doRedis_worker | grep doRedis.conf | wc -l) -gt 0 ]] && exit 0 || exit 1
+       [[ \$(ps -aux | grep doRedis_worker | grep doRedis.conf | wc -l | cut -d ' ' -f 1) -gt 0 ]] && exit 0 || exit 1
        ;;
   *)
 	echo "Usage: doRedis {start|stop|status}" >&2
@@ -97,7 +97,7 @@ export PATH="${PATH}:/usr/bin:/usr/local/bin"
 
 CONF=\$1
 
-if test \$# -eq 2; then
+if test \$# -eq 2; then  # daemonize
   nohup "\${0}" "\${CONF}" 0<&- &>/dev/null &
   disown
   exit 0
@@ -106,14 +106,15 @@ fi
 [ ! -x \$CONF ]  || echo "Can't find configuration file doRedis.conf, exiting"
 [ ! -x \$CONF ] || exit 1
 
-N=\$(cat \$CONF | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-R=\$(cat \$CONF | sed -n /^[[:blank:]]*R:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-T=\$(cat \$CONF | sed -n /^[[:blank:]]*timeout:/p  | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-I=\$(cat \$CONF | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-HOST=\$(cat \$CONF | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-QUEUE=\$(cat \$CONF | sed -n /^[[:blank:]]*queue:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
-LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/.*:[[:blank:]*]//")
+N=\$(cat \$CONF | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+R=\$(cat \$CONF | sed -n /^[[:blank:]]*R:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+T=\$(cat \$CONF | sed -n /^[[:blank:]]*timeout:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+I=\$(cat \$CONF | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+HOST=\$(cat \$CONF | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+QUEUE=\$(cat \$CONF | sed -n /^[[:blank:]]*queue:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+ROTATE=\$(cat \$CONF | sed -n /^[[:blank:]]*rotate:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 
 # Set default values
 [ -z "\${N}" ]     && N=2
@@ -124,6 +125,7 @@ LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/.*:[[:bl
 [ -z "\${PORT}" ]  && PORT=6379
 [ -z "\${QUEUE}" ] && QUEUE=RJOBS
 [ -z "\${LOG}" ]   && LOG=/dev/null
+[ -z "\${ROTATE}" ]   && ROTATE=3600
 
 Terminator ()
 {
@@ -135,13 +137,23 @@ Terminator ()
 trap "Terminator" SIGHUP SIGINT SIGTERM
 
 timeout=1
+count=1
 while :; do
   # Initial start up
+  count=\$((\$count + 1))
+  if test \$count -gt 1800; then  # rotate log
+    count=1
+    L=\$(wc -l \${LOG} | cut -d ' ' -f 1)
+    if test \$L -gt 10000; then
+      sed  -e :a  -e '\$q;N;10001,\$D;ba' -i.old \${LOG}
+    fi
+  fi
   j=\$(jobs -p -r| wc -l)
-  if test \$j -lt \$N; then
+  if test \$j -lt \$N; then       # start worker
     \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
   fi
-  sleep \$timeout
+#  read -n1 -s -t\$timeout # XXX doesn't really work!
+  sleep \${timeout}
 done
 2ZZZ
 
@@ -151,21 +163,24 @@ echo "Installing /etc/doRedis.conf configuration file                           
 cat > /etc/doRedis.conf << 3ZZZ
 # /etc/doRedis.conf
 # This file has a pretty rigid structure. The format per line is
-# key: vaule
-# and the colon and space after key are required! The settings
-# may apper in any order.
 #
-# Set n to the number of workers to start.
-n: 2
-# Set R to the path to R (default assumes 'R' is in the PATH)
-R: R
-# Set timeout to wait period after job queue is deleted before exiting
-timeout: 5
-# Set iter to maximum number of iterations to run before exiting
-iter: 50
-host: localhost
-port: 6379
-queue: RJOBS
+# key: vaule
+#
+# and the colon after the key is required! The settings
+# may apper in any order. Everything after a '#' character is
+# ignored per line. Default values appear below.
+#
+n: 2              # number of workers to start
+R: R              # path to R (default assumes 'R' is in the PATH)
+timeout: 5        # wait in seconds after job queue is deleted before exiting
+iter: 50          # maximum tasks to run before worker exit and restart
+host: localhost   # host redis host
+port: 6379        # port redis port
+queue: RJOBS      # queue foreach job queue name
+user: nobody      # user that runs the service and R workers
+log: /dev/null    # direct stderr of each worker to this file,
+#                   web scale by default
+rotate: 3600      # interval in seconds for log rotation
 3ZZZ
 
 chmod a+x /etc/init.d/doRedis

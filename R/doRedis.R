@@ -278,6 +278,16 @@ setPackages <- function(packages=c())
   assign("packages", packages, envir=.doRedisGlobals)
 }
 
+#' Progress bar
+#' @param value If TRUE display a text progress bar indicating status of the computation
+#' @return \code{value} is invisibly returned
+#' @note Alternatively set within the foreach loop with \code{.options.redis=list(progress=TRUE)}.
+#' @export
+setProgress <- function(value=FALSE)
+{
+  assign("progress", value, envir=.doRedisGlobals)
+}
+
 # An internal foreach function required of backends The number of workers
 # reported here is only an estimate.
 .info <- function(data, item)
@@ -353,6 +363,13 @@ setPackages <- function(packages=c())
   {
     gather <- it$combineInfo$fun
   }
+
+# Progress bar
+  progress <- FALSE
+  if(exists("progress", envir=.doRedisGlobals))
+    progress <- get("progress", envir=.doRedisGlobals)
+  if(!is.null(obj$options$redis$progress))
+    progress <- obj$options$redis$progress
 
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
@@ -688,10 +705,24 @@ removeJob <- function(job)
     job <- as.list(job)
   }
   if(!all(c("queue", "id") %in% names(job))) stop("job must include named queue and id fields")
+  flushQueue(job$queue, job$id)
   patterns <- sprintf("%s*", paste(job[["queue"]], job[["id"]], sep=".*."))
   ans <- lapply(patterns, function(k)
   {
     tryCatch(redisDelete(redisKeys(k)), error=function(e) warning(e))
   })
   invisible()
+}
+
+#' Print a timestamped message to the  standard error stream.
+#'
+#' Use to help debug remote doRedis workers.
+#' @param msg a character message to print to the standard error stream
+#' @return The character string that was printed, decorated with time and system info.
+#' @export
+logger <- function(msg)
+{
+  msg <- paste(Sys.time(), Sys.info()["nodename"], msg, sep=" ")
+  cat(msg, file=stderr())
+  msg
 }
