@@ -59,7 +59,14 @@ do_start()
   fi
   USER=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*user:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   [ -z "\${USER}" ]   && USER=nobody
-  sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf start >/dev/null 2>&1 &
+  NUM=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//" | tr ' ' '\n' | wc -l)
+  [ -z "\${NUM}" ]   && NUM=1
+  [ \${NUM} -eq 0 ]   && NUM=1
+  J=1
+  while test \${J} -le \${NUM}; do
+    J=\$(( \${J} + 1 ))
+    sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf \${J} start >/dev/null 2>&1 &
+  done;
 }
 
 #
@@ -96,9 +103,10 @@ cat > /usr/local/bin/doRedis_worker << 2ZZZ
 export PATH="${PATH}:/usr/bin:/usr/local/bin"
 
 CONF=\$1
+NUM=\$2
 
-if test \$# -eq 2; then  # daemonize
-  nohup "\${0}" "\${CONF}" 0<&- &>/dev/null &
+if test \$# -eq 3; then  # daemonize
+  nohup "\${0}" "\${CONF}" "\${NUM}" 0<&- &>/dev/null &
   disown
   exit 0
 fi
@@ -106,13 +114,16 @@ fi
 [ ! -x \$CONF ]  || echo "Can't find configuration file doRedis.conf, exiting"
 [ ! -x \$CONF ] || exit 1
 
-N=\$(cat \$CONF | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+[ -z "\${NUM}" ]   && NUM=1
+[ \${NUM} -eq 0 ]  && NUM=1
+
+N=\$(cat \$CONF | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//" | cut -d ' ' -f \${NUM})
+QUEUE=\$(cat \$CONF | sed -n /^[[:blank:]]*queue:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//" | cut -d ' ' -f \${NUM})
 R=\$(cat \$CONF | sed -n /^[[:blank:]]*R:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 T=\$(cat \$CONF | sed -n /^[[:blank:]]*timeout:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 I=\$(cat \$CONF | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 HOST=\$(cat \$CONF | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
-QUEUE=\$(cat \$CONF | sed -n /^[[:blank:]]*queue:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 ROTATE=\$(cat \$CONF | sed -n /^[[:blank:]]*rotate:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 
@@ -171,16 +182,26 @@ cat > /etc/doRedis.conf << 3ZZZ
 # ignored per line. Default values appear below.
 #
 n: 2              # number of workers to start
+queue: RJOBS      # queue foreach job queue name
 R: R              # path to R (default assumes 'R' is in the PATH)
 timeout: 5        # wait in seconds after job queue is deleted before exiting
 iter: 50          # maximum tasks to run before worker exit and restart
 host: localhost   # host redis host
 port: 6379        # port redis port
-queue: RJOBS      # queue foreach job queue name
 user: nobody      # user that runs the service and R workers
-log: /dev/null    # direct stderr of each worker to this file,
-#                   web scale by default
+log: /dev/null    # direct stderr of each worker to this file (web scale)
 rotate: 3600      # interval in seconds for log rotation
+#
+# The n: and queue: entries may list more than one set of worker numbers and
+# queue names delimited by exactly one space. If more than one queue is
+# specified, then the n: and queue: entries *must* be of the same length.
+# For example,
+#
+# n: 2 1
+# queue: RJOBS SYSTEM
+#
+# starts a set of two R workers listening on the queue named 'RJOBS' and
+# separately, a single R worker listening on the queue named 'SYSTEM'.
 3ZZZ
 
 chmod a+x /etc/init.d/doRedis
