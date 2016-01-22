@@ -282,6 +282,7 @@ setPackages <- function(packages=c())
 #' @param value If TRUE display a text progress bar indicating status of the computation
 #' @return \code{value} is invisibly returned
 #' @note Alternatively set within the foreach loop with \code{.options.redis=list(progress=TRUE)}.
+#' @importFrom utils txtProgressBar setTxtProgressBar
 #' @export
 setProgress <- function(value=FALSE)
 {
@@ -365,11 +366,11 @@ setProgress <- function(value=FALSE)
   }
 
 # Progress bar
-  progress <- FALSE
+  .progress <- FALSE
   if(exists("progress", envir=.doRedisGlobals))
-    progress <- get("progress", envir=.doRedisGlobals)
+    .progress <- get("progress", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$progress))
-    progress <- obj$options$redis$progress
+    .progress <- obj$options$redis$progress
 
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
@@ -491,12 +492,18 @@ setProgress <- function(value=FALSE)
 # Note! at this point, nout = number of tasks + 1
   ctx <- redisGetContext()
   j <- 1
+  if (.progress)
+  {
+    pb <- txtProgressBar(1, nout - 1, style=3)
+    on.exit(close(pb), add=TRUE)
+  }
 tryCatch(
 {
   while(j < nout)
   {
     retry <- TRUE
     recon <- 1L
+    if (.progress) setTxtProgressBar(pb, j)
     while(retry)
     {
       results <- tryCatch(redisBRPop(queueOut, timeout=ftinterval),
@@ -723,6 +730,6 @@ removeJob <- function(job)
 logger <- function(msg)
 {
   msg <- paste(Sys.time(), Sys.info()["nodename"], msg, sep=" ")
-  cat(msg, file=stderr())
+  cat(msg, "\n", file=stderr())
   msg
 }
