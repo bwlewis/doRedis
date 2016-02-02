@@ -7,6 +7,7 @@ Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
 Description: A parallel back end for the "foreach" package using the "Redis"
     database.
+BugReports: https://github.com/bwlewis/doRedis/issues
 Depends:
     R (>= 2.5),
     rredis (>= 1.7.0),

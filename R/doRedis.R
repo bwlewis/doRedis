@@ -729,7 +729,7 @@ removeJob <- function(job)
 #' @export
 logger <- function(msg)
 {
-  msg <- paste(Sys.time(), Sys.info()["nodename"], msg, sep=" ")
+  msg <- paste("@", Sys.time(), Sys.info()["nodename"], Sys.getpid(), msg, sep=" ")
   cat(msg, "\n", file=stderr())
   msg
 }

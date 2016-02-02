@@ -64,8 +64,8 @@ do_start()
   [ \${NUM} -eq 0 ]   && NUM=1
   J=1
   while test \${J} -le \${NUM}; do
-    J=\$(( \${J} + 1 ))
     sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf \${J} start >/dev/null 2>&1 &
+    J=\$(( \${J} + 1 ))
   done;
 }
 
