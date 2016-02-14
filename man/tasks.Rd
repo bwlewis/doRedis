@@ -24,7 +24,7 @@ The returned values indicate
 \item \code{id} the doRedis job id
 \item \code{user} the user running the job
 \item \code{master} the host name or I.P. address where the job was submitted (and the master R process runs)
-\item \code{time} system time on the master host when the job was submitted
+\item \code{time} system time on the worker node when the task was started
 \item \code{iter} the loop iterations being run by the task
 \item \code{host} the host name or I.P. address where the task is running
 \item \code{pid} the process ID of the R worker running the task on \code{host}

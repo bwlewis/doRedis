@@ -200,7 +200,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
      {
 # FT support
       iters <- names(work[[1]]$argsList)
-      fttag <- sprintf("iters %s...%s host %s pid %s", iters[1], iters[length(iters)], Sys.info()["nodename"], Sys.getpid())
+      fttag <- sprintf("iters %s...%s host %s pid %s begin %s", iters[1], iters[length(iters)], Sys.info()["nodename"], Sys.getpid(), gsub(" ", "-", Sys.time()))
       fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
       fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
 # fttag.start is a permanent key

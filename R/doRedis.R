@@ -511,7 +511,7 @@ tryCatch(
                    {
                      if(is.numeric(recon))
                      {
-                       message("There is a problem with the Redis connection!")
+                       message("Interrupted connection to Redis!")
                        message("doRedis will periodically retry connecting to Redis. Press CTRL + C to break out of this loop.")
                      } else cat(".")
                      Sys.sleep(max(floor(ftinterval / 3), 10))
@@ -676,7 +676,7 @@ jobs <- function(queue="*")
 #' \item \code{id} the doRedis job id
 #' \item \code{user} the user running the job
 #' \item \code{master} the host name or I.P. address where the job was submitted (and the master R process runs)
-#' \item \code{time} system time on the master host when the job was submitted
+#' \item \code{time} system time on the worker node when the task was started
 #' \item \code{iter} the loop iterations being run by the task
 #' \item \code{host} the host name or I.P. address where the task is running
 #' \item \code{pid} the process ID of the R worker running the task on \code{host}
@@ -693,7 +693,7 @@ tasks <- function(queue="*", id="*")
   ans <- data.frame(rbind(Reduce(rbind,
            lapply(lapply(strsplit(x, "_"),
              function(x) c(strsplit(x[1], "\\.")[[1]], x[-1])),
-               function(x) c(x[-c(2,6)], strsplit(x[6], " ")[[1]][c(1,2,4,6)])))), stringsAsFactors=FALSE, row.names=NULL)
+               function(x) c(x[-c(2,6)], strsplit(x[6], " ")[[1]][c(8,2,4,6)])))), stringsAsFactors=FALSE, row.names=NULL)
   names(ans) <- c("queue", "id", "user", "master", "time", "iter", "host", "pid")
   ans$time <- gsub("\\.iters", "", ans$time)
   ans
