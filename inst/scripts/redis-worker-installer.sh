@@ -138,15 +138,20 @@ ROTATE=\$(cat \$CONF | sed -n /^[[:blank:]]*rotate:/p | tail -n 1 | sed -e "s/#.
 [ -z "\${LOG}" ]   && LOG=/dev/null
 [ -z "\${ROTATE}" ]   && ROTATE=3600
 
+TEMP=\$(mktemp -d "doRedis.XXXXXXXXXX" --tmpdir="/tmp")
+
 Terminator ()
 {
   for j in \$(jobs -p -r); do
     kill \$j 2>/dev/null
   done
+  rm -rf "\${TEMP}"
   exit
 }
 trap "Terminator" SIGHUP SIGINT SIGTERM
 
+export TMPDIR="\${TEMP}"
+mkdir -p "\${TEMP}"
 timeout=1
 count=1
 while :; do
@@ -161,7 +166,7 @@ while :; do
   fi
   j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then       # start worker
-    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
+TMPDIR="\${TEMP}"    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
   fi
 #  read -n1 -s -t\$timeout # XXX doesn't really work!
   sleep \${timeout}
