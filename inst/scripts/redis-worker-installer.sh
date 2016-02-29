@@ -210,5 +210,9 @@ rotate: 3600      # interval in seconds for log rotation
 3ZZZ
 
 chmod a+x /etc/init.d/doRedis
-update-rc.d doRedis defaults || chkconfig --level 35 doRedis on
+if test -n "`which update-rc.d`"; then
+  update-rc.d doRedis defaults
+else
+  chkconfig --level 35 doRedis on
+fi
 /etc/init.d/doRedis start
