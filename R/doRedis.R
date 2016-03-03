@@ -343,7 +343,7 @@ setProgress <- function(value=FALSE)
   {
 # Reset RNG
     RNGkind(RNG_STATE$kind)
-    assign(".Random.seed",RNG_STATE$seed,envir=globalenv())
+    assign(".Random.seed", RNG_STATE$seed, envir=globalenv())
     runif(1)
 # Clean up the session ID and session environment
     if(redisExists(queueEnv)) redisDelete(queueEnv)
@@ -351,8 +351,18 @@ setProgress <- function(value=FALSE)
   })
   RNGkind("L'Ecuyer-CMRG")
 
+# Stream tasks
+  .stream <- FALSE
+  if(exists("stream", envir=.doRedisGlobals))
+    .progress <- get("stream", envir=.doRedisGlobals)
+  if(!is.null(obj$options$redis$stream))
+    .stream <- obj$options$redis$stream
+
   it <- iter(obj)
-  argsList <- .to.list(it)
+  if(.stream)
+    argsList <- list()
+  else
+    argsList <- .to.list(it)
 
 # Distributed reduce
   gather <- NULL
@@ -422,7 +432,11 @@ setProgress <- function(value=FALSE)
     stop("exportenv too big")
   }
   results <- NULL
-  ntasks <- length(argsList)
+
+  if(.stream)
+    ntasks <- Inf
+  else
+    ntasks <- length(argsList)
 
   chunkSize <- 0
   if(exists("chunkSize", envir=.doRedisGlobals))
@@ -430,6 +444,11 @@ setProgress <- function(value=FALSE)
   if(!is.null(obj$options$redis$chunkSize))
     chunkSize <- obj$options$redis$chunkSize
   chunkSize <- tryCatch(max(chunkSize - 1, 0), error=function(e) 0)
+
+  if(.stream && chunkSize > 0)
+  {
+    stop("stream=TRUE only works with chunkSize=1")
+  }
 
   if(!is.null(gather))
   {
@@ -459,22 +478,39 @@ setProgress <- function(value=FALSE)
   nout <- 1
   j <- 1
   done <- c()  # A vector of completed tasks
-# To speed this up, we added nonblocking calls to rredis and use them.
-  redisSetPipeline(TRUE)
-  redisMulti()
+  if(!.stream) # use nonblocking calls to submit all tasks at once
+  {
+    redisSetPipeline(TRUE)
+    redisMulti()
+  }
+  seed <- .Random.seed
   while(j <= ntasks)
   {
     k <- min(j + chunkSize, ntasks)
-    block <- argsList[j:k]
+    if(.stream)
+    {
+      seed <- nextRNGStream(seed)
+      rs <- list(.Random.seed=seed)
+      block <- tryCatch(list(c(nextElem(it), rs)), error=function(e) {ntasks <<- j; NULL})
+      if(length(argsList) > 0) argsList <- c(argsList, list(c(NA, rs)))
+      else argsList <- list(c(NA, rs))
+    } else
+    {
+      block <- argsList[j:k]
+    }
+    if(is.null(block)) break
     if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
     redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
   }
-  redisExec()
-  redisGetResponse(all=TRUE)
-  redisSetPipeline(FALSE)
+  if(!.stream)
+  {
+    redisExec()
+    redisGetResponse(all=TRUE)
+    redisSetPipeline(FALSE)
+  }
 
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
@@ -624,7 +660,13 @@ flushQueue <- function(queue, ID)
   })
 }
 
-# Convert the iterator to a list
+#' Convert the iterator to a list
+#'
+#' @param x an iterator
+#' @return A list with two entries per element. The first entry is the
+#' corresponding iterator value. The 2nd is a L'Ecuyer random seed value.
+#' @keywords internal
+#' @importFrom parallel nextRNGStream
 .to.list <- function(x)
 {
   seed <- .Random.seed
