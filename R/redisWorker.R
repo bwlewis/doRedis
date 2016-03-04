@@ -25,7 +25,7 @@
       if(!is.null(exportenv$worker.init))
         if(is.function(exportenv$worker.init))
           do.call(exportenv$worker.init, list(), envir=globalenv())
-    }, error=function(e) cat(as.character(e), "\n")
+    }, error=function(e) cat(as.character(e), "\n", file=stderr())
   )
   assign("expr", expr, .doRedisGlobals)
   assign("exportenv", exportenv, .doRedisGlobals)
@@ -205,7 +205,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
       k <- k + 1
       cat("Processing task(s)",
         paste(head(names(work[[1]]$argsList),1),
-          tail(names(work[[1]]$argsList),1), sep="...", collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n")
+          tail(names(work[[1]]$argsList),1), sep="...", collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
@@ -242,6 +242,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # Either the queue has been deleted, or we've exceeded the number of
 # specified work iterations.
   for (j in queueCount) if(redisExists(j)) redisDecr(j)
-  cat("Worker exit.\n")
+  cat("Normal worker exit.\n", file=log)
   if (!connected) redisClose()
 }
