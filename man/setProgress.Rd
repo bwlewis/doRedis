@@ -7,7 +7,7 @@
 setProgress(value = FALSE)
 }
 \arguments{
-\item{value}{If TRUE display a text progress bar indicating status of the computation}
+\item{value}{if \code{TRUE}, display a text progress bar indicating status of the computation}
 }
 \value{
 \code{value} is invisibly returned

@@ -71,8 +71,8 @@
 #' ##    sampling approximation of pi:
 #' require('doRedis')
 #' registerDoRedis('jobs')
-#' foreach(j=1:10,.combine=sum,.multicombine=TRUE) \%dopar\%
-#'         4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
+#' foreach(j=1:10, .combine=sum, .multicombine=TRUE) \%dopar\%
+#'         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
 #' removeQueue('jobs')
 #' }
 #'
@@ -103,9 +103,9 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 #'
 #' Removing a doRedis queue cleans up associated keys in the Redis
 #' database and signals to workers listening on the queue to terminate.
-#' Workers normally terminate after their timeout period after a
-#' queue is delete.
-#' @param queue The doRedis queue name
+#' Workers terminate after their timeout period after their work
+#' queue is deleted.
+#' @param queue the doRedis queue name
 #'
 #' @note Workers listening for work on more than one queue will only
 #' terminate after all their queues have been deleted.
@@ -279,7 +279,7 @@ setPackages <- function(packages=c())
 }
 
 #' Progress bar
-#' @param value If TRUE display a text progress bar indicating status of the computation
+#' @param value if \code{TRUE}, display a text progress bar indicating status of the computation
 #' @return \code{value} is invisibly returned
 #' @note Alternatively set within the foreach loop with \code{.options.redis=list(progress=TRUE)}.
 #' @importFrom utils txtProgressBar setTxtProgressBar

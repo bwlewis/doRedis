@@ -7,7 +7,7 @@
 removeQueue(queue)
 }
 \arguments{
-\item{queue}{The doRedis queue name}
+\item{queue}{the doRedis queue name}
 }
 \value{
 NULL is invisibly returned.
@@ -15,8 +15,8 @@ NULL is invisibly returned.
 \description{
 Removing a doRedis queue cleans up associated keys in the Redis
 database and signals to workers listening on the queue to terminate.
-Workers normally terminate after their timeout period after a
-queue is delete.
+Workers terminate after their timeout period after their work
+queue is deleted.
 }
 \note{
 Workers listening for work on more than one queue will only

@@ -101,6 +101,7 @@ cat > /usr/local/bin/doRedis_worker << 2ZZZ
 #!/bin/bash
 # doRedis R worker startup script
 export PATH="${PATH}:/usr/bin:/usr/local/bin"
+exec 1> >(logger -s -i -t doRedis) 2>&1
 
 CONF=\$1
 NUM=\$2
@@ -124,8 +125,6 @@ T=\$(cat \$CONF | sed -n /^[[:blank:]]*timeout:/p | tail -n 1 | sed -e "s/#.*//"
 I=\$(cat \$CONF | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 HOST=\$(cat \$CONF | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
-LOG=\$(cat \$CONF | sed -n /^[[:blank:]]*log:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
-ROTATE=\$(cat \$CONF | sed -n /^[[:blank:]]*rotate:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 
 # Set default values
 [ -z "\${N}" ]     && N=2
@@ -135,8 +134,6 @@ ROTATE=\$(cat \$CONF | sed -n /^[[:blank:]]*rotate:/p | tail -n 1 | sed -e "s/#.
 [ -z "\${HOST}" ]  && HOST=localhost
 [ -z "\${PORT}" ]  && PORT=6379
 [ -z "\${QUEUE}" ] && QUEUE=RJOBS
-[ -z "\${LOG}" ]   && LOG=/dev/null
-[ -z "\${ROTATE}" ]   && ROTATE=3600
 
 TEMP=\$(mktemp -d "doRedis.XXXXXXXXXX" --tmpdir="/tmp")
 
@@ -153,20 +150,10 @@ trap "Terminator" SIGHUP SIGINT SIGTERM
 export TMPDIR="\${TEMP}"
 mkdir -p "\${TEMP}"
 timeout=1
-count=1
 while :; do
-  # Initial start up
-  count=\$((\$count + 1))
-  if test \$count -gt 1800; then  # rotate log
-    count=1
-    L=\$(wc -l \${LOG} | cut -d ' ' -f 1)
-    if test \$L -gt 10000; then
-      sed  -e :a  -e '\$q;N;10001,\$D;ba' -i.old \${LOG}
-    fi
-  fi
   j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then       # start worker
-TMPDIR="\${TEMP}"    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >>\${LOG} 2>&1  &
+TMPDIR="\${TEMP}"    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >/dev/null  &
   fi
 #  read -n1 -s -t\$timeout # XXX doesn't really work!
   sleep \${timeout}
@@ -194,8 +181,6 @@ iter: 50          # maximum tasks to run before worker exit and restart
 host: localhost   # host redis host
 port: 6379        # port redis port
 user: nobody      # user that runs the service and R workers
-log: /dev/null    # direct stderr of each worker to this file (web scale)
-rotate: 3600      # interval in seconds for log rotation
 #
 # The n: and queue: entries may list more than one set of worker numbers and
 # queue names delimited by exactly one space. If more than one queue is

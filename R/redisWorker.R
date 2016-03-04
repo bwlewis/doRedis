@@ -146,16 +146,12 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #'
 #' @export
 redisWorker <- function(queue, host="localhost", port=6379,
-                        iter=Inf, timeout=30, log=stdout(),
+                        iter=Inf, timeout=30, log=stderr(),
                         connected=FALSE, password=NULL, ...)
 {
   if (!connected)
     redisConnect(host, port, password=password, ...)
-  tryCatch(
-  {
-    sink(type="message", append=TRUE, file=log)
-    sink(type="output", append=TRUE, file=log)
-  }, warning=invisible)
+#  sink(type="message", file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
@@ -232,7 +228,10 @@ redisWorker <- function(queue, host="localhost", port=6379,
         result <- list(Reduce(.doRedisGlobals$combineInfo$fun, result)) ## XXX init?
         names(result) <- names(work[[1]]$argsList[1])
       }
-      redisLPush(queueOut, result)
+# We saw that long-running jobs can sometimes lose connections to
+# Redis in an AWS EC2 example. The following tries to re-establish
+# a redis connecion on error here.
+      tryCatch( redisLPush(queueOut, result), error=function(e) {reconnect(); redisLPush(queueOut, result)})
 # Importantly, the worker does not delete his start key until after the
 # result is successfully placed in a Redis queue. And then after that
 # the alive thread is terminated, allowing the corresponding alive key
