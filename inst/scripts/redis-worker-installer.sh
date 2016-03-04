@@ -124,6 +124,7 @@ T=\$(cat \$CONF | sed -n /^[[:blank:]]*timeout:/p | tail -n 1 | sed -e "s/#.*//"
 I=\$(cat \$CONF | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 HOST=\$(cat \$CONF | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+LOGLEVEL=\$(cat \$CONF | sed -n /^[[:blank:]]*loglevel:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 
 # Set default values
 [ -z "\${N}" ]     && N=2
@@ -133,6 +134,7 @@ PORT=\$(cat \$CONF | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/#.*//"
 [ -z "\${HOST}" ]  && HOST=localhost
 [ -z "\${PORT}" ]  && PORT=6379
 [ -z "\${QUEUE}" ] && QUEUE=RJOBS
+[ -z "\${LOGLEVEL}" ] && LOGLEVEL=0
 
 TEMP=\$(mktemp -d "doRedis.XXXXXXXXXX" --tmpdir="/tmp")
 
@@ -152,7 +154,7 @@ timeout=1
 while :; do
   j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then       # start worker
-TMPDIR="\${TEMP}"    \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'))});q(save='no')"  &
+TMPDIR="\${TEMP}"    \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT}, timeout=\${T}, iter=\${I}, loglevel=\${LOGLEVEL}), error=function(e) q(save='no'))});q(save='no')"  &
   fi
 #  read -n1 -s -t\$timeout # XXX doesn't really work!
   sleep \${timeout}
@@ -180,6 +182,7 @@ iter: 50          # maximum tasks to run before worker exit and restart
 host: localhost   # host redis host
 port: 6379        # port redis port
 user: nobody      # user that runs the service and R workers
+loglevel: 0       # set to 1 to log tasks as they run in the system log
 #
 # The n: and queue: entries may list more than one set of worker numbers and
 # queue names delimited by exactly one space. If more than one queue is

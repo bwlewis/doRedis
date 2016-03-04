@@ -5,7 +5,8 @@
 \title{Initialize a doRedis worker process.}
 \usage{
 redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
-  timeout = 30, log = stderr(), connected = FALSE, password = NULL, ...)
+  timeout = 30, log = stderr(), connected = FALSE, password = NULL,
+  loglevel = 0, ...)
 }
 \arguments{
 \item{queue}{The doRedis work queue name or a vector of queue names.}
@@ -23,6 +24,8 @@ redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
 \item{connected}{Is the R session creating the worker already connected to Redis?}
 
 \item{password}{Optional Redis database password.}
+
+\item{loglevel}{Set to \code{TRUE} to log tasks as they run.}
 
 \item{...}{Optional additional parameters passed to \code{\link{redisConnect}}}
 }

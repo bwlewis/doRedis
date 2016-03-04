@@ -138,6 +138,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @param log Log messages to the specified file connection.
 #' @param connected Is the R session creating the worker already connected to Redis?
 #' @param password Optional Redis database password.
+#' @param loglevel Set to \code{TRUE} to log tasks as they run.
 #' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #'
 #' @return NULL is invisibly returned.
@@ -147,7 +148,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @export
 redisWorker <- function(queue, host="localhost", port=6379,
                         iter=Inf, timeout=30, log=stderr(),
-                        connected=FALSE, password=NULL, ...)
+                        connected=FALSE, password=NULL, loglevel=0, ...)
 {
   if (!connected)
     redisConnect(host, port, password=password, ...)
@@ -192,8 +193,8 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # FT support
       iters <- names(work[[1]]$argsList)
       fttag <- sprintf("iters %s...%s host %s pid %s begin %s", iters[1], iters[length(iters)], Sys.info()["nodename"], Sys.getpid(), gsub(" ", "-", Sys.time()))
-      fttag.start <- paste(queue,"start",work[[1]]$ID,fttag,sep=".")
-      fttag.alive <- paste(queue,"alive",work[[1]]$ID,fttag,sep=".")
+      fttag.start <- paste(queue, "start", work[[1]]$ID, fttag, sep=".")
+      fttag.alive <- paste(queue, "alive", work[[1]]$ID, fttag, sep=".")
 # fttag.start is a permanent key
 # fttag.alive is a matching ephemeral key that is regularly kept alive by the
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
@@ -203,9 +204,12 @@ redisWorker <- function(queue, host="localhost", port=6379,
       redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       k <- k + 1
-      cat("Processing task(s)",
-        paste(head(names(work[[1]]$argsList),1),
-          tail(names(work[[1]]$argsList),1), sep="...", collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
+      if(loglevel > 0)
+      {
+        cat("Processing task(s)",
+         paste(head(names(work[[1]]$argsList), 1),
+          tail(names(work[[1]]$argsList), 1), sep="...", collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
+      }
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
 # <queue>.env Redis string.
