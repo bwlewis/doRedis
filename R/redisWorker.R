@@ -159,16 +159,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
 
-  waitingStatusDisplayed <- FALSE
+  cat("Waiting for doRedis jobs.\n")
   k <- 0
   on.exit(.delOK()) # In case we exit this function unexpectedly
   while(k < iter)
   {
-    if(waitingStatusDisplayed == FALSE)
-    {
-      cat("Waiting for doRedis jobs.\n")
-      waitingStatusDisplayed <- TRUE
-    }
     work <- redisBLPop(queue, timeout=timeout)
 # Note the apparent fragility here. The worker has downloaded a task but
 # not yet set alive/started keys. If a failure occurs before that, it
@@ -242,8 +237,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # to expire.
       tryCatch(redisDelete(fttag.start), error=function(e) invisible())
       .delOK()
-# reset the variable to print the "waiting" status
-      waitingStatusDisplayed <- FALSE
     }
   }
 # Either the queue has been deleted, or we've exceeded the number of
