@@ -1,7 +1,6 @@
 #' Reconnect to redis
 #' @return \code{NULL}
 #' @keywords internal
-#' @importFrom rredis redisGetContext redisConnect
 reconnect <- function()
 {
   con <- redisGetContext()

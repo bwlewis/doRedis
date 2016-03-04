@@ -2,7 +2,7 @@
 % Please edit documentation in R/misc.R
 \name{reconnect}
 \alias{reconnect}
-\title{reconnect to redis}
+\title{Reconnect to redis}
 \usage{
 reconnect()
 }
@@ -10,7 +10,7 @@ reconnect()
 \code{NULL}
 }
 \description{
-reconnect to redis
+Reconnect to redis
 }
 \keyword{internal}
 
