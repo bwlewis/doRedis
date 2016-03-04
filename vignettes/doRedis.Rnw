@@ -6,7 +6,6 @@
 %\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
 \usepackage{color}
-\usepackage{xcolor}
 \usepackage{xspace}
 \usepackage{fancyvrb}
 \usepackage{fancyhdr}
