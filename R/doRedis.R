@@ -548,7 +548,7 @@ tryCatch(
                      if(is.numeric(recon))
                      {
                        message("Interrupted connection to Redis!")
-                       message("doRedis will periodically retry connecting to Redis. Press CTRL + C (or the stop buttin in RStudio) to break out of this loop, maybe more than once.")
+                       message("doRedis will periodically retry connecting to Redis. Press CTRL + C (or the stop button in RStudio) to break out of this loop, maybe more than once.")
                      } else cat(".")
                      Sys.sleep(max(floor(ftinterval / 3), 10))
                      recon <<- tryCatch(redisConnect(host=ctx$host, port=ctx$port), error=function (e) TRUE)

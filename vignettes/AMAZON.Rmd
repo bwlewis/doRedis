@@ -67,7 +67,6 @@ script=$(R --slave -e "system.file('scripts/redis-worker-installer.sh', package=
 sudo $script EC2
 ```
 
-Done!
 
 ## Make an AMI from your instance
 
@@ -96,4 +95,4 @@ You can supply that to newly launched nodes by pasting that in to the user data 
 in the EC2 control panel web GUI.
 
 New workers can be added at any time to your R/Redis/foreach cluster at any time by
-simply turning them on.
+simply turning them on and passing the configuration user data at startup.

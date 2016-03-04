@@ -64,7 +64,7 @@ do_start()
   [ \${NUM} -eq 0 ]   && NUM=1
   J=1
   while test \${J} -le \${NUM}; do
-    sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf \${J} start >/dev/null 2>&1 &
+    sudo -b -n -E -u \${USER} /usr/local/bin/doRedis_worker /etc/doRedis.conf \${J} start &
     J=\$(( \${J} + 1 ))
   done;
 }
@@ -101,13 +101,12 @@ cat > /usr/local/bin/doRedis_worker << 2ZZZ
 #!/bin/bash
 # doRedis R worker startup script
 export PATH="${PATH}:/usr/bin:/usr/local/bin"
-exec 1> >(logger -s -i -t doRedis) 2>&1
 
 CONF=\$1
 NUM=\$2
 
 if test \$# -eq 3; then  # daemonize
-  nohup "\${0}" "\${CONF}" "\${NUM}" 0<&- &>/dev/null &
+  exec "\${0}" "\${CONF}" "\${NUM}" X X 0<&- 2> >(logger -s -i -t doRedis)
   disown
   exit 0
 fi
@@ -153,7 +152,7 @@ timeout=1
 while :; do
   j=\$(jobs -p -r| wc -l)
   if test \$j -lt \$N; then       # start worker
-TMPDIR="\${TEMP}"    \${R} --slave -e "require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'));q(save='no')"  >/dev/null  &
+TMPDIR="\${TEMP}"    \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT},timeout=\${T},iter=\${I}), error=function(e) q(save='no'))});q(save='no')"  &
   fi
 #  read -n1 -s -t\$timeout # XXX doesn't really work!
   sleep \${timeout}

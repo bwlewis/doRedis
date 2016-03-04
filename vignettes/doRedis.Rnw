@@ -6,6 +6,7 @@
 %\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
 \usepackage{color}
+\usepackage{xcolor}
 \usepackage{xspace}
 \usepackage{fancyvrb}
 \usepackage{fancyhdr}
@@ -25,9 +26,12 @@
 \setlength{\TPHorizModule}{40mm}
 \setlength{\TPVertModule}{\TPHorizModule}
 \textblockorigin{0mm}{0mm}
+\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
+\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
+\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
 
 \lstloadlanguages{R}
-\lstset{frame=none, basicstyle=\footnotesize\ttfamily, commentstyle=\rmfamily\small, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
+\lstset{frame=single, language=R, keywordstyle=\color{blue}, commentstyle=\color{dkgreen}, stringstyle=\color{textc}, backgroundcolor=\color{lgray}, basicstyle=\footnotesize\ttfamily, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
 \usepackage{caption}
 %%\DeclareCaptionFont{white}{\color{white}}
 %%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
@@ -141,7 +145,7 @@ systems can dynamically schedule R workers as cluster resources become
 available.
 
 \item {\tt doRedis} computations are partially fault tolerant. Failure of
-back-end worker R processes (for example due to a machine crash or simply
+back end worker R processes (for example due to a machine crash or simply
 scaling back elastic resources) are automatically detected and the affected
 tasks are automatically re-submitted.
 
@@ -151,9 +155,14 @@ Windows systems, and should work well on most POSIX systems.  Back end parallel
 R worker processes are effectively anonymous--they may run anywhere as long as
 all the R package dependencies required by the task at hand are available.
 
-\item Like all {\tt foreach} parallel back-ends, intermediate results may be
+\item Like all {\tt foreach} parallel back ends, intermediate results may be
 aggregated incrementally and in- or out-of order, significantly reducing
 required memory overhead for problems that return large data.
+
+\item Work associated with each loop iteration can be incrementally streamed to
+workers (instead of all at once) with {\tt .options.redis=list(stream=TRUE)}.
+That's useful, for example, to stream chunks from a large file to workers,
+avoiding loading it all in memory and overlapping I/O and computation.
 
 \end{itemize}
 
@@ -200,8 +209,6 @@ foreach(icount(10), .combine=sum,
           4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
 
 # [1] 3.144212
-
-removeQueue("RJOBS")
 \end{lstlisting}
 \begin{center}
 \resizebox{0.5\textwidth}{!}{\rotatebox{0}{\includegraphics{circle}}}
@@ -414,6 +421,46 @@ last section the number of workers is dynamic.  It's possible for workers to
 listen on queues before any jobs exist, or for masters to issue jobs to queues
 without any workers available.
 
+\subsection{Job control functions}
+
+The package includes a few convenience functions for monitoring and controlling
+doRedis work. The simplest, \verb+setProgress(TRUE)+, turns on a standard R
+progress indicator for subsequent doRedis foreach loops. It's a handy way to
+monitor progress at a glance.
+
+Because the controlling R program blocks while it waits for doRedis tasks to
+finish, most other job monitoring and control functions must be run from a
+different R session. They include:
+
+\begin{itemize}
+\item {\tt jobs()}  returns a data frame that lists all running jobs and information about them
+\item {\tt tasks()} returns a data frame of running tasks
+\item {\tt removeQueue()}  remove Redis keys associated with a doRedis work queue
+\item {\tt removeJob()} remove all remaining tasks associated with a specified job in the work queue
+\end{itemize}
+
+The {\tt tasks()} function lists the Redis queue name of each running task, the
+job id associated with it, the user running the job, from which computer I.P.
+address the job was submitted, the I.P. address of the computer on which the
+task is running, which loop iterations make up the task, and the user and
+process ID if the R process running the task.
+
+Note that tasks may linger in the task list for a brief period after they are
+finished running.
+
+
+The {\tt removeQueue()} function removes all the Redis keys associated with the
+specified work queue. doRedis workers listenening on that queue will then
+eventually quit after they are finished processing their running jobs, and after
+a queue timeout period has elapsed.
+
+The {\tt removeJob()} function works similarly, but only prunes keys and remaining
+work items associated with a specific job ID.
+
+Note that in-flight loop iterations will continue to run to completion, even if
+their associated job or work queue has be removed. If you really need to stop a
+worker R process, you can identify its process ID and computer IP address from
+the {\tt tasks()} function and manually terminate it.
 
 \subsection{Redis Key Organization}
 
@@ -546,26 +593,28 @@ explicitly in the {\tt foreach} loop. The example shown in Listing \ref{rng}
 illustrates a simple user-defined seed function.
 
 \begin{lstlisting}[float=!ht,caption=User-defined RNG initialization,label=rng]
-> startLocalWorkers(n=5,queue="jobs")
-> registerDoRedis("jobs")
+startLocalWorkers(n=5,queue="jobs")
+registerDoRedis("jobs")
 
-> # Make all the workers use the same random seed initialization and the old
-> # "Super-Duper" RNG:
-> set.seed.worker <- function(n) {
-+   RNGkind("Super-Duper")
-+   set.seed(55)
-+ }
-> foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
-[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
+# Make all the workers use the same random seed initialization and the old
+# "Super-Duper" RNG:
+set.seed.worker <- function(n) {
+   RNGkind("Super-Duper")
+   set.seed(55)
+}
+foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
+
+#[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
 \end{lstlisting}
 
 
 \subsection{Known Problems and Limitations}
 
-If CTRL+C is pressed while a {\tt foreach} loop is running, connection to the
-Redis server may be lost or enter an undefined state. An R session can reset
-connection to a Redis server at any time by issuing \verb+redisClose()+
-followed by re-registering the {\tt doRedis} back end.
+If CTRL+C (or the RStudio "Stop" button) is pressed while a {\tt foreach} loop
+is running, connection to the Redis server may be lost or enter an undefined
+state. An R session can reset connection to a Redis server at any time by
+issuing \verb+redisClose()+ followed by re-registering the {\tt doRedis} back
+end.
 
 Redis limits database values to less than 512\,MB. Neither the \verb+foreach+
 loop parameters nor the job environment may exceed this size. If you need to
@@ -592,32 +641,32 @@ up into only two chunks. But the idea extends directly to very large
 problems.
 
 \begin{lstlisting}[float=!ht,caption=Explicitly breaking a problem up into chunks,basicstyle=\footnotesize\ttfamily,label=chunk]
-> registerDoRedis("jobs")
+registerDoRedis("jobs")
 
-> set.seed(1)
-> A <- matrix(rnorm(100),nrow=10)   # (Imagine that A is really big.)
+set.seed(1)
+A <- matrix(rnorm(100),nrow=10)   # (Imagine that A is really big.)
 
 # Partition the matrix into parts small enough to fit into Redis values
-# (less than 2GB). We partition our example matrix into two parts:
+# (less than 512 MB). We partition our example matrix into two parts:
 
-> A1 <- A[1:5,]      # First five rows
-> A2 <- A[6:10,]     # Last five rows
+A1 <- A[1:5,]      # First five rows
+A2 <- A[6:10,]     # Last five rows
 
 # Let's explicitly assign these sub-matrices as Redis values. Manually breaking
 # up the data like this helps avoid putting too much data in the R environment
 # exported by foreach.
 
-> redisSet("A1", A1)
-> redisSet("A2", A2)
+redisSet("A1", A1)
+redisSet("A2", A2)
 
-> ans <- foreach(j=1:2, .combine=c) %dopar% {
->   chunk <- sprintf("A%d",j)
->   mychunk <- redisGet(chunk)
->   sum(mychunk)
-> }
+ans <- foreach(j=1:2, .combine=c) %dopar% {
+  chunk <- sprintf("A%d",j)
+  mychunk <- redisGet(chunk)
+  sum(mychunk)
+}
+print(ans)
 
-> print(ans)
-[1] 6.216482 4.672254
+# [1] 6.216482 4.672254
 \end{lstlisting}
 
 The point of the example in Listing \ref{chunk} is that the workers explicitly
@@ -646,12 +695,12 @@ cleaned up by deleting keys associated with the task queue and job ID.
 
 \subsection{worker.init}
 
-If you export a function named \verb+worker.init+ that takes no arguments, it
-will be run by the workers once just after downloading a new job environment.
-The function may contain any worker initialization code not be appropriate for
-the body of the \verb+foreach+ loop that only needs to run once per job,
-independently of the number of tasks that might run on a particular worker.
-
+If you explicitly export a function named \verb+worker.init+ that takes no
+arguments, it will be run by the workers once just after downloading a new job
+environment.  The function may contain any worker initialization code not be
+appropriate for the body of the \verb+foreach+ loop that only needs to run once
+per job, independently of the number of tasks that might run on a particular
+worker.
 
 \subsection{Worker queues}
 
@@ -667,17 +716,40 @@ that they can be managed independently, for example making multi-user use of
 shared R workers somewhat simpler to administrate.
 
 
-\subsection{Rationale for the set* functions}
+\section{All doRedis foreach options}
 
-The package includes the \verb+setChunkSize()+, \verb+setExport()+,
-\verb+setPackages()+, and \verb+setGather()+ functions as alternatives to setting
-parameters using the \verb+foreach+ \verb+.options.redis+  and related
-arguments.
+All options can be set using the standard {\tt foreach} interface or by using
+the special \verb+setProgress()+, \verb+setChunkSize()+, \verb+setExport()+,
+\verb+setPackages()+, and \verb+setReduce()+ functions. Thus,
 
-The package provides these duplicate functions to facilitate working with R
-packages that use \verb+foreach+ internally. In such cases it is not practical
-to directly supply arguments to the \verb+foreach+ invocation within the
-package. The \verb+set*+ functions provide a way to register an external
+\begin{lstlisting}[float=!ht,caption=Option-setting foreach-style,basicstyle=\footnotesize\ttfamily,label=chunk]
+foreach(j=1:10, .options.redis = list(chunksize=5))
+\end{lstlisting}
+is equivalent to
+\begin{lstlisting}[float=!ht,caption=Option-setting alternative-style,basicstyle=\footnotesize\ttfamily,label=chunk]
+setChunkSize(5)
+foreach(j=1:10)
+\end{lstlisting}
+
+The package provides these duplicate functions to facilitate working with other
+R packages that use \verb+foreach+ internally. In such cases it is not
+practical to directly supply arguments to the \verb+foreach+ invocation within
+the package. The \verb+set*+ functions provide a way to register an external
 \verb+foreach+ back end and control its behavior.
+
+Here is a list of all the options.
+
+\begin{itemize}
+\item {\tt chunksize} break the loop iterations up into chunks of at most the specified size, equivalent to {\tt chunkSize}
+\item {\tt progress} display an R progress bar
+\item {\tt packages} character vector of required R packages
+\item {\tt export} character vector of variable names to explicitly export
+\item {\tt reduce} optional per-task reduction function
+\item {\tt stream} optionally stream work as its read
+\end{itemize}
+
+The last two are new and not as well tested/used/known as older parts of the
+package, use with care. In particular, as of this writing, the {\tt stream}
+option does not support fault tolerance.
 
 \end{document}
