@@ -159,7 +159,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
 
-  cat("Waiting for doRedis jobs.\n")
+  if(interactive()) cat("Waiting for doRedis jobs.\n")
   k <- 0
   on.exit(.delOK()) # In case we exit this function unexpectedly
   while(k < iter)
