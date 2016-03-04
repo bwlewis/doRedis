@@ -1,0 +1,121 @@
+# The doRedis Linux Service
+
+The doRedis package includes a script that configures doRedis R workers
+to run as a Linux system service. This vignette outlines installation and
+configuration of the service.
+
+
+The service installation script should work on at least RHEL/CentOS and
+Ubuntu/Debian Linux systems.
+
+We outlined installation instructions for Ubuntu/Debian Linux flavors.
+Installation and configuration proceeds similarly for RHEL, replacing the
+`apt-get` lines with comparable `yum` ones.
+
+
+## Install R and Redis
+```
+sudo apt-get build-dep r-base libxml2-dev libssl-dev libcurl4-openssl-dev unzip  redis-server
+wget https://www.cran.r-project.org/src/base/R-3/R-3.2.3.tar.gz   # or most current version of R
+tar xf R-3.2.3.tar.gz
+cd R-3.2.3
+./configure --enable-R-shlib --enable-memory-profiling
+make -j 2     # use an appropriate number of CPUs here
+sudo make install
+```
+
+NOTE! THe `bash` shell is required by the doRedis service.
+
+
+## Configure Redis to listen on all interfaces
+
+It is *important* to combine this step with reasonable firewall rules. You need
+access on the Redis port 6379 between computers in your compute cluster, *but
+not to computers on the internet*.  This is important, otherwise random people
+will gain access to your Redis server!
+
+The following command will configure your Redis server to listen on all interfaces:
+```
+sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  /etc/redis/redis.conf && sudo /etc/init.d/redis-server restart
+```
+
+## Install R packages
+
+Finally, we need to install the foreach, rredis, and doRedis packages, plus whatever other
+R packages you might want to use. The following script installs rredis and doRedis from their
+source repository on GitHub using the devtools package. Soon, you will also be able to install
+the latest versions (early 2016) from CRAN.
+
+```
+sudo R --slave -e "install.packages(c('devtools', 'foreach'), repos='http://cran.case.edu')"
+sudo R --slave -e "devtools::install_github('bwlewis/rredis')"
+sudo R --slave -e "devtools::install_github('bwlewis/doRedis')"
+```
+
+## Install the doRedis service
+
+The doRedis package includes an example script for setting up R workers as a service.
+
+```
+script=$(R --slave -e "system.file('scripts/redis-worker-installer.sh', package='doRedis')")
+sudo $script
+```
+
+The script creates a sample configuration file in `/etc/doRedis.conf` and starts the
+service. You may wish to edit the config file and restart the service with your own
+configuration.
+
+The script configures the doRedis service to start automatically in default runlevels.
+
+## Configuring the service
+
+Service configuration is controlled by the `/etc/doRedis.conf` file.  The `#`
+character means comment and everything after that character is ignored per
+line. Settings appear as `key: value` and may appear in any line order.
+Here is an example:
+```
+n: 2              # number of R workers to start
+queue: RJOBS      # foreach job queue name
+R: R              # path to R (default assumes 'R' is in the PATH)
+timeout: 5        # wait in seconds after job queue is deleted before exiting
+iter: 50          # maximum tasks to run before worker exit and restart
+host: localhost   # redis host
+port: 6379        # redis port
+user: nobody      # user that runs the R workers
+```
+The example config file above will start and maintain two R worker processes
+listening on the doRedis work queue named "RJOBS". If an R worker crashes
+or otherwise terminates the service will replace it with a new one to
+maintain a total of `n` (2 in the above example) workers.
+
+The `n:` and `queue:` entries may list more than one set of worker numbers and
+queue names delimited by exactly one space. If more than one queue is
+specified, then the n: and queue: entries *must* be of the same length.  For
+example,
+```
+n: 2 1
+queue: RJOBS SYSTEM
+```
+starts a set of two R workers listening on the queue named 'RJOBS' and
+separately, a single R worker listening on the queue named 'SYSTEM'.
+
+## Managing the service
+
+Stop and start the service, for example, with:
+```
+sudo /etc/init.d/doRedis stop
+sudo /etc/init.d/doRedis start
+```
+or,
+```
+sudo service doRedis stop
+sudo service doRedis start
+```
+
+## Logging
+
+The service version of doRedis logs its output to the system logger. All output
+from the worker R processes are logged. A good way to add printf-like debugging
+statements to your parallel doRedis programs is to simply insert R's `message`
+function in your code with informative messages. Those messages can later be
+viewed in the system logs on the computers where the doRedis service runs.

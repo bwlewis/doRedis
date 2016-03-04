@@ -21,6 +21,9 @@ make -j 2     # use an appropriate number of CPUs here
 sudo make install
 ```
 
+NOTE! THe `bash` shell is required by the doRedis service.
+
+
 ### Configure Redis to listen on all interfaces
 
 It is *important* to combine this step with EC2 security firewall rules. You
