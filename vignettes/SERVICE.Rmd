@@ -99,6 +99,12 @@ queue: RJOBS SYSTEM
 starts a set of two R workers listening on the queue named 'RJOBS' and
 separately, a single R worker listening on the queue named 'SYSTEM'.
 
+Why multiple queues? We find it sometimes convenient, especially on larger
+and/or EC2 deployments, to keep a back-channel open to the workers for system
+and other lighter-weight tasks. That way, even if the workers are busy with a
+computation and a deep work queue, we can run quick ad hoc jobs on the system
+queue.
+
 ## Managing the service
 
 Stop and start the service, for example, with:
