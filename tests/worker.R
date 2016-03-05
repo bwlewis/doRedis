@@ -30,7 +30,7 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
   redisSet(queueEnv, list(expr=as.symbol("j"), exportenv=e, packages=c()))
   block <- list(`1`=1)
   redisRPush(queue, list(ID=ID, argsList=block))
-  redisWorker(queue, iter=1, timeout=1, log=NULL)
+  redisWorker(queue, iter=1, timeout=1, log=stderr())
   redisConnect()
   redisFlushAll()
 }
