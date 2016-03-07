@@ -108,7 +108,7 @@ Steve Weston's {\tt foreach} package is a remarkable parallel computing
 framework for the R language, similar to {\tt lapply}-like functions but
 structured as a for loop. Similarly to R's native {\tt parLapply} and {\tt
 mclapply} functions, foreach lets you do this in parallel across multiple CPU
-cores and computers, abstacting the parallel computing details away into
+cores and computers, abstracting the parallel computing details away into
 modular back end code. Code written using foreach works sequentially in the
 absence of a parallel back end, and works uniformly across different back ends,
 allowing programmers to write code independently of specific parallel computing
@@ -161,7 +161,7 @@ required memory overhead for problems that return large data.
 \item Work associated with each loop iteration can be incrementally streamed to
 workers (instead of all at once) with {\tt .options.redis=list(stream=TRUE)}.
 That's useful, for example, to stream chunks from a large file to workers,
-avoiding loading it all in memory and overlapping I/O and computation.
+avoiding loading it all in memory and for overlapping I/O and computation.
 
 \end{itemize}
 
@@ -239,8 +239,8 @@ The next line:
 \noindent \verb+startLocalWorkers(n=2, queue="RJOBS")+
 
 \noindent starts up two worker R sessions on the local computer, both listening
-for work on the queue named ``RJOBS'' The worker sessions don't display any 
-output by default. The {\tt startLocalWorkers} function can instruct the
+for work on the queue named ``RJOBS'' The worker sessions display only minimal
+messages by default. The {\tt startLocalWorkers} function can instruct the
 workers to log messages to output files or stdout if desired.
 You can verify that workers are in fact waiting for work with:
 
@@ -322,17 +322,9 @@ The remaining two worker processes pick up the re-submitted tasks, and since
 the time interval will be sufficiently past the start, they will finish the
 tasks and return their results.
 
-The fault detection method is simple but robust, and described in detail
-in Section 4.
+The fault detection method is simple but fairly robust. It's described in
+detail in Section 4.
 
-%When a worker process receives
-%a task, it creates two Redis keys that indicate the task is in process.  The
-%first key remains until it is deleted. The second key is ephemeral, and is set
-%to expire after a short interval. The worker process starts up a simple refresh
-%function whose only job is to keep the ephemeral key active. If the worker
-%process fails for some reason, the ephemeral key will expire, allowing the
-%master R process to detect the imbalance among active task keys.  Whenever such
-%an imbalance is detected, the affected tasks are re-submitted.
 
 \subsection{A Parallel boot Function}
 
@@ -449,7 +441,7 @@ finished running.
 
 
 The {\tt removeQueue()} function removes all the Redis keys associated with the
-specified work queue. doRedis workers listenening on that queue will then
+specified work queue. doRedis workers listening on that queue will then
 eventually quit after they are finished processing their running jobs, and after
 a queue timeout period has elapsed.
 
@@ -561,7 +553,7 @@ repeated results for the same task ID.
 Another possible failure may occur if a worker consumes and completes a task
 but is somehow unable to push its results into the results queue.  When all the
 tasks in a queue have been consumed by workers, the master checks for such
-``lost'' results--tasks whose results have not been recieved nor exhibit a
+``lost'' results--tasks whose results have not been received nor exhibit a
 corresponding ``start'' key indicating that they are in process.  If such a
 task imbalance is found, affected tasks are re-submitted.
 
@@ -715,12 +707,64 @@ that they can be managed independently, for example making multi-user use of
 shared R workers somewhat simpler to administrate.
 
 
+\subsection{Streaming task submission}
+
+The default behavior of \verb+doRedis+, like most \verb+foreach+ back ends,
+prepares all the tasks (loop iterations) in a list and submits them in one
+shot. That approach can be problematic in at least two settings:
+\begin{enumerate}
+\item If the tasks contain chunks of a large in-memory object like a matrix
+or data frame, then assembling the list of tasks at least doubles the required
+memory footprint.
+\item Tasks might collect data from a file or other object that all together
+is much larger than available memory.
+\end{enumerate}
+Both cases can be handled by judicious planning and structuring of loops,
+for example to push the reading of the file in (2) to the workers instead
+of the master, etc. 
+
+Even so, we thought it would be convenient sometimes to stream tasks as they
+are encountered in the loop into the work queue. That means that, for example
+in case (1) above, that only one extra chunk of the object needs to be in
+memory at any given moment.
+
+Streaming tasks is a new feature in version 1.2.0 of the package, and not
+yet as fully featured or as well tested as the other parts of \verb+doRedis+.
+
+For the most part, using streaming works just like regular \verb+doRedis+.
+Here is an example:
+
+\begin{lstlisting}[float=!ht,caption=doRedis streaming,basicstyle=\footnotesize\ttfamily,label=stream]
+registerDoRedis("stream")
+startLocalWorkers(n=2, queue="stream")
+
+foreach(j=1:5, .combine="c", .options.redis=list(stream=TRUE)) %dopar%
+{
+  j
+}
+#[1] 1 2 3 4 5
+
+removeQueue("stream")
+\end{lstlisting}
+
+There is a limitation (for now) on streaming, fault tolerance is very limited.
+In particular, worker faults that depend on the iterator result in errors
+instead of job resubmission. That limitation may be removed in a future
+package version.
+
+
+
 \section{All doRedis foreach options}
 
-All options can be set using the standard {\tt foreach} interface or by using
-the special \verb+setProgress()+, \verb+setChunkSize()+, \verb+setExport()+,
-\verb+setPackages()+, and \verb+setReduce()+ functions. Thus,
+All options can be set using the standard {\tt foreach} interface (example
+shown below) or by using the special \verb+setProgress()+,
+\verb+setChunkSize()+, \verb+setFtinterval+, \verb+setStream+ and
+\verb+setReduce()+ functions.
+Additionally, the package defines two special functions to explicitly set
+variable exports and packages:
+\verb+setExport()+ and \verb+setPackages()+.
 
+Thus,
 \begin{lstlisting}[float=!ht,caption=Option-setting foreach-style,basicstyle=\footnotesize\ttfamily,label=chunk]
 foreach(j=1:10, .options.redis = list(chunksize=5))
 \end{lstlisting}
@@ -730,25 +774,23 @@ setChunkSize(5)
 foreach(j=1:10)
 \end{lstlisting}
 
-The package provides these duplicate functions to facilitate working with other
-R packages that use \verb+foreach+ internally. In such cases it is not
-practical to directly supply arguments to the \verb+foreach+ invocation within
-the package. The \verb+set*+ functions provide a way to register an external
-\verb+foreach+ back end and control its behavior.
+The package provides the extra \verb+set*+ functions to facilitate working with
+other R packages that use \verb+foreach+ internally. In such cases it might not
+be practical to directly supply arguments to the \verb+foreach+ invocation
+(used within the package). The \verb+set*+ functions provide a way to register
+an external \verb+foreach+ back end and control its behavior. When both forms
+of setting options are used, the \verb+set*+ functions take precedence (which
+lets you override the default behavior in another R package, for example).
 
-Here is a list of all the options.
+Here is a list of all {\tt doRedis}-specific options and what they do.
 
 \begin{itemize}
-\item {\tt chunksize} break the loop iterations up into chunks of at most the specified size, equivalent to {\tt chunkSize}
-\item {\tt progress} display an R progress bar
-\item {\tt packages} character vector of required R packages
-\item {\tt export} character vector of variable names to explicitly export
-\item {\tt reduce} optional per-task reduction function
-\item {\tt stream} optionally stream work as its read
+\item {\tt chunksize} (integer) break the loop iterations up into chunks of at most the specified size, equivalent to {\tt chunkSize}
+\item {\tt progress} (logical) display an R progress bar
+\item {\tt ftinterval} (integer) fault tolerance check interval in seconds, not allowed to be less than 3
+\item {\tt reduce} (function) optional per-task reduction function
+\item {\tt stream} (logical) optionally stream tasks into the job queue
 \end{itemize}
 
-The last two are new and not as well tested/used/known as older parts of the
-package, use with care. In particular, as of this writing, the {\tt stream}
-option does not support fault tolerance.
 
 \end{document}

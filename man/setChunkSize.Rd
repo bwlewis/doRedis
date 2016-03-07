@@ -7,7 +7,7 @@
 setChunkSize(value = 1)
 }
 \arguments{
-\item{value}{Positive integer chunk size setting}
+\item{value}{positive integer chunk size setting}
 }
 \value{
 \code{value} is invisibly returned.
@@ -23,7 +23,7 @@ substantially improve performance. Setting this value too high can
 negatively impact load-balancing across workers, however.
 }
 \note{
-This value is overriden by setting the 'chunkSize' option in the
+This value is overrides the 'chunkSize' option in the
 foreach loop (see the examples).
 }
 \examples{

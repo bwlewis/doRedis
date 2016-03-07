@@ -9,23 +9,23 @@ redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
   loglevel = 0, ...)
 }
 \arguments{
-\item{queue}{The doRedis work queue name or a vector of queue names.}
+\item{queue}{work queue name or a vector of queue names}
 
-\item{host}{The Redis database host name or IP address.}
+\item{host}{Redis database host name or IP address}
 
-\item{port}{The Redis database port number.}
+\item{port}{Redis database port number}
 
-\item{iter}{Maximum number of tasks to process before exiting the worker loop.}
+\item{iter}{maximum number of tasks to process before exiting the worker loop}
 
-\item{timeout}{Timeout in seconds after which the work queue is deleted that the worker terminates.}
+\item{timeout}{timeout in seconds after which the work queue is deleted that the worker terminates}
 
-\item{log}{Log messages to the specified file connection.}
+\item{log}{print messages to the specified file connection}
 
 \item{connected}{Is the R session creating the worker already connected to Redis?}
 
-\item{password}{Optional Redis database password.}
+\item{password}{optional Redis database password}
 
-\item{loglevel}{Set to \code{TRUE} to log tasks as they run.}
+\item{loglevel}{set to 1 to increase verbosity in the log}
 
 \item{...}{Optional additional parameters passed to \code{\link{redisConnect}}}
 }

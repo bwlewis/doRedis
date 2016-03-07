@@ -66,16 +66,16 @@
 #' Running workers self-terminate when their work queues are deleted with the
 #' \code{removeQueue} function.
 #'
-#' @param n The number of workers to start.
-#' @param queue The doRedis work queue name.
-#' @param host The Redis database host name or IP address.
-#' @param port The Redis database port number.
-#' @param iter Maximum number of tasks to process before exiting the worker loop.
-#' @param timeout Timeout in seconds after which the work queue is deleted that the worker terminates.
-#' @param log Log messages to the specified file connection.
-#' @param Rbin The full path to the command-line R program.
-#' @param password Optional Redis database password.
-#' @param ... Optional additional parameters passed to the \code{\link{redisWorker}} function.
+#' @param n number of workers to start
+#' @param queue work queue name
+#' @param host Redis database host name or IP address
+#' @param port Redis database port number
+#' @param iter maximum number of tasks to process before exiting the worker loop
+#' @param timeout timeout in seconds after which the work queue is deleted that the worker terminates
+#' @param log print messages to the specified file connection
+#' @param Rbin full path to the command-line R program
+#' @param password optional Redis database password
+#' @param ... optional additional parameters passed to the \code{\link{redisWorker}} function
 #'
 #' @return NULL is invisibly returned.
 #'
@@ -130,15 +130,15 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' which at most \code{timeout} seconds the worker loop exits, or until
 #' the worker has processed \code{iter} tasks.
 #'
-#' @param queue The doRedis work queue name or a vector of queue names.
-#' @param host The Redis database host name or IP address.
-#' @param port The Redis database port number.
-#' @param iter Maximum number of tasks to process before exiting the worker loop.
-#' @param timeout Timeout in seconds after which the work queue is deleted that the worker terminates.
-#' @param log Log messages to the specified file connection.
+#' @param queue work queue name or a vector of queue names
+#' @param host Redis database host name or IP address
+#' @param port Redis database port number
+#' @param iter maximum number of tasks to process before exiting the worker loop
+#' @param timeout timeout in seconds after which the work queue is deleted that the worker terminates
+#' @param log print messages to the specified file connection
 #' @param connected Is the R session creating the worker already connected to Redis?
-#' @param password Optional Redis database password.
-#' @param loglevel Set to \code{TRUE} to log tasks as they run.
+#' @param password optional Redis database password
+#' @param loglevel set to 1 to increase verbosity in the log
 #' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #'
 #' @return NULL is invisibly returned.

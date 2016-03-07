@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
 # USA
-
+#
 # The environment initialization code is adapted (with minor changes)
 # from the doMPI package from Steve Weston.
 
@@ -140,10 +140,10 @@ removeQueue <- function(queue)
 #' substantially improve performance. Setting this value too high can
 #' negatively impact load-balancing across workers, however.
 #'
-#' @param value Positive integer chunk size setting
+#' @param value positive integer chunk size setting
 #'
 #' @note
-#' This value is overriden by setting the 'chunkSize' option in the
+#' This value is overrides the 'chunkSize' option in the
 #' foreach loop (see the examples).
 #'
 #' @return \code{value} is invisibly returned.
@@ -164,6 +164,53 @@ setChunkSize <- function(value=1)
   if(!is.numeric(value)) stop("setChunkSize requires a numeric argument")
   value <- max(round(value), 1)
   assign("chunkSize", value, envir=.doRedisGlobals)
+}
+
+#' Set the fault tolerance check interval in seconds.
+#'
+#' The \code{setFtinterval} function overrides the same option specified
+#' inline in the \code{foreach} statement.
+#' @param value positive integer number of seconds
+#' @return \code{value} is invisibly returned.
+#' @examples
+#' \dontrun{
+#' setFtinterval(5)
+#' foreach(j=1:10) %dopar% j
+#'
+#' # Same effect as:
+#' 
+#' foreach(j=1:10,
+#'         .options.redis=list(ftinterval=5)) %dopar% j
+#' }
+#' @export
+setFtinterval <- function(value=30)
+{
+  if(!is.numeric(value)) stop("setFtinterval requires a numeric argument")
+  value <- max(round(value), 3)
+  assign("ftinterval", value, envir=.doRedisGlobals)
+}
+
+#' Set experimental streaming task submission
+#'
+#' The \code{setStream} function overrides the same option specified
+#' inline in the \code{foreach} statement.
+#' @param value \code{TRUE} or \code{FALSE}
+#' @return \code{value} is invisibly returned.
+#' @examples
+#' \dontrun{
+#' setStream(TRUE)
+#' foreach(j=1:10) %dopar% j
+#'
+#' # Same effect as:
+#' 
+#' foreach(j=1:10,
+#'         .options.redis=list(stream=TRUE)) %dopar% j
+#' }
+#' @export
+setStream <- function(value=FALSE)
+{
+  if(!is.logical(value)) stop("setStream requires a logical argument")
+  assign("stream", value, envir=.doRedisGlobals)
 }
 
 #' Set two-level distributed reduction
@@ -351,12 +398,12 @@ setProgress <- function(value=FALSE)
   })
   RNGkind("L'Ecuyer-CMRG")
 
-# Stream tasks
+# Stream tasks?
   .stream <- FALSE
-  if(exists("stream", envir=.doRedisGlobals))
-    .progress <- get("stream", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$stream))
     .stream <- obj$options$redis$stream
+  if(exists("stream", envir=.doRedisGlobals))
+    .progress <- get("stream", envir=.doRedisGlobals)
 
   it <- iter(obj)
   if(.stream)
@@ -366,10 +413,10 @@ setProgress <- function(value=FALSE)
 
 # Distributed reduce
   gather <- NULL
-  if(exists("gather", envir=.doRedisGlobals))
-    gather <- get("gather", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$reduce))
     gather <- obj$options$redis$reduce
+  if(exists("gather", envir=.doRedisGlobals))
+    gather <- get("gather", envir=.doRedisGlobals)
   if(is.logical(gather) && isTRUE(gather))
   {
     gather <- it$combineInfo$fun
@@ -377,10 +424,10 @@ setProgress <- function(value=FALSE)
 
 # Progress bar
   .progress <- FALSE
-  if(exists("progress", envir=.doRedisGlobals))
-    .progress <- get("progress", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$progress))
     .progress <- obj$options$redis$progress
+  if(exists("progress", envir=.doRedisGlobals))
+    .progress <- get("progress", envir=.doRedisGlobals)
 
 # Setup the parent environment by first attempting to create an environment
 # that has '...' defined in it with the appropriate values
@@ -439,10 +486,16 @@ setProgress <- function(value=FALSE)
     ntasks <- length(argsList)
 
   chunkSize <- 0
-  if(exists("chunkSize", envir=.doRedisGlobals))
-    chunkSize <- get("chunkSize", envir=.doRedisGlobals)
   if(!is.null(obj$options$redis$chunkSize))
     chunkSize <- obj$options$redis$chunkSize
+  if(exists("chunkSize", envir=.doRedisGlobals))
+    chunkSize <- get("chunkSize", envir=.doRedisGlobals)
+# Accept lower case too
+  if(!is.null(obj$options$redis$chunksize))
+    chunkSize <- obj$options$redis$chunksize
+  if(exists("chunksize", envir=.doRedisGlobals))
+    chunkSize <- get("chunksize", envir=.doRedisGlobals)
+
   chunkSize <- tryCatch(max(chunkSize - 1, 0), error=function(e) 0)
 
   if(.stream && chunkSize > 0)
@@ -462,23 +515,21 @@ setProgress <- function(value=FALSE)
   } else redisSet(queueEnv, list(expr=expr,
                                  exportenv=exportenv, packages=obj$packages))
 # Check for a fault-tolerance check interval (in seconds), do not
-# allow it to be less than 3 seconds (see alive.c thread code).
+# allow it to be less than 3 seconds (cf alive.c thread code in the worker).
   ftinterval <- 30
   if(!is.null(obj$options$redis$ftinterval))
-   {
-    tryCatch(
-      ftinterval <- obj$options$redis$ftinterval,
-      error=function(e) {ftinterval <<- 30; warning(e)}
-    )
-   }
-  ftinterval <- max(ftinterval,3)
+    ftinterval <- obj$options$redis$ftinterval
+  if(exists("ftinterval", envir=.doRedisGlobals))
+    ftinterval <- get("ftinterval", envir=.doRedisGlobals)
+  ftinterval <- max(ftinterval, 3)
 
 # Queue the task(s)
 # The task order is encoded in names(argsList).
   nout <- 1
   j <- 1
   done <- c()  # A vector of completed tasks
-  if(!.stream) # use nonblocking calls to submit all tasks at once
+# use nonblocking call to submit all tasks at once, unless stream
+  if(!.stream)
   {
     redisSetPipeline(TRUE)
     redisMulti()
@@ -492,8 +543,9 @@ setProgress <- function(value=FALSE)
       seed <- nextRNGStream(seed)
       rs <- list(.Random.seed=seed)
       block <- tryCatch(list(c(nextElem(it), rs)), error=function(e) {ntasks <<- j; NULL})
-      if(length(argsList) > 0) argsList <- c(argsList, list(c(NA, rs)))
-      else argsList <- list(c(NA, rs))
+      cond <- simpleCondition("streaming tasks don't yet support fault tolerance")
+      if(length(argsList) > 0) argsList <- c(argsList, list(c(cond, rs)))
+      else argsList <- list(c(cond, rs))
     } else
     {
       block <- argsList[j:k]
