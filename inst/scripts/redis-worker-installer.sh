@@ -18,7 +18,7 @@
 
 echo "Installing /etc/init.d/doRedis script..."
 cat > /etc/init.d/doRedis <<1ZZZ
-#! /bin/sh
+#! /bin/bash
 ### BEGIN INIT INFO
 # Provides:          doRedis
 # Required-Start:    \$remote_fs \$syslog
