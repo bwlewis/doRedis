@@ -88,14 +88,38 @@ service. We simply need to supply a valid doRedis configuration file as user
 data. An example minimum configuration file is, replacing `172.31.20.55` with
 the IP address of your master node:
 ```
-n: 2\n
-host: 172.31.20.55\n
+n: 2
+host: 172.31.20.55
 ```
 This configures 2 R workers to run per Amazon instance, communicating with the Redis
 host at 172.31.20.55, (using a default job queue named `RJOBS` in Redis).
-Note the explicit `\n` escaped-newline character at the end of each line (required).
 You can supply that to newly launched nodes by pasting that in to the user data box
 in the EC2 control panel web GUI.
 
 New workers can be added at any time to your R/Redis/foreach cluster at any time by
 simply turning them on and passing the configuration user data at startup.
+
+
+## Updating R packages in your instances without creating new AMIs
+
+The best practice for maintaining instances is to configure all the R packages
+that you need for your work and create an AMI.
+
+The doRedis service provides a simple mechanism for updating or installing new
+R packages in cases where you don't want to go to the trouble of creating a new
+AMI. Follow the instructions for dynamically configuring instance doRedis startup
+using the Amazon EC2 "user data" approach, but add a line beginning with
+"packages: " to your config file. For example:
+```
+n: 2
+host: 172.31.20.55
+packages: http://illposed.net/irlba_2.0.0.tar.gz http://illposed.net/tcor_0.0.1.tar.gz
+```
+The format of the line is a space-delimited list of URLs that point directly to
+installable R source package files. You can use any HTTP service, including your own,
+to provide the package files. Note that if you want to use a CRAN repository, you
+need to explicitly specify the full URL of the source package file.
+
+If a line beginning with "packages: " exists in your `/etc/doRedis.conf` file, the
+service will install those packages as the root user prior to starting up the
+doRedis workers (which likely will run as non-root users).
