@@ -47,14 +47,15 @@ EC2=$1
 
 #
 # Function that starts the daemon/service, optionally initializing
-# configuration file from EC2 user data.
+# configuration file from EC2 user data. We skip initialization
+# of the config file if the EC2 user data string starts with '#!'.
 #
 do_start()
 {
   if test -n "\${EC2}"; then
     U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
     if test -n "\${U}";  then
-      echo \${U} > /etc/doRedis.conf
+      [[ -z `echo "\$U" | sed -n 1p | grep '#!'` ]] && echo \${U} > /etc/doRedis.conf
     fi
   fi
   USER=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*user:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")

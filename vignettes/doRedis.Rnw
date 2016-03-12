@@ -789,7 +789,7 @@ Here is a list of all {\tt doRedis}-specific options and what they do.
 \item {\tt progress} (logical) display an R progress bar
 \item {\tt ftinterval} (integer) fault tolerance check interval in seconds, not allowed to be less than 3
 \item {\tt reduce} (function) optional per-task reduction function
-\item {\tt stream} (logical) optionally stream tasks into the job queue
+\item {\tt stream} (logical) optionally stream tasks into the work queue
 \end{itemize}
 
 

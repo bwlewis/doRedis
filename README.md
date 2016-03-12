@@ -5,7 +5,7 @@
 This is a major change.
 
 * Work queue structure has been greatly simplified. We got rid of the use
-  of server-side Lua Redis code and programmable task assignment featurs
+  of server-side Lua Redis code and programmable task assignment features
   which never worked very well and *are no longer supported*. Tasks
   are now consumed by workers with a simple first-come, first-served rule
   using basic Redis list value types (queues). This simpler scheme should
@@ -15,7 +15,17 @@ This is a major change.
   as the default parallel RNG for reproducible random numbers.
   User-defined RNGs are still supported as outlined in the vignette.
 
-## NOTE
+* New `jobs()`, `tasks()`, and `removeJob()` functions and an optional R
+  progress meter for better job control and monitoring.
+
+* Greatly improved service examples for Linux systems and especially
+  Amazon EC2.
+
+* Improved fault tolerance and recovery.
+
+* New experimental streaming task submission option.
+
+## IMPORTANT NOTES
 
 Set the following parameter in your redis.conf file before using doRedis:
 
@@ -23,14 +33,15 @@ Set the following parameter in your redis.conf file before using doRedis:
 timeout 0
 ```
 
-**Avoid** using `doRedis` together with `doMC` or any  fork-based R
-functions like `mclapply`. If you require a local inner parallel code
-section, consider using `parLapply` and `makePSOCKcluster` or the related `doParallel`
-functions instead of fork-based methods. The fork-based functions can work in some
-cases, but might also lead to trouble because the children share certain resources
-with the parent process like open socket descriptors. I have in particular run in
-to trouble with some fast BLAS libraries and fork--in particular the AMD ACML
-can't be used in this way at all. Again, excercise caution with fork and `doRedis`!
+Avoid using `doRedis` together with `doMC` or any  fork-based R functions like
+`mclapply`. If you require a local inner parallel code section, consider using
+`parLapply` and `makePSOCKcluster` or the related `doParallel` functions
+instead of fork-based methods. The fork-based functions can work in some cases,
+but might also lead to trouble because the children share certain resources
+with the parent process like open socket descriptors. I have in particular run
+in to trouble with some fast BLAS libraries and fork--in particular the AMD
+ACML can't be used in this way at all. Again, excercise caution with fork and
+`doRedis`!
 
 ## DESCRIPTION
 
@@ -75,8 +86,8 @@ Here is a quick example procedure for experimenting with doRedis:
 ```r
    require('doRedis')
    registerDoRedis('jobs')
-   foreach(j=1:10,.combine=sum,.multicombine=TRUE) %dopar%
-            4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
+   foreach(j=1:10,.combine=sum, .multicombine=TRUE) %dopar%
+            4*sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
    removeQueue('jobs')
 ```
 
@@ -85,15 +96,15 @@ Let's define a few terms before we describe how the above example works:
 * A _loop iteration_ is the foreach expression together with a single
   loop parameter value.
 * A _task_ is a collection of loop iterations.
-* For a given foreach expression, a _job_ is the collection of tasks that
+* Given a foreach expression, a _job_ is the collection of tasks that
   make up the full set of loop iterations.
 * A _work queue_ is a collection of of any number of _tasks_ associated
   with number of _jobs_ submitted by one or more master R processes.
 
-The "jobs" parameter above in  the `redisWorker` and `registerDoRedis` function names a
-Redis key used to transfer data between master and worker processes. Think of
-this name as a reference to a work queue. The master places tasks into the
-queue, worker R processes pull tasks out of the queue and then return their
+The "jobs" parameter above in  the `redisWorker` and `registerDoRedis` function
+names a Redis key used to transfer data between master and worker processes.
+Think of this name as a reference to a work queue. The master places tasks into
+the queue, worker R processes pull tasks out of the queue and then return their
 results to an associated result queue.
 
 The doRedis parallel  backend supports dynamic pools of back-end workers.  New
@@ -103,11 +114,11 @@ running foreach computations.
 The doRedis backend accepts a parameter called `chunkSize` that sets the number
 of loop iterations doled out per task, by default one. Optionally set this with
 the `setChunkSize` function. Increasing `chunkSize` can improve performance for
-quick-running function evaluations. Here is an example that sets `chunkSize` to
-100:
+quick-running function evaluations by cutting down on the number of tasks.
+Here is an example that sets `chunkSize` to 100:
 
 ```r
-foreach(j=1:5, .options.redis=list(chunkSize=100)) %dopar%  ...
+foreach(j=1:500, .options.redis=list(chunkSize=100)) %dopar%  ...
 ```
 
 Setting `chunkSize` too large will adversely impact load-balancing across
