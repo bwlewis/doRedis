@@ -50,8 +50,12 @@ EC2=$1
 # configuration file from EC2 user data. We skip initialization
 # of the config file if the EC2 user data string starts with '#!'.
 #
+# Added 'packages:' option.
+#
 do_start()
 {
+  P=\$(cat /etc/doRedis.conf  | sed -n /^[[:blank:]]*packages:/p |  tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*packages://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+  [[ -n \$P ]] && for x in \${P}; do echo "Installing R package \$x"; R --slave -e "install.packages('\$x', repos=NULL)";done
   if test -n "\${EC2}"; then
     U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
     if test -n "\${U}";  then
