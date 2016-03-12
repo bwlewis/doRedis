@@ -55,13 +55,17 @@ EC2=$1
 do_start()
 {
   if test -n "\${EC2}"; then
-    U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
+    U=\`wget -O - -q http://169.254.169.254/latest/user-data\`
     if test -n "\${U}";  then
-      [[ -z \$(echo "\$U" | sed -n 1p | grep '#!') ]] && echo \${U} > /etc/doRedis.conf
+      if test -z \`echo "\${U}" | sed -n 1p | grep '#!'\`; then
+        echo \${U} > /etc/doRedis.conf
+      fi
     fi
   fi
-  P=\$(cat /etc/doRedis.conf  | sed -n /^[[:blank:]]*packages:/p |  tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*packages://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
-  [[ -n \$P ]] && for x in \${P}; do echo "Installing R package \$x"; R --slave -e "install.packages('\$x', repos=NULL)";done
+  P=\`cat /etc/doRedis.conf  | sed -n /^[[:blank:]]*packages:/p |  tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*packages://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//"\`
+  if test -n "\${P}"; then
+    for x in \${P}; do echo "Installing R package \$x"; R --slave -e "install.packages('\$x', repos=NULL)";done
+  fi
   USER=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*user:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   [ -z "\${USER}" ]   && USER=nobody
   NUM=\$(cat /etc/doRedis.conf | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//" | tr ' ' '\n' | wc -l)
