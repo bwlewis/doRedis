@@ -190,28 +190,6 @@ setFtinterval <- function(value=30)
   assign("ftinterval", value, envir=.doRedisGlobals)
 }
 
-#' Set experimental streaming task submission
-#'
-#' The \code{setStream} function overrides the same option specified
-#' inline in the \code{foreach} statement.
-#' @param value \code{TRUE} or \code{FALSE}
-#' @return \code{value} is invisibly returned.
-#' @examples
-#' \dontrun{
-#' setStream(TRUE)
-#' foreach(j=1:10) %dopar% j
-#'
-#' # Same effect as:
-#' 
-#' foreach(j=1:10,
-#'         .options.redis=list(stream=TRUE)) %dopar% j
-#' }
-#' @export
-setStream <- function(value=FALSE)
-{
-  if(!is.logical(value)) stop("setStream requires a logical argument")
-  assign("stream", value, envir=.doRedisGlobals)
-}
 
 #' Set two-level distributed reduction
 #'
@@ -398,18 +376,8 @@ setProgress <- function(value=FALSE)
   })
   RNGkind("L'Ecuyer-CMRG")
 
-# Stream tasks?
-  .stream <- FALSE
-  if(!is.null(obj$options$redis$stream))
-    .stream <- obj$options$redis$stream
-  if(exists("stream", envir=.doRedisGlobals))
-    .progress <- get("stream", envir=.doRedisGlobals)
-
   it <- iter(obj)
-  if(.stream)
-    argsList <- list()
-  else
-    argsList <- .to.list(it)
+  argsList <- .to.list(it)
 
 # Distributed reduce
   gather <- NULL
@@ -480,10 +448,7 @@ setProgress <- function(value=FALSE)
   }
   results <- NULL
 
-  if(.stream)
-    ntasks <- Inf
-  else
-    ntasks <- length(argsList)
+  ntasks <- length(argsList)
 
   chunkSize <- 0
   if(!is.null(obj$options$redis$chunkSize))
@@ -497,11 +462,6 @@ setProgress <- function(value=FALSE)
     chunkSize <- get("chunksize", envir=.doRedisGlobals)
 
   chunkSize <- tryCatch(max(chunkSize - 1, 0), error=function(e) 0)
-
-  if(.stream && chunkSize > 0)
-  {
-    stop("stream=TRUE only works with chunkSize=1")
-  }
 
   if(!is.null(gather))
   {
@@ -528,28 +488,14 @@ setProgress <- function(value=FALSE)
   nout <- 1
   j <- 1
   done <- c()  # A vector of completed tasks
-# use nonblocking call to submit all tasks at once, unless stream
-  if(!.stream)
-  {
-    redisSetPipeline(TRUE)
-    redisMulti()
-  }
+# use nonblocking call to submit all tasks at once
+  redisSetPipeline(TRUE)
+  redisMulti()
   seed <- .Random.seed
   while(j <= ntasks)
   {
     k <- min(j + chunkSize, ntasks)
-    if(.stream)
-    {
-      seed <- nextRNGStream(seed)
-      rs <- list(.Random.seed=seed)
-      block <- tryCatch(list(c(nextElem(it), rs)), error=function(e) {ntasks <<- j; NULL})
-      cond <- simpleCondition("streaming tasks don't yet support fault tolerance")
-      if(length(argsList) > 0) argsList <- c(argsList, list(c(cond, rs)))
-      else argsList <- list(c(cond, rs))
-    } else
-    {
-      block <- argsList[j:k]
-    }
+    block <- argsList[j:k]
     if(is.null(block)) break
     if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
@@ -557,12 +503,9 @@ setProgress <- function(value=FALSE)
     j <- k + 1
     nout <- nout + 1
   }
-  if(!.stream)
-  {
-    redisExec()
-    redisGetResponse(all=TRUE)
-    redisSetPipeline(FALSE)
-  }
+  redisExec()
+  redisGetResponse(all=TRUE)
+  redisSetPipeline(FALSE)
 
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
