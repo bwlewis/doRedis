@@ -158,11 +158,6 @@ all the R package dependencies required by the task at hand are available.
 aggregated incrementally and in- or out-of order, significantly reducing
 required memory overhead for problems that return large data.
 
-\item Work associated with each loop iteration can be incrementally streamed to
-workers (instead of all at once) with {\tt .options.redis=list(stream=TRUE)}.
-That's useful, for example, to stream chunks from a large file to workers,
-avoiding loading it all in memory and for overlapping I/O and computation.
-
 \end{itemize}
 
 
@@ -707,51 +702,6 @@ that they can be managed independently, for example making multi-user use of
 shared R workers somewhat simpler to administrate.
 
 
-\subsection{Streaming task submission}
-
-The default behavior of \verb+doRedis+, like most \verb+foreach+ back ends,
-prepares all the tasks (loop iterations) in a list and submits them in one
-shot. That approach can be problematic in at least two settings:
-\begin{enumerate}
-\item If the tasks contain chunks of a large in-memory object like a matrix
-or data frame, then assembling the list of tasks at least doubles the required
-memory footprint.
-\item Tasks might collect data from a file or other object that all together
-is much larger than available memory.
-\end{enumerate}
-Both cases can be handled by judicious planning and structuring of loops,
-for example to push the reading of the file in (2) to the workers instead
-of the master, etc. 
-
-Even so, we thought it would be convenient sometimes to stream tasks as they
-are encountered in the loop into the work queue. That means that, for example
-in case (1) above, that only one extra chunk of the object needs to be in
-memory at any given moment.
-
-Streaming tasks is a new feature in version 1.2.0 of the package, and not
-yet as fully featured or as well tested as the other parts of \verb+doRedis+.
-
-For the most part, using streaming works just like regular \verb+doRedis+.
-Here is an example:
-
-\begin{lstlisting}[float=!ht,caption=doRedis streaming,basicstyle=\footnotesize\ttfamily,label=stream]
-registerDoRedis("stream")
-startLocalWorkers(n=2, queue="stream")
-
-foreach(j=1:5, .combine="c", .options.redis=list(stream=TRUE)) %dopar%
-{
-  j
-}
-#[1] 1 2 3 4 5
-
-removeQueue("stream")
-\end{lstlisting}
-
-There is a limitation (for now) on streaming, fault tolerance is very limited.
-In particular, worker faults that depend on the iterator result in errors
-instead of job resubmission. That limitation may be removed in a future
-package version.
-
 
 
 \section{All doRedis foreach options}
@@ -789,7 +739,6 @@ Here is a list of all {\tt doRedis}-specific options and what they do.
 \item {\tt progress} (logical) display an R progress bar
 \item {\tt ftinterval} (integer) fault tolerance check interval in seconds, not allowed to be less than 3
 \item {\tt reduce} (function) optional per-task reduction function
-\item {\tt stream} (logical) optionally stream tasks into the work queue
 \end{itemize}
 
 
