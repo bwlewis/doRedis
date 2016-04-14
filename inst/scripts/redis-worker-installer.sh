@@ -41,10 +41,6 @@ PIDFILE=/var/run/doRedis.pid
 SCRIPTNAME=/etc/init.d/doRedis
 EC2=$1
 
-# Define LSB log_* functions.
-# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
-
 #
 # Function that starts the daemon/service, optionally initializing
 # configuration file from EC2 user data. We skip initialization
@@ -89,10 +85,10 @@ do_stop()
 
 case "\$1" in
   start)
-	do_start && log_success_msg "Started Redis R worker service" || log_failure_msg "Failed to start Redis R worker service"
+	do_start && echo "Started Redis R worker service" || echo "Failed to start Redis R worker service"
 	;;
   stop)
-	do_stop && log_success_msg "Stoped Redis R worker service"
+	do_stop && echo "Stoped Redis R worker service"
 	;;
   status)
        [[ \$(ps -aux | grep doRedis_worker | grep doRedis.conf | wc -l | cut -d ' ' -f 1) -gt 0 ]] && exit 0 || exit 1
@@ -206,7 +202,7 @@ loglevel: 0       # set to 1 to log tasks as they run in the system log
 3ZZZ
 
 chmod a+x /etc/init.d/doRedis
-if test -n "`which update-rc.d`"; then
+if test -n "`which update-rc.d 2>/dev/null`"; then
   update-rc.d doRedis defaults
 else
   chkconfig --level 35 doRedis on
