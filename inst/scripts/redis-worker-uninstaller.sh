@@ -1,14 +1,9 @@
 #!/bin/bash
 #
-# This is an experimental script that sets up R doRedis workers to start
-# automatically on LSB systems. It installs three files:
+# Stop the doRedis service and remove the files:
 # /etc/init.d/doRedis
-# /usr/local/bin/doRedis_worker
+# /usr/local/bin/doRedis
 # /etc/doRedis.conf
-#
-# and configures the doRedis init script to start in the usual runlevels.
-# Edit the /etc/doRedis.conf file to point to the right Redis server and
-# to set other configuration parameters.
 #
 # Usage:
 # sudo ./redis-worker-installer.sh
@@ -26,4 +21,4 @@ else
 fi
 rm -f /etc/init.d/doRedis
 rm -f /etc/doRedis.conf
-rm -f /usr/local/bin/doRedis_worker
+rm -f /usr/local/bin/doRedis
