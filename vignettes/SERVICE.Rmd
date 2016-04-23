@@ -4,9 +4,9 @@ The doRedis package includes a script that configures doRedis R workers
 to run as a Linux system service. This vignette outlines installation and
 configuration of the service.
 
-
 The service installation script should work on at least RHEL/CentOS and
-Ubuntu/Debian Linux systems.
+Ubuntu/Debian Linux systems, and probably most Linux systems (with or without
+systemd).
 
 We outlined installation instructions for Ubuntu/Debian Linux flavors.
 Installation and configuration proceeds similarly for RHEL, replacing the
@@ -24,7 +24,7 @@ make -j 2     # use an appropriate number of CPUs here
 sudo make install
 ```
 
-NOTE! THe `bash` shell is required by the doRedis service.
+Please note that the `bash` shell is required by the doRedis service.
 
 
 ## Configure Redis to listen on all interfaces
