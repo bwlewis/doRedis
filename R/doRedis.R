@@ -352,9 +352,9 @@ setProgress <- function(value=FALSE)
   queue <- data$queue
   queueEnv <- paste(queue,"env", ID, sep=".")
   queueOut <- paste(queue,"out", ID, sep=".")
-  queueStart <- paste(queue,"start",ID, sep=".")
+  queueStart <- paste(queue,"start", ID, sep=".")
   queueStart <- paste(queueStart, "*", sep="")
-  queueAlive <- paste(queue,"alive",ID, sep=".")
+  queueAlive <- paste(queue,"alive", ID, sep=".")
   queueAlive <- paste(queueAlive, "*", sep="")
 
   if (!inherits(obj, "foreach"))
@@ -568,7 +568,8 @@ tryCatch(
         for (resub in fjobs) {
           block <- argsList[unlist(resub)]
           names(block) <- unlist(resub)
-          warning(sprintf("Worker fault: resubmitting job(s) %s", names(block)), immediate.=TRUE)
+          warning(sprintf("Worker fault: resubmitting job(s) %s", sprintf("%s..%s", names(block)[1],
+                           names(block)[length(names(block))])), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
       }
