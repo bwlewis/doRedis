@@ -1,10 +1,13 @@
 language: R
 sudo: false
-cache: packages
+
+services:
+  - redis-server
 
 addons:
   apt:
     packages:
+      - r-base-dev
       - pandoc
       - texinfo
       - texlive
@@ -16,15 +19,24 @@ addons:
       - texlive-math-extra
       - qpdf
 
-warnings_are_errors: false
-
-services:
-  - redis-server
-
 env:
   global:
     - TEST_DOREDIS=TRUE
     - R_LIBS_USER=~/R/library
+
+cache:
+  directories:
+    $R_LIBS_USER
+
+before_script:
+  - mkdir -p "$R_LIBS_USER"
+  - Rscript -e 'if (length(find.package("devtools", quiet = TRUE)) == 0L) { install.packages("devtools", repos = "http://cran.rstudio.com") }'
+  - Rscript -e 'devtools::update_packages("devtools", repos = "http://cran.rstudio.com")'
+  - Rscript -e 'devtools::install_deps(repos = "http://cran.rstudio.com", dependencies = TRUE)'
+  - Rscript -e 'devtools::install_github("jimhester/covr")'
+
+script:
+  - Rscript -e 'devtools::check(document=FALSE)'
 
 after_success:
   - Rscript -e 'library(doRedis); covr::codecov()'
