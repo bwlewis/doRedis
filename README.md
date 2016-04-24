@@ -15,15 +15,14 @@ This is a major change.
   as the default parallel RNG for reproducible random numbers.
   User-defined RNGs are still supported as outlined in the vignette.
 
-* New `jobs()`, `tasks()`, and `removeJob()` functions and an optional R
-  progress meter for better job control and monitoring.
+* New `jobs()`, `tasks()`, `removeJob()` functions and an optional R
+  progress meter (see `?setProgress`) for better job control and monitoring.
 
 * Greatly improved service examples for Linux systems and especially
   Amazon EC2.
 
 * Improved fault tolerance and recovery.
 
-* New experimental streaming task submission option.
 
 ## IMPORTANT NOTES
 
@@ -33,15 +32,15 @@ Set the following parameter in your redis.conf file before using doRedis:
 timeout 0
 ```
 
-Avoid using `doRedis` together with `doMC` or any  fork-based R functions like
-`mclapply`. If you require a local inner parallel code section, consider using
-`parLapply` and `makePSOCKcluster` or the related `doParallel` functions
-instead of fork-based methods. The fork-based functions can work in some cases,
-but might also lead to trouble because the children share certain resources
-with the parent process like open socket descriptors. I have in particular run
-in to trouble with some fast BLAS libraries and fork--in particular the AMD
-ACML can't be used in this way at all. Again, excercise caution with fork and
-`doRedis`!
+Exercise caution when using `doRedis` together with `doMC` or any  fork-based R
+functions like `mclapply`. If you require a local inner parallel code section,
+consider using `parLapply` and `makePSOCKcluster` or the related `doParallel`
+functions instead of fork-based methods. The fork-based functions can work in
+some cases, but might also lead to trouble because the children share certain
+resources with the parent process like open socket descriptors. I have in
+particular run in to trouble with some fast BLAS libraries and fork--in
+particular the AMD ACML can't be used in this way at all. Again, excercise
+caution with fork and `doRedis`!
 
 ## DESCRIPTION
 
