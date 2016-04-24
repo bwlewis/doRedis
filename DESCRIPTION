@@ -17,6 +17,9 @@ Depends:
 Imports:
     parallel,
     stats
+Suggests:
+    knitr
+VignetteBuilder: knitr
 License: GPL-2
 LazyLoad: yes
 RoxygenNote: 5.0.0

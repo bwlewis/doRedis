@@ -1,3 +1,12 @@
+---
+title: "Amazon EC2 and `doRedis`"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Amazon EC2 and `doRedis`}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
 # Elastic parallel computing with R, Redis and the foreach package on Amazon EC2
 
 The doRedis package makes it easy to scale out parallel R compute jobs using

@@ -1,3 +1,12 @@
+---
+title: "`doRedis` Linux Service"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{`doRedis` Linux Service}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
 # The doRedis Linux Service
 
 The doRedis package includes a script that configures doRedis R workers

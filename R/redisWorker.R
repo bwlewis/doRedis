@@ -112,6 +112,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
     cmd <- sprintf("%s,%s",cmd,dots)
   }
   cmd <- sprintf("%s)",cmd)
+  cmd <- gsub("\"", "'", cmd)
 
   j <- 0
   args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
@@ -152,6 +153,8 @@ redisWorker <- function(queue, host="localhost", port=6379,
 {
   if (!connected)
     redisConnect(host, port, password=password, ...)
+  if(is.character(log))
+    log <- file(log, open="w+")
   sink(type="message", file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
   queueLive <- paste(queue, "live", sep=".")
