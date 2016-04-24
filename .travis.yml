@@ -2,6 +2,20 @@ language: R
 sudo: false
 cache: packages
 
+addons:
+  apt:
+    packages:
+      - pandoc
+      - texinfo
+      - texlive
+      - texlive-latex-base
+      - texlive-latex-extra
+      - texlive-latex-recommended
+      - texlive-fonts-recommended
+      - texlive-fonts-extra
+      - texlive-math-extra
+      - qpdf
+
 warnings_are_errors: false
 
 services:
