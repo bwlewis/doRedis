@@ -56,7 +56,7 @@ source repository on GitHub using the devtools package. Soon, you will also be a
 the latest versions (early 2016) from CRAN.
 
 ```
-sudo R --slave -e "install.packages(c('devtools', 'foreach'), repos='http://cran.case.edu')"
+sudo R --slave -e "install.packages(c('devtools', 'foreach'), repos='https://cran.r-project.org')"
 sudo R --slave -e "devtools::install_github('bwlewis/rredis')"
 sudo R --slave -e "devtools::install_github('bwlewis/doRedis')"
 ```
@@ -69,9 +69,13 @@ The doRedis package includes an example script for setting up R workers as a ser
 sudo R --slave -e "system(system.file('scripts/redis-worker-installer.sh', package='doRedis'))"
 ```
 
-The script creates a sample configuration file in `/etc/doRedis.conf` and starts the
+The script creates a sample configuration file in \verb+/etc/doRedis.conf+ and starts the
 service. You may wish to edit the config file and restart the service with your own
 configuration.
+
+The script also compiles and installs a sentinel program into
+\verb+/usr/local/bin/doRedis+ that monitors and restarts if necessary R worker
+processes used by doRedis.
 
 The script configures the doRedis service to start automatically in default runlevels.
 

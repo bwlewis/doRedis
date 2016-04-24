@@ -1,49 +1,87 @@
----
-title: "Amazon EC2 and `doRedis`"
-date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Amazon EC2 and `doRedis`}
-  %\VignetteEngine{knitr::rmarkdown}
----
+% \VignetteIndexEntry{Amazon EC2 and 'doRedis'}
+% \VignetteDepends{doRedis}
+% \VignettePackage{doRedis}
+\documentclass[10pt]{article}
+\usepackage{amsmath}
+%\usepackage{lmodern}
+\usepackage[pdftex]{graphicx}
+\usepackage{color}
+\usepackage{xspace}
+\usepackage{fancyvrb}
+\usepackage{fancyhdr}
+\usepackage[
+     colorlinks=true,
+     linkcolor=blue,
+     citecolor=blue,
+     urlcolor=blue]
+     {hyperref}
+\usepackage{lscape}
+\usepackage{Sweave}
+\usepackage{tabularx}
+\usepackage{listings,relsize}
+\usepackage{upquote}
 
-# Elastic parallel computing with R, Redis and the foreach package on Amazon EC2
+\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
+\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
+\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
+
+
+\lstloadlanguages{R}
+\lstset{frame=single, language=, keywordstyle=\color{blue}, commentstyle=\color{dkgreen}, stringstyle=\color{textc}, backgroundcolor=\color{lgray}, basicstyle=\footnotesize\ttfamily, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
+\usepackage{caption}
+%%\DeclareCaptionFont{white}{\color{white}}
+%%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
+%%\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white,margin=0pt}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+
+\section*{Elastic parallel computing with R, Redis and the foreach package on Amazon EC2}
 
 The doRedis package makes it easy to scale out parallel R compute jobs using
 Amazon's elastic compute cloud. The R package includes example scripts for
 setting up a doRedis service that can be used with EC2.
 
-## Configure an Amazon Instance
+\section*{Configure an Amazon Instance}
 
 Begin with a Linux-based Amazon instance. This example should work on
 RHEL/CentOS or Ubuntu-based AMIs. The step-by-step command-line process
 outlined below assumes Ubuntu.
 
-### Install R and Redis
-```
-sudo apt-get build-dep r-base libxml2-dev libssl-dev libcurl4-openssl-dev unzip  redis-server
-wget https://www.cran.r-project.org/src/base/R-3/R-3.2.3.tar.gz   # or most current version of R
+\subsection*{Install R and Redis and prerequisites}
+
+The bash shell is required by the doRedis service.
+
+\begin{lstlisting}[float=ht,caption=Installing prerequisites,language=]
+sudo apt-get build-dep r-base libxml2-dev libssl-dev \
+     libcurl4-openssl-dev unzip  redis-server
+wget https://www.cran.r-project.org/src/base/R-3/R-3.2.3.tar.gz
+# (or most current version of R)
 tar xf R-3.2.3.tar.gz
 cd R-3.2.3
 ./configure --enable-R-shlib --enable-memory-profiling
 make -j 2     # use an appropriate number of CPUs here
 sudo make install
-```
-
-The `bash` shell is required by the doRedis service.
+\end{lstlisting}
 
 
-### Configure Redis to listen on all interfaces
+
+\subsection*{Configure Redis to listen on all interfaces}
 
 It is *important* to combine this step with EC2 security firewall rules. You
 need access on the Redis port 6379 between nodes in your compute cluster, *but
 not to nodes on the internet*.  This is important. Fortunately, it's easy to
 achieve in two steps:
 
-1. Selecting a VPC network when you instantiate nodes; the default
+\begin{enumerate}
+\item Selecting a VPC network when you instantiate nodes; the default
    one (something like vpc-xxxxxxxx 172.31.0.0/16) should work.
-2. Edit your security group to add the following inbound rule,
+\item Edit your security group to add the following inbound rule,
    Protocol: TCP, Port Range: 6379, Source: Custom IP 172.31.0.0/16
+\end{enumerate}
 
 Those steps can be performed with the Amazon EC2 GUI console, or from the EC2
 CLI or API. Again, it's very important to carefully prevent outsiders from
@@ -51,84 +89,67 @@ accessing your Redis port. It must only be available within a VPC network used
 by your compute nodes.
 
 The following command will configure your Redis server to listen on all interfaces:
-```
+\begin{lstlisting}[float=ht,language=]
 sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  /etc/redis/redis.conf && sudo /etc/init.d/redis-server restart
-```
+\end{lstlisting}
 
-### Install R packages
+\subsection*{Install R packages}
 
 Finally, we need to install the foreach, rredis, and doRedis packages, plus whatever other
 R packages you might want to use. The following script installs rredis and doRedis from their
 source repository on GitHub using the devtools package. Soon, you will also be able to install
 the latest versions (early 2016) from CRAN.
 
-```
-sudo R --slave -e "install.packages(c('devtools', 'foreach'), repos='http://cran.case.edu')"
+\begin{lstlisting}[float=ht,language=]
+sudo R --slave -e "install.packages(c('devtools', 'foreach'), /
+                   repos='https://cran.r-project.org')"
 sudo R --slave -e "devtools::install_github('bwlewis/rredis')"
 sudo R --slave -e "devtools::install_github('bwlewis/doRedis')"
-```
+\end{lstlisting}
 
-### Install the doRedis service
+\subsection*{Install the doRedis service}
 
 The doRedis package includes an example script for setting up R workers as a service.
 The script works on generic Linux systems and also has special options to facilitate
 running on EC2. Setting up the service for EC2 is easy:
 
-```
-script=$(R --slave -e "cat(system.file('scripts/redis-worker-installer.sh', package='doRedis'))")
+\begin{lstlisting}[float=ht,language=]
+script=$(R --slave -e "cat(system.file(
+         'scripts/redis-worker-installer.sh', package='doRedis'))")
 sudo $script EC2
-```
+\end{lstlisting}
 
 
-## Make an AMI from your instance
+\section*{Make an AMI from your instance}
 
 Once you've got your instance and its R environment and packages configured to
 your liking, make an AMI from it. This can be done from the EC2 control panel
 web GUI by shutting down (stopping) your instance and selecting "Image...Create
 image" from the instance menu.
 
-## Re-start your instance and log back in
+Plan on including all the R packages you normally need in your AMI. If you run
+the doRedis service as the ``nobody'' user (the default), that user will not be
+able to easily install new packages other than in a temporary directory.
+
+\subsection*{Re-start your instance and log back in}
 
 After creating an AMI, you're ready to play with doRedis on EC2. Start up your
 master instance and log back in, and note its IP address.
 
 EC2 R/Redis/foreach workers are configured using the Amazon EC2 "user data"
 service. We simply need to supply a valid doRedis configuration file as user
-data. An example minimum configuration file is, replacing `172.31.20.55` with
+data. An example minimum configuration file is, replacing ``172.31.20.55'' with
 the IP address of your master node:
-```
+\begin{lstlisting}[float=ht,language=]
 n: 2
 host: 172.31.20.55
-```
+\end{lstlisting}
+
 This configures 2 R workers to run per Amazon instance, communicating with the Redis
-host at 172.31.20.55, (using a default job queue named `RJOBS` in Redis).
+host at 172.31.20.55, (using a default job queue named ``RJOBS'' in Redis).
 You can supply that to newly launched nodes by pasting that in to the user data box
 in the EC2 control panel web GUI.
 
 New workers can be added at any time to your R/Redis/foreach cluster at any time by
 simply turning them on and passing the configuration user data at startup.
-
-
-## Updating R packages in your instances without creating new AMIs
-
-The best practice for maintaining instances is to configure all the R packages
-that you need for your work and create an AMI.
-
-The doRedis service provides a simple mechanism for updating or installing new
-R packages in cases where you don't want to go to the trouble of creating a new
-AMI. Follow the instructions for dynamically configuring instance doRedis startup
-using the Amazon EC2 "user data" approach, but add a line beginning with
-"packages: " to your config file. For example:
-```
-n: 2
-host: 172.31.20.55
-packages: http://illposed.net/irlba_2.0.0.tar.gz http://illposed.net/tcor_0.0.1.tar.gz
-```
-The format of the line is a space-delimited list of URLs that point directly to
-installable R source package files. You can use any HTTP service, including your own,
-to provide the package files. Note that if you want to use a CRAN repository, you
-need to explicitly specify the full URL of the source package file.
-
-If a line beginning with "packages: " exists in your `/etc/doRedis.conf` file, the
-service will install those packages as the root user prior to starting up the
-doRedis workers (which likely will run as non-root users).
+\end{document}
