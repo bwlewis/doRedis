@@ -7,7 +7,6 @@ services:
 addons:
   apt:
     packages:
-      - r-base-dev
       - pandoc
       - texinfo
       - texlive
@@ -15,9 +14,12 @@ addons:
       - texlive-latex-extra
       - texlive-latex-recommended
       - texlive-fonts-recommended
+      - texlive-generic-recommended
       - texlive-fonts-extra
       - texlive-math-extra
+      - texlive-extra-utils
       - qpdf
+      - r-base-dev
 
 env:
   global:
