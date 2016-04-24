@@ -1,45 +1,16 @@
-language: c
+language: R
 sudo: false
+cache: packages
+
+warnings_are_errors: false
 
 services:
   - redis-server
-
-addons:
-  apt:
-    sources:
-      - r-packages-precise
-    packages:
-      - r-base-dev
-      - r-recommended
-      - pandoc
-      - texinfo
-      - texlive
-      - texlive-latex-base
-      - texlive-latex-extra
-      - texlive-latex-recommended
-      - texlive-fonts-recommended
-      - texlive-fonts-extra
-      - texlive-math-extra
-      - qpdf
 
 env:
   global:
     - TEST_DOREDIS=TRUE
     - R_LIBS_USER=~/R/library
-
-cache:
-  directories:
-    $R_LIBS_USER
-
-before_script:
-  - mkdir -p "$R_LIBS_USER"
-  - Rscript -e 'if (length(find.package("devtools", quiet = TRUE)) == 0L) { install.packages("devtools", repos = "http://cran.rstudio.com") }'
-  - Rscript -e 'devtools::update_packages("devtools", repos = "http://cran.rstudio.com")'
-  - Rscript -e 'devtools::install_deps(repos = "http://cran.rstudio.com", dependencies = TRUE)'
-  - Rscript -e 'install.packages(c("rmarkdown", "covr", "roxygen2"), repos="http://cran.rstudio.com")'
-
-script:
-  - Rscript -e 'devtools::check()'
 
 after_success:
   - Rscript -e 'library(doRedis); covr::codecov()'
