@@ -155,7 +155,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   {
     conargs <- list(...)
 # Set low default connection timeout, see issue #34
-    if(is.null(conargs$timeout)) conargs$timeout <- 10
+    if(is.null(conargs$timeout)) conargs$timeout <- 30
     conargs <- c(host=host, port=port, password=password, conargs)
     do.call("redisConnect", args=conargs)
   }
@@ -174,7 +174,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   on.exit(.delOK()) # In case we exit this function unexpectedly
   while(k < iter)
   {
-    work <- redisBLPop(queue, timeout=linger)
+    work <- tryCatch(redisBLPop(queue, timeout=linger), error=function(e) list())
 # Note the apparent fragility here. The worker has downloaded a task but
 # not yet set alive/started keys. If a failure occurs before that, it
 # seems like the task has been consumed and finished but no matching result
