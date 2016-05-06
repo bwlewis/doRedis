@@ -7,6 +7,8 @@ compare <- function(x, y, label="unexpected result")
 
 if(Sys.getenv("TEST_DOREDIS") == "TRUE")
 {
+  setProgress(TRUE)
+  setFtinterval(10)
 # Basic test with two local worker processes
   queue <- "jobs"
   redisConnect()
@@ -28,6 +30,8 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
 
 # covr code coverage can't discern that we're excercising the worker
 # code in the above tests.
+
+  getDoParWorkers()
 
 # Shut down
   removeQueue(queue)
