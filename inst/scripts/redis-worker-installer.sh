@@ -51,8 +51,8 @@ do_start()
   if test -n "\${EC2}"; then
     U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
     if test -n "\${U}";  then
-      if test -z `echo "\${U}" | sed -n 1p | grep '#!'`; then
-        echo \${U} > /etc/doRedis.conf
+      if test -z \$(echo -e "\${U}" | sed -n 1p | grep '#!'); then
+        echo -e "\${U}" > /etc/doRedis.conf
       fi
     fi
   fi
