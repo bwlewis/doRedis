@@ -491,7 +491,6 @@ setProgress <- function(value=FALSE)
 # use nonblocking call to submit all tasks at once
   redisSetPipeline(TRUE)
   redisMulti()
-  seed <- .Random.seed
   while(j <= ntasks)
   {
     k <- min(j + chunkSize, ntasks)
@@ -542,8 +541,9 @@ tryCatch(
                    {
                      if(is.numeric(recon))
                      {
-                       message("Interrupted connection to Redis!")
-                       message("doRedis will periodically retry connecting to Redis. Press CTRL + C (or the stop button in RStudio) to break out of this loop, maybe more than once.")
+                       message("\nInterrupted connection to Redis!")
+                       message("doRedis will periodically retry connecting to Redis.\n",
+                               "Press CTRL + C (or the stop button in RStudio) to break out of this loop, maybe more than once.")
                      } else cat(".")
                      Sys.sleep(max(floor(ftinterval / 3), 10))
                      recon <<- tryCatch(redisConnect(host=ctx$host, port=ctx$port), error=function (e) TRUE)
@@ -656,13 +656,13 @@ flushQueue <- function(queue, ID)
   })
 }
 
-#' Convert the iterator to a list
-#'
-#' @param x an iterator
-#' @return A list with two entries per element. The first entry is the
-#' corresponding iterator value. The 2nd is a L'Ecuyer random seed value.
-#' @keywords internal
-#' @importFrom parallel nextRNGStream
+# Convert the iterator to a list
+#
+# @param x an iterator
+# @return A list with two entries per element. The first entry is the
+# corresponding iterator value. The 2nd is a L'Ecuyer random seed value.
+# @keywords internal
+# @importFrom parallel nextRNGStream
 .to.list <- function(x)
 {
   seed <- .Random.seed

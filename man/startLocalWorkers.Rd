@@ -5,7 +5,7 @@
 \title{Start one or more background R worker processes on the local system.}
 \usage{
 startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
-  timeout = 30, log = stdout(), Rbin = paste(R.home(component = "bin"),
+  linger = 30, log = stdout(), Rbin = paste(R.home(component = "bin"),
   "R", sep = "/"), password, ...)
 }
 \arguments{
@@ -19,7 +19,7 @@ startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
 
 \item{iter}{maximum number of tasks to process before exiting the worker loop}
 
-\item{timeout}{timeout in seconds after which the work queue is deleted that the worker terminates}
+\item{linger}{timeout in seconds after which the work queue is deleted that the worker terminates}
 
 \item{log}{print messages to the specified file connection}
 

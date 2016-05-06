@@ -2,7 +2,7 @@
 
 ## CHANGES IN VERSION 1.2.0
 
-This is a major change.
+Warning, this is a major change!
 
 * Work queue structure has been greatly simplified. We got rid of the use
   of server-side Lua Redis code and programmable task assignment features
@@ -10,6 +10,10 @@ This is a major change.
   are now consumed by workers with a simple first-come, first-served rule
   using basic Redis list value types (queues). This simpler scheme should
   be more robust than the 1.1 versions of the package.
+
+* The `redisWOrker()` function arguments changed slightly, replacing
+  `timeout` with `linger` because `timeout` conflicted with an optional
+  paramter for the redis connection.
 
 * Now using the L'Ecuyer RNG functions from the parallel package
   as the default parallel RNG for reproducible random numbers.

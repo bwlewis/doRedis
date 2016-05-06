@@ -5,7 +5,7 @@
 \title{Initialize a doRedis worker process.}
 \usage{
 redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
-  timeout = 30, log = stderr(), connected = FALSE, password = NULL,
+  linger = 30, log = stderr(), connected = FALSE, password = NULL,
   loglevel = 0, ...)
 }
 \arguments{
@@ -17,15 +17,15 @@ redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
 
 \item{iter}{maximum number of tasks to process before exiting the worker loop}
 
-\item{timeout}{timeout in seconds after which the work queue is deleted that the worker terminates}
+\item{linger}{timeout in seconds after which the work queue is deleted that the worker terminates}
 
 \item{log}{print messages to the specified file connection}
 
-\item{connected}{Is the R session creating the worker already connected to Redis?}
+\item{connected}{set to \code{TRUE} to reuse an existing open connection to Redis, otherwise establish a new one}
 
 \item{password}{optional Redis database password}
 
-\item{loglevel}{set to 1 to increase verbosity in the log}
+\item{loglevel}{set to > 0 to increase verbosity in the log}
 
 \item{...}{Optional additional parameters passed to \code{\link{redisConnect}}}
 }
@@ -36,7 +36,7 @@ NULL is invisibly returned.
 The redisWorker function enrolls the current R session in one or
 more doRedis worker pools specified by the work queue names. The worker
 loop takes over the R session until the work queue(s) are deleted, after
-which at most \code{timeout} seconds the worker loop exits, or until
+which at most \code{linger} seconds the worker loop exits, or until
 the worker has processed \code{iter} tasks.
 }
 \seealso{

@@ -71,7 +71,7 @@
 #' @param host Redis database host name or IP address
 #' @param port Redis database port number
 #' @param iter maximum number of tasks to process before exiting the worker loop
-#' @param timeout timeout in seconds after which the work queue is deleted that the worker terminates
+#' @param linger timeout in seconds after which the work queue is deleted that the worker terminates
 #' @param log print messages to the specified file connection
 #' @param Rbin full path to the command-line R program
 #' @param password optional Redis database password
@@ -94,7 +94,7 @@
 #'
 #' @export
 startLocalWorkers <- function(n, queue, host="localhost", port=6379,
-  iter=Inf, timeout=30, log=stdout(),
+  iter=Inf, linger=30, log=stdout(),
   Rbin=paste(R.home(component="bin"),"R",sep="/"), password, ...)
 {
   m <- match.call()
@@ -102,8 +102,8 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   l <- m$log
   if(is.null(l)) l <- f$log
   cmd <- paste("require(doRedis);redisWorker(queue='",
-      queue, "', host='", host,"', port=", port,", iter=", iter,", timeout=",
-      timeout, ", log=", deparse(l), sep="")
+      queue, "', host='", host,"', port=", port,", iter=", iter,", linger=",
+      linger, ", log=", deparse(l), sep="")
   if(!missing(password)) cmd <- sprintf("%s,password='%s'", cmd, password)
   dots <- list(...)
   if(length(dots) > 0)
@@ -128,18 +128,18 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' The redisWorker function enrolls the current R session in one or
 #' more doRedis worker pools specified by the work queue names. The worker
 #' loop takes over the R session until the work queue(s) are deleted, after
-#' which at most \code{timeout} seconds the worker loop exits, or until
+#' which at most \code{linger} seconds the worker loop exits, or until
 #' the worker has processed \code{iter} tasks.
 #'
 #' @param queue work queue name or a vector of queue names
 #' @param host Redis database host name or IP address
 #' @param port Redis database port number
 #' @param iter maximum number of tasks to process before exiting the worker loop
-#' @param timeout timeout in seconds after which the work queue is deleted that the worker terminates
+#' @param linger timeout in seconds after which the work queue is deleted that the worker terminates
 #' @param log print messages to the specified file connection
-#' @param connected Is the R session creating the worker already connected to Redis?
+#' @param connected set to \code{TRUE} to reuse an existing open connection to Redis, otherwise establish a new one
 #' @param password optional Redis database password
-#' @param loglevel set to 1 to increase verbosity in the log
+#' @param loglevel set to > 0 to increase verbosity in the log
 #' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #'
 #' @return NULL is invisibly returned.
@@ -148,11 +148,17 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #'
 #' @export
 redisWorker <- function(queue, host="localhost", port=6379,
-                        iter=Inf, timeout=30, log=stderr(),
+                        iter=Inf, linger=30, log=stderr(),
                         connected=FALSE, password=NULL, loglevel=0, ...)
 {
   if (!connected)
-    redisConnect(host, port, password=password, ...)
+  {
+    conargs <- list(...)
+# Set low default connection timeout, see issue #34
+    if(is.null(conargs$timeout)) conargs$timeout <- 10
+    conargs <- c(host=host, port=port, password=password, conargs)
+    do.call("redisConnect", args=conargs)
+  }
   if(is.character(log))
     log <- file(log, open="w+")
   sink(type="message", file=log)
@@ -168,7 +174,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   on.exit(.delOK()) # In case we exit this function unexpectedly
   while(k < iter)
   {
-    work <- redisBLPop(queue, timeout=timeout)
+    work <- redisBLPop(queue, timeout=linger)
 # Note the apparent fragility here. The worker has downloaded a task but
 # not yet set alive/started keys. If a failure occurs before that, it
 # seems like the task has been consumed and finished but no matching result
@@ -195,7 +201,8 @@ redisWorker <- function(queue, host="localhost", port=6379,
      {
 # FT support
       iters <- names(work[[1]]$argsList)
-      fttag <- sprintf("iters %s...%s host %s pid %s begin %s", iters[1], iters[length(iters)], Sys.info()["nodename"], Sys.getpid(), gsub(" ", "-", Sys.time()))
+      fttag <- sprintf("iters %s...%s host %s pid %s begin %s", iters[1],
+                 iters[length(iters)], Sys.info()["nodename"], Sys.getpid(), gsub(" ", "-", Sys.time()))
       fttag.start <- paste(queue, "start", work[[1]]$ID, fttag, sep=".")
       fttag.alive <- paste(queue, "alive", work[[1]]$ID, fttag, sep=".")
 # fttag.start is a permanent key
@@ -211,7 +218,8 @@ redisWorker <- function(queue, host="localhost", port=6379,
       {
         cat("Processing task(s)",
          paste(head(names(work[[1]]$argsList), 1),
-          tail(names(work[[1]]$argsList), 1), sep="...", collapse="..."), "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
+          tail(names(work[[1]]$argsList), 1), sep="...", collapse="..."),
+           "from queue", names(work), "ID", work[[1]]$ID, "\n", file=log)
       }
 # Check that the incoming work ID matches our current environment. If
 # not, we need to re-initialize our work environment with data from the
@@ -235,6 +243,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # a redis connecion on error here.
       tryCatch( redisLPush(queueOut, result), error=function(e)
       {
+        cat(as.character(e), file=log)
         redisConnect(host, port, password=password, ...)
         redisLPush(queueOut, result)
       })
