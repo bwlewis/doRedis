@@ -40,7 +40,7 @@ DAEMON_ARGS=/etc/doRedis.conf
 PIDFILE=/var/run/doRedis.pid
 SCRIPTNAME=/etc/init.d/doRedis
 TEMPDIR=/tmp/doRedis
-EC2=
+EC2=$1
 
 # Function that starts the daemon/service, optionally initializing
 # configuration file from EC2 user data. We skip initialization
@@ -49,7 +49,7 @@ EC2=
 do_start()
 {
   if test -n "\${EC2}"; then
-    U=`wget -O - -q http://169.254.169.254/latest/user-data`
+    U=\$(wget -O - -q http://169.254.169.254/latest/user-data)
     if test -n "\${U}";  then
       if test -z `echo "\${U}" | sed -n 1p | grep '#!'`; then
         echo \${U} > /etc/doRedis.conf
