@@ -45,7 +45,7 @@ Running workers self-terminate when their work queues are deleted with the
 \dontrun{
 require('doRedis')
 registerDoRedis('jobs')
-startLocalWorkers(n=2, queue='jobs')
+startLocalWorkers(n=2, queue='jobs', linger=5, timeout=0)
 print(getDoParWorkers())
 foreach(j=1:10,.combine=sum,.multicombine=TRUE) \\\%dopar\\\%
           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000

@@ -39,6 +39,17 @@ loop takes over the R session until the work queue(s) are deleted, after
 which at most \code{linger} seconds the worker loop exits, or until
 the worker has processed \code{iter} tasks.
 }
+\note{
+The worker connection to Redis uses a TCP timeout value of 30 seconds by
+default. That means that the worker will exit after about 30 seconds of inactivity.
+If you want the worker to remain active for longer periods, use the \code{timeout}
+option, for instance setting \code{timeout=0} tells the worker to listen indefinitely
+for work.
+
+Use the \code{linger} option to instruct the worker to linger for up to the indicated
+number of seconds after the listening work queue has been removed. After at most that
+interval, the worker will exit after removing the queue.
+}
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 }
