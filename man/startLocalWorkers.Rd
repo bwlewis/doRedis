@@ -39,13 +39,16 @@ the \code{redisWorker} function.
 }
 \details{
 Running workers self-terminate when their work queues are deleted with the
-\code{removeQueue} function.
+\code{removeQueue} function or when network activity with Redis remains
+inactive for longer than the \code{timeout} period set in the \code{redisConnect}
+function. That value defaults internally to 3600 (one hour) in \code{startLocalWorkers}.
+You can increase it by including a {timeout=n} argument value.
 }
 \examples{
 \dontrun{
 require('doRedis')
 registerDoRedis('jobs')
-startLocalWorkers(n=2, queue='jobs', linger=5, timeout=0)
+startLocalWorkers(n=2, queue='jobs', linger=5)
 print(getDoParWorkers())
 foreach(j=1:10,.combine=sum,.multicombine=TRUE) \\\%dopar\\\%
           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000

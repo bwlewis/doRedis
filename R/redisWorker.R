@@ -64,7 +64,10 @@
 #' the \code{redisWorker} function.
 #'
 #' Running workers self-terminate when their work queues are deleted with the
-#' \code{removeQueue} function.
+#' \code{removeQueue} function or when network activity with Redis remains
+#' inactive for longer than the \code{timeout} period set in the \code{redisConnect}
+#' function. That value defaults internally to 3600 (one hour) in \code{startLocalWorkers}.
+#' You can increase it by including a {timeout=n} argument value.
 #'
 #' @param n number of workers to start
 #' @param queue work queue name
@@ -85,7 +88,7 @@
 #' \dontrun{
 #' require('doRedis')
 #' registerDoRedis('jobs')
-#' startLocalWorkers(n=2, queue='jobs', linger=5, timeout=0)
+#' startLocalWorkers(n=2, queue='jobs', linger=5)
 #' print(getDoParWorkers())
 #' foreach(j=1:10,.combine=sum,.multicombine=TRUE) \%dopar\%
 #'           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
@@ -101,9 +104,13 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   f <- formals()
   l <- m$log
   if(is.null(l)) l <- f$log
+  conargs <- list(...)
+  if(is.null(conargs$timeout)) conargs$timeout <- 3600
+  conargs <- paste(paste(names(conargs), conargs, sep="="), collapse=",")
+  
   cmd <- paste("require(doRedis);redisWorker(queue='",
       queue, "', host='", host,"', port=", port,", iter=", iter,", linger=",
-      linger, ", log=", deparse(l), sep="")
+      linger, ", log=", deparse(l), conargs, sep="")
   if(!missing(password)) cmd <- sprintf("%s,password='%s'", cmd, password)
   dots <- list(...)
   if(length(dots) > 0)
@@ -130,6 +137,12 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' loop takes over the R session until the work queue(s) are deleted, after
 #' which at most \code{linger} seconds the worker loop exits, or until
 #' the worker has processed \code{iter} tasks.
+#' Running workers also terminate after
+#' network activity with Redis remains
+#' inactive for longer than the \code{timeout} period set in the \code{redisConnect}
+#' function. That value defaults internally to 30 seconds in \code{redisWorker}.
+#' You can increase it by including a {timeout=n} argument value.
+#'
 #'
 #' @param queue work queue name or a vector of queue names
 #' @param host Redis database host name or IP address

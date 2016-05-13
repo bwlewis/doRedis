@@ -38,6 +38,11 @@ more doRedis worker pools specified by the work queue names. The worker
 loop takes over the R session until the work queue(s) are deleted, after
 which at most \code{linger} seconds the worker loop exits, or until
 the worker has processed \code{iter} tasks.
+Running workers also terminate after
+network activity with Redis remains
+inactive for longer than the \code{timeout} period set in the \code{redisConnect}
+function. That value defaults internally to 30 seconds in \code{redisWorker}.
+You can increase it by including a {timeout=n} argument value.
 }
 \note{
 The worker connection to Redis uses a TCP timeout value of 30 seconds by
