@@ -47,7 +47,7 @@ few options outlined in this document to help.
 \section*{Error handling}
 
 The \verb+.errorhandling+ parameter of the \verb+foreach()+ function takes a character
-value among "stop", "remove", or "pass", defaulting to "stop". That means
+value among ``stop'', ``remove'', or ``pass'', defaulting to ``stop.'' That means
 that as soon as an error is detected in any loop iteration, the entire
 foreach loop stops with that error.
 
