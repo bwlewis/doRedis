@@ -110,8 +110,9 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   
   cmd <- paste("require(doRedis);redisWorker(queue='",
       queue, "', host='", host,"', port=", port,", iter=", iter,", linger=",
-      linger, ", log=", deparse(l), conargs, sep="")
-  if(!missing(password)) cmd <- sprintf("%s,password='%s'", cmd, password)
+      linger, ", log=", deparse(l), sep="")
+  if(nchar(conargs) > 0) cm <- sprintf("%s, %s", cmd, conargs)
+  if(!missing(password)) cmd <- sprintf("%s, password='%s'", cmd, password)
   dots <- list(...)
   if(length(dots) > 0)
   {
