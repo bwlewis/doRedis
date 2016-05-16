@@ -286,7 +286,7 @@ the inner workings of the example.
 \begin{lstlisting}[float=ht,caption=Fault Tolerance Example,label=fault]
 require("doRedis")
 registerDoRedis("RJOBS")
-startLocalWorkers(n=4, queue="RJOBS", timeout=1)
+startLocalWorkers(n=4, queue="RJOBS", linger=1)
 cat("Workers started.\n")
 start <- Sys.time()
 x <- foreach(j=1:4, .combine=sum, .verbose=TRUE,
@@ -438,7 +438,7 @@ finished running.
 The {\tt removeQueue()} function removes all the Redis keys associated with the
 specified work queue. doRedis workers listening on that queue will then
 eventually quit after they are finished processing their running jobs, and after
-a queue timeout period has elapsed.
+the queue linger period has elapsed.
 
 The {\tt removeJob()} function works similarly, but only prunes keys and remaining
 work items associated with a specific job ID.
