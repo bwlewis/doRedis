@@ -157,9 +157,8 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #' @note The worker connection to Redis uses a TCP timeout value of 30 seconds by
 #' default. That means that the worker will exit after about 30 seconds of inactivity.
-#' If you want the worker to remain active for longer periods, use the \code{timeout}
-#' option, for instance setting \code{timeout=0} tells the worker to listen indefinitely
-#' for work.
+#' If you want the worker to remain active for longer periods, set the \code{timeout}
+#' option to a larger value.
 #'
 #' Use the \code{linger} option to instruct the worker to linger for up to the indicated
 #' number of seconds after the listening work queue has been removed. After at most that
