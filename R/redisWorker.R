@@ -203,8 +203,9 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # seems like the task has been consumed and finished but no matching result
 # appears in the output queue. But, the master keeps track of missing output
 # as of version 1.2.0 and will eventually re-submit such lost tasks.
-    queueEnv <- paste(queue,"env", work[[1]]$ID, sep=".")
-    queueOut <- paste(queue,"out", work[[1]]$ID, sep=".")
+    myQueue <- head(names(work), 1) # note that the worker might listen on multiple queues
+    queueEnv <- paste(myQueue, "env", work[[1]]$ID, sep=".")
+    queueOut <- paste(myQueue, "out", work[[1]]$ID, sep=".")
 # We terminate the worker loop after a timeout when all specified work
 # queues have been deleted.
     if(is.null(work[[1]]))
@@ -226,15 +227,15 @@ redisWorker <- function(queue, host="localhost", port=6379,
       iters <- names(work[[1]]$argsList)
       fttag <- sprintf("iters %s...%s host %s pid %s begin %s", iters[1],
                  iters[length(iters)], Sys.info()["nodename"], Sys.getpid(), gsub(" ", "-", Sys.time()))
-      fttag.start <- paste(queue, "start", work[[1]]$ID, fttag, sep=".")
-      fttag.alive <- paste(queue, "alive", work[[1]]$ID, fttag, sep=".")
+      fttag.start <- paste(myQueue, "start", work[[1]]$ID, fttag, sep=".")
+      fttag.alive <- paste(myQueue, "alive", work[[1]]$ID, fttag, sep=".")
 # fttag.start is a permanent key
 # fttag.alive is a matching ephemeral key that is regularly kept alive by the
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
       .setOK(port, host, fttag.alive, password=password) # Immediately set an alive key for this task
-      redisSet(fttag.start,as.integer(names(work[[1]]$argsList))) # then set a started key
+      redisSet(fttag.start, as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       k <- k + 1
       if(loglevel > 0)
