@@ -202,6 +202,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # seems like the task has been consumed and finished but no matching result
 # appears in the output queue. But, the master keeps track of missing output
 # as of version 1.2.0 and will eventually re-submit such lost tasks.
+    if(length(work) == 0) work <- NULL
     myQueue <- head(names(work), 1) # note that the worker might listen on multiple queues
     queueEnv <- paste(myQueue, "env", work[[1]]$ID, sep=".")
     queueOut <- paste(myQueue, "out", work[[1]]$ID, sep=".")
