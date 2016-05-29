@@ -579,7 +579,7 @@ explicitly in the {\tt foreach} loop. The example shown in Listing \ref{rng}
 illustrates a simple user-defined seed function.
 
 \begin{lstlisting}[float=!ht,caption=User-defined RNG initialization,label=rng]
-startLocalWorkers(n=5,queue="jobs")
+startLocalWorkers(n=5, queue="jobs")
 registerDoRedis("jobs")
 
 # Make all the workers use the same random seed initialization and the old
@@ -588,7 +588,7 @@ set.seed.worker <- function(n) {
    RNGkind("Super-Duper")
    set.seed(55)
 }
-foreach(j=1:5,.combine="c",.export="set.seed.worker") %dopar% runif(1)
+foreach(j=1:5, .combine="c", .export="set.seed.worker") %dopar% runif(1)
 
 #[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
 \end{lstlisting}
@@ -630,7 +630,7 @@ problems.
 registerDoRedis("jobs")
 
 set.seed(1)
-A <- matrix(rnorm(100),nrow=10)   # (Imagine that A is really big.)
+A <- matrix(rnorm(100), nrow=10)   # (Imagine that A is really big.)
 
 # Partition the matrix into parts small enough to fit into Redis values
 # (less than 512 MB). We partition our example matrix into two parts:
@@ -646,7 +646,7 @@ redisSet("A1", A1)
 redisSet("A2", A2)
 
 ans <- foreach(j=1:2, .combine=c) %dopar% {
-  chunk <- sprintf("A%d",j)
+  chunk <- sprintf("A%d", j)
   mychunk <- redisGet(chunk)
   sum(mychunk)
 }

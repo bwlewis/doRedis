@@ -265,10 +265,12 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # We saw that long-running jobs can sometimes lose connections to
 # Redis in an AWS EC2 example. The following tries to re-establish
 # a redis connecion on error here.
+      tryCatch(redisClose(), error=function(e) invisible()) # Explicit disconnect
+      do.call("redisConnect", args=conargs)                 # and reconnect just in case
       tryCatch( redisLPush(queueOut, result), error=function(e)
       {
         cat(as.character(e), file=log)
-        redisConnect(host, port, password=password, ...)
+        do.call("redisConnect", args=conargs)
         redisLPush(queueOut, result)
       })
 # Importantly, the worker does not delete his start key until after the

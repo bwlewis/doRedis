@@ -488,6 +488,7 @@ setProgress <- function(value=FALSE)
   nout <- 1
   j <- 1
   done <- c()  # A vector of completed tasks
+  blocknames <- list() # List of block names
 # use nonblocking call to submit all tasks at once
   redisSetPipeline(TRUE)
   redisMulti()
@@ -498,6 +499,7 @@ setProgress <- function(value=FALSE)
     if(is.null(block)) break
     if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
+    blocknames <- c(blocknames, list(names(block)))
     redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
@@ -546,6 +548,7 @@ tryCatch(
                                "Press CTRL + C (or the stop button in RStudio) to break out of this loop, maybe more than once.")
                      } else cat(".")
                      Sys.sleep(max(floor(ftinterval / 3), 10))
+# XXX what about nodelay and timeout in the reconnect?
                      recon <<- tryCatch(redisConnect(host=ctx$host, port=ctx$port), error=function (e) TRUE)
                      if(is.null(recon)) message("Connection to Redis reestablished!")
                      e
@@ -560,7 +563,8 @@ tryCatch(
       started <- sub(paste(queue, "start", "", sep="."), "", redisKeys(queueStart))
       alive <- sub(paste(queue, "alive", "",sep="."), "", redisKeys(queueAlive))
       fault <- setdiff(started,alive)
-      if(length(fault) > 0) {
+      if(length(fault) > 0)
+      {
         # One or more worker faults have occurred. Re-sumbit the work.
         fault <- paste(queue, "start", fault, sep=".")
         fjobs <- redisMGet(fault)
@@ -578,7 +582,8 @@ tryCatch(
       if(qlen == 0 && length(started) == 0)
       {
         resub_init <- TRUE
-        for(resub in setdiff(1:(nout - 1), done)) {
+        for(resub in setdiff(1:(nout - 1), done))
+        {
           if(resub_init)
           {
             # Reset the job environment just in case
@@ -592,7 +597,7 @@ tryCatch(
             resub_init <- FALSE
           }
           block <- argsList[resub]
-          names(block) <- resub
+          names(block) <- blocknames[[resub]]
           warning(sprintf("Lost result: resubmitting task %s", names(block)), immediate.=TRUE)
           redisRPush(queue, list(ID=ID, argsList=block))
         }
