@@ -50,7 +50,7 @@
 # Override the function set.seed.worker to roll your own RNG.
         if(exists("set.seed.worker", envir=.doRedisGlobals$exportenv))
           do.call("set.seed.worker", list(0), envir=.doRedisGlobals$exportenv)
-       }, error=function(e) cat(as.character(e),"\n"))
+       }, error=function(e) cat(as.character(e), "\n"))
       eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
     },
     error=function(e) e
@@ -63,7 +63,7 @@
 #' in the background. The worker processes are started on the local system using
 #' the \code{redisWorker} function.
 #'
-#' Running workers self-terminate when their work queues are deleted with the
+#' Running workers self-terminate after a \code{linger} period when their work queues are deleted with the
 #' \code{removeQueue} function or when network activity with Redis remains
 #' inactive for longer than the \code{timeout} period set in the \code{redisConnect}
 #' function. That value defaults internally to 3600 (one hour) in \code{startLocalWorkers}.
@@ -136,10 +136,9 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' The redisWorker function enrolls the current R session in one or
 #' more doRedis worker pools specified by the work queue names. The worker
 #' loop takes over the R session until the work queue(s) are deleted, after
-#' which at most \code{linger} seconds the worker loop exits, or until
+#' which the worker loop exits after the \code{linger} period, or until
 #' the worker has processed \code{iter} tasks.
-#' Running workers also terminate after
-#' network activity with Redis remains
+#' Running workers also terminate after network activity with Redis remains
 #' inactive for longer than the \code{timeout} period set in the \code{redisConnect}
 #' function. That value defaults internally to 30 seconds in \code{redisWorker}.
 #' You can increase it by including a {timeout=n} argument value.
@@ -197,6 +196,8 @@ redisWorker <- function(queue, host="localhost", port=6379,
   while(k < iter)
   {
     work <- tryCatch(redisBLPop(queue, timeout=linger), error=function(e) list())
+    if(!is.null(globalenv()$.redis.debug) && globalenv()$.redis.debug > 0)
+      cat(paste(capture.output(print(work)), collapse="\n"), "\n", file=stderr())
 # Note the apparent fragility here. The worker has downloaded a task but
 # not yet set alive/started keys. If a failure occurs before that, it
 # seems like the task has been consumed and finished but no matching result
@@ -265,11 +266,20 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # We saw that long-running jobs can sometimes lose connections to
 # Redis in an AWS EC2 example. The following tries to re-establish
 # a redis connecion on error here.
-      tryCatch(redisClose(), error=function(e) invisible()) # Explicit disconnect
-      do.call("redisConnect", args=conargs)                 # and reconnect just in case
+
+      if(!is.null(globalenv()$.redis.debug) && abs(globalenv()$.redis.debug) == 10)
+      {
+# Simulated error: worker finishes work but does not return a result
+        cat("Simuating no return error\n", file=stderr())
+        tryCatch(redisDelete(fttag.start), error=function(e) invisible())
+        .delOK()
+        assign(".redis.debug", 1, envir=globalenv()) # reset
+        next
+      }
       tryCatch( redisLPush(queueOut, result), error=function(e)
       {
         cat(as.character(e), file=log)
+        tryCatch(redisClose(), error=function(e) invisible())
         do.call("redisConnect", args=conargs)
         redisLPush(queueOut, result)
       })

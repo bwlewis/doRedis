@@ -547,10 +547,10 @@ tryCatch(
                        message("doRedis will periodically retry connecting to Redis.\n",
                                "Press CTRL + C (or the stop button in RStudio) to break out of this loop, maybe more than once.")
                      } else cat(".")
-                     Sys.sleep(max(floor(ftinterval / 3), 10))
-# XXX what about nodelay and timeout in the reconnect?
+# XXX what about passwords, nodelay and timeout in the reconnect?
                      recon <<- tryCatch(redisConnect(host=ctx$host, port=ctx$port), error=function (e) TRUE)
                      if(is.null(recon)) message("Connection to Redis reestablished!")
+                     else Sys.sleep(max(floor(ftinterval / 3), 10))
                      e
                    })
       retry <- "condition" %in% class(results)
