@@ -126,6 +126,7 @@ cat > /tmp/doRedis.c << 2ZZZ
 #include <stdio.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <stdlib.h>
 pid_t pid;
