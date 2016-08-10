@@ -496,11 +496,13 @@ setProgress <- function(value=FALSE)
   i <- 0
   breakNext = F
 
+  redisSetPipeline(TRUE)
+  
   repeat {
     
     #Aggregate the iterator into argsList 'syncSize' tasks at a time
     tryCatch({
-      for (z in seq(from=0, to=syncSize)) {
+      for (z in seq(from=1, to=syncSize)) {
         if (i >= n) {
           n <- 2 * n
           length(argsList) <- n
@@ -521,7 +523,6 @@ setProgress <- function(value=FALSE)
     })
 
     # use nonblocking call to submit syncSize tasks at once
-    redisSetPipeline(TRUE)
     redisMulti()
     while(j <= i)
     {
@@ -536,12 +537,12 @@ setProgress <- function(value=FALSE)
       nout <- nout + 1
     }
     redisExec()
-    redisGetResponse(all=TRUE)
-    redisSetPipeline(FALSE)
     
     if (breakNext) break #if we have reached the end of the iterator stop aggregating and submitting tasks
   }
 
+  redisGetResponse(all=TRUE)
+  redisSetPipeline(FALSE)
 
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
