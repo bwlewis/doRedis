@@ -483,7 +483,7 @@ setProgress <- function(value=FALSE)
 # Queue the task(s) and build a local copy of the submitted task data
 # The task order is encoded in names(argsList).
   
-  syncSize = chunkSize*64 #The number of tasks to aggregate for each upload to redis
+  syncSize <- chunkSize*64 #The number of tasks to aggregate for each upload to redis
   
   nout <- 1
   j <- 1
@@ -494,13 +494,13 @@ setProgress <- function(value=FALSE)
   n <- syncSize
   argsList <- vector("list", length=n)
   i <- 0
-  breakNext = F
+  breakNext <- F
 
   redisSetPipeline(TRUE)
   
   repeat {
     
-    #Aggregate the iterator into argsList 'syncSize' tasks at a time
+    # Aggregate the iterator into argsList 'syncSize' tasks at a time
     tryCatch({
       for (z in seq(from=1, to=syncSize)) {
         if (i >= n) {
