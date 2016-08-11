@@ -377,7 +377,6 @@ setProgress <- function(value=FALSE)
   RNGkind("L'Ecuyer-CMRG")
 
   it <- iter(obj)
-  argsList <- .to.list(it)
 
 # Distributed reduce
   gather <- NULL
@@ -448,8 +447,6 @@ setProgress <- function(value=FALSE)
   }
   results <- NULL
 
-  ntasks <- length(argsList)
-
   chunkSize <- 0
   if(!is.null(obj$options$redis$chunkSize))
     chunkSize <- obj$options$redis$chunkSize
@@ -483,28 +480,67 @@ setProgress <- function(value=FALSE)
     ftinterval <- get("ftinterval", envir=.doRedisGlobals)
   ftinterval <- max(ftinterval, 3)
 
-# Queue the task(s)
+# Queue the task(s) and build a local copy of the submitted task data
 # The task order is encoded in names(argsList).
+  
+  syncSize = chunkSize*64 #The number of tasks to aggregate for each upload to redis
+  
   nout <- 1
   j <- 1
   done <- c()  # A vector of completed tasks
   blocknames <- list() # List of block names
-# use nonblocking call to submit all tasks at once
+  
+  seed <- .Random.seed
+  n <- syncSize
+  argsList <- vector("list", length=n)
+  i <- 0
+  breakNext = F
+
   redisSetPipeline(TRUE)
-  redisMulti()
-  while(j <= ntasks)
-  {
-    k <- min(j + chunkSize, ntasks)
-    block <- argsList[j:k]
-    if(is.null(block)) break
-    if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
-    else names(block) <- j:k
-    blocknames <- c(blocknames, list(names(block)))
-    redisRPush(queue, list(ID=ID, argsList=block))
-    j <- k + 1
-    nout <- nout + 1
+  
+  repeat {
+    
+    #Aggregate the iterator into argsList 'syncSize' tasks at a time
+    tryCatch({
+      for (z in seq(from=1, to=syncSize)) {
+        if (i >= n) {
+          n <- 2 * n
+          length(argsList) <- n
+        }
+        seed <- nextRNGStream(seed)
+        rs <- list(.Random.seed=seed)
+        argsList[[i + 1]] <- c(nextElem(it), rs)
+        i <- i + 1
+      }
+    },
+    error=function(e) {
+      if (!identical(conditionMessage(e), "StopIteration")) {
+        stop(e)
+      } else {
+        breakNext <<- T
+        length(argsList) <<- i
+        }
+    })
+
+    # use nonblocking call to submit syncSize tasks at once
+    redisMulti()
+    while(j <= i)
+    {
+      k <- min(j + chunkSize, i)
+      block <- argsList[j:k]
+      if(is.null(block)) break
+      if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
+      else names(block) <- j:k
+      blocknames <- c(blocknames, list(names(block)))
+      redisRPush(queue, list(ID=ID, argsList=block))
+      j <- k + 1
+      nout <- nout + 1
+    }
+    redisExec()
+    
+    if (breakNext) break #if we have reached the end of the iterator stop aggregating and submitting tasks
   }
-  redisExec()
+
   redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
 
