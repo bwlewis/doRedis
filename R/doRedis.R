@@ -344,10 +344,14 @@ setProgress <- function(value=FALSE)
 # ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
+
   ID <- basename(tempfile(""))
 # The backslash escape charater present in Windows paths causes problems.
   ID <- gsub("\\\\", "", ID)
-  ID <- paste(ID, Sys.info()["user"], Sys.info()["nodename"], Sys.time(), sep="_")
+  
+  # tempfile can produce the same name if used in multiple threads; adding PID avoids this problem
+  ID <- paste(Sys.getpid(), ID, sep = "")
+  ID <- paste( ID, Sys.info()["user"], Sys.info()["nodename"], Sys.time(), sep="_")
   ID <- gsub(" ", "-", ID)
   queue <- data$queue
   queueEnv <- paste(queue,"env", ID, sep=".")
