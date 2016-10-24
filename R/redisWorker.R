@@ -187,8 +187,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
     log <- file(log, open="w+")
   sink(type="message", file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
+  
   queueLive <- paste(queue, "live", sep=".")
-  if(!redisExists(queueLive)) redisSet(queueLive, "")
+  for(j in queueLive)
+    if(!redisExists(j)) redisSet(j, "")
+  
   queueCount <- paste(queue,"count",sep=".")
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
