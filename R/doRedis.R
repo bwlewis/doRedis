@@ -494,7 +494,7 @@ setProgress <- function(value=FALSE)
   n <- syncSize
   argsList <- vector("list", length=n)
   i <- 0
-  breakNext <- F
+  breakNext <- FALSE
 
   redisSetPipeline(TRUE)
   
@@ -517,7 +517,7 @@ setProgress <- function(value=FALSE)
       if (!identical(conditionMessage(e), "StopIteration")) {
         stop(e)
       } else {
-        breakNext <<- T
+        breakNext <<- TRUE
         length(argsList) <<- i
         }
     })
