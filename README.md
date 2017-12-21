@@ -149,6 +149,6 @@ Workers self-terminate when their work queues have been deleted with the
 `removeQueue` function.
 
 ## Status
-[![travis-ci](https://travis-ci.org/bwlewis/doRedis)](https://travis-ci.org/bwlewis/doRedis.svg?branch=master)
+[![travis-ci](https://travis-ci.org/bwlewis/doRedis.svg?branch=master)](https://api.travis-ci.org/bwlewis/doRedis.svg?branch=master)
 [![codecov.io](https://codecov.io/github/bwlewis/doRedis/coverage.svg?branch=master)](https://codecov.io/github/bwlewis/doRedis?branch=master) 
 [![CRAN version](http://www.r-pkg.org/badges/version/doRedis)](http://cran.rstudio.com/web/packages/doRedis/index.html)
