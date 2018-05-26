@@ -11,7 +11,7 @@ Warning, this is a major change!
   using basic Redis list value types (queues). This simpler scheme should
   be more robust than the 1.1 versions of the package.
 
-* The `redisWOrker()` function arguments changed slightly, replacing
+* The `redisWorker()` function arguments changed slightly, replacing
   `timeout` with `linger` because `timeout` conflicted with an optional
   paramter for the redis connection.
 
