@@ -17,4 +17,3 @@ NULL is invisibly returned
 \description{
 Remove Redis keys associated with one or more doRedis jobs
 }
-

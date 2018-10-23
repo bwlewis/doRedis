@@ -1,17 +1,17 @@
 # Do not use .setOK from interactive R sessions.
 # .setOK and .delOK support worker fault tolerance
-`.setOK` <- function(port, host, key, password)
+`.setOK` <- function(port, host, key, password, timelimit=0)
 {
   if(missing(password)) password <- ""
   if(is.null(password)) password <- ""
   invisible(
     .Call("setOK", as.integer(port), as.character(host),
-        as.character(key),as.character(password), PACKAGE="doRedis"))
+        as.character(key), as.character(password), as.double(timelimit), PACKAGE="doRedis"))
 }
 
 `.delOK` <- function()
 {
-  invisible(.Call("delOK",PACKAGE="doRedis"))
+  invisible(.Call("delOK", PACKAGE="doRedis"))
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
@@ -119,17 +119,17 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   dots <- list(...)
   if(length(dots) > 0)
   {
-    dots <- paste(paste(names(dots),dots,sep="="),collapse=",")
-    cmd <- sprintf("%s,%s",cmd,dots)
+    dots <- paste(paste(names(dots), dots, sep="="), collapse=",")
+    cmd <- sprintf("%s,%s", cmd, dots)
   }
-  cmd <- sprintf("%s)",cmd)
+  cmd <- sprintf("%s)", cmd)
   cmd <- gsub("\"", "'", cmd)
 
   j <- 0
-  args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
+  args <- c("--slave", "-e", paste("\"", cmd,"\"", sep=""))
   while(j < n)
   {
-    system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
+    system(paste(c(Rbin, args), collapse=" "), intern=FALSE, wait=FALSE)
     j <- j + 1
   }
 }
@@ -156,6 +156,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @param connected set to \code{TRUE} to reuse an existing open connection to Redis, otherwise establish a new one
 #' @param password optional Redis database password
 #' @param loglevel set to > 0 to increase verbosity in the log
+#' @param timelimit set to > 0 to specify a task time limit in seconds, after which worker processes are killed; beware that setting this value > 0 will terminate any R worker process if their task takes too long.
 #' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #' @note The worker connection to Redis uses a TCP timeout value of 30 seconds by
 #' default. That means that the worker will exit after about 30 seconds of inactivity.
@@ -173,7 +174,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @export
 redisWorker <- function(queue, host="localhost", port=6379,
                         iter=Inf, linger=30, log=stderr(),
-                        connected=FALSE, password=NULL, loglevel=0, ...)
+                        connected=FALSE, password=NULL, loglevel=0, timelimit=0, ...)
 {
   if (!connected)
   {
@@ -241,7 +242,9 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
-      .setOK(port, host, fttag.alive, password=password) # Immediately set an alive key for this task
+      redisSet(fttag.alive, 0)
+      redisExpire(fttag.alive, 10)
+      .setOK(port, host, fttag.alive, password=password, timelimit=timelimit) # refresh thread
       redisSet(fttag.start, as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       k <- k + 1

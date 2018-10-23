@@ -42,6 +42,7 @@
 #include <signal.h>
 #endif
 
+#include <time.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -53,6 +54,8 @@
 #define BS 4096
 #define BS_LARGE 16384
 
+time_t start_time;
+double time_limit;
 int go;
 #ifdef Win32
 HANDLE t;
@@ -219,39 +222,55 @@ ok (void *x)
 #endif
 {
   char transaction[BS_LARGE];
-  char buf[BS];                 /* asumption is that response is short */
+  char buf[BS];  /* asumption is that response is short, otherwise its truncated to BS */
   int pr_n = -1;
   int j, m;
   char *key = (char *) x;
+  double dt;
   size_t k = strlen (key);
   if (k > BS_LARGE - 128)
     {
       thread_exit ();
     }
   pr_n = snprintf(transaction, BS_LARGE, 
-    "*1\r\n$5\r\nMULTI\r\n*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n5\r\n*1\r\n$4\r\nEXEC\r\n",
+    "*1\r\n$5\r\nMULTI\r\n*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n10\r\n*1\r\n$4\r\nEXEC\r\n",
     (int)k, key, (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
       thread_exit ();
     }
-/* Check for thread termination every 1/10 sec, update Redis every 3s (expire
- * alive key after 5s). Exit the thread if the transaction fails.
+/* Check for thread termination every 1/10 sec, update Redis every 5s (expire
+ * alive key after 10s). Exit the thread if the transaction fails.
+ * Every 5s also check time limit and exit if exceeded.
  */
-  m = 30;
+  m = 50;
   while (go > 0)
     {
       m += 1;
-      if (m > 30)
-        {
-          j = msg (s, transaction, buf);
-          if (j < 0)
-            {
-              thread_exit ();
-            }
-          m = 0;
-        }
       snooze (100);
+      if (m < 50) continue;
+      if (time_limit > 0)
+        {
+          dt = difftime(time(NULL), start_time);
+          if(dt > time_limit)
+          {
+            go = 0;
+#ifdef Win32
+  // WRITE ME XXX
+#else
+/* Rudely shut down this R process if task time limit is exceeded */
+            kill (getpid(), SIGUSR2);
+#endif
+            thread_exit ();
+          }
+        }
+      j = msg (s, transaction, buf);
+      if (j < 0)
+        {
+          go = 0;
+          thread_exit ();
+        }
+      m = 0;
     }
   return NULL;
 }
@@ -275,7 +294,7 @@ delOK ()
 }
 
 SEXP
-setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
+setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH, SEXP TIMELIMIT)
 {
   if (go > 0)
     return (R_NilValue);
@@ -289,12 +308,14 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH)
   int port = *(INTEGER (PORT));
   const char *key = CHAR (STRING_ELT (KEY, 0));
   const char *auth = CHAR (STRING_ELT (AUTH, 0));
+  time_limit = *(REAL (TIMELIMIT));
   int j, k = strlen (auth);
 #ifdef Win32
   WSAStartup (MAKEWORD (2, 2), &wsaData);
 #endif
   tcpconnect (&s, host, port);
   go = 1;
+  time(&start_time);
 /* check for AUTH and authorize if needed */
   if (k > 0)
     {

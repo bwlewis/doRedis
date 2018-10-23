@@ -18,4 +18,3 @@ Progress bar
 \note{
 Alternatively set within the foreach loop with \code{.options.redis=list(progress=TRUE)}.
 }
-

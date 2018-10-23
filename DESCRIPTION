@@ -1,8 +1,8 @@
 Package: doRedis
 Type: Package
 Title: "Foreach" Parallel Adapter Using the "Redis" Database
-Version: 1.2.0
-Date: 2015-08-06
+Version: 1.2.1
+Date: 2018-10-19
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
 Description: A parallel back end for the "foreach" package using the "Redis"
@@ -22,4 +22,4 @@ Suggests:
 VignetteBuilder: knitr
 License: GPL-2
 LazyLoad: yes
-RoxygenNote: 5.0.0
+RoxygenNote: 6.0.1
