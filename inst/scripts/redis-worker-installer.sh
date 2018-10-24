@@ -61,20 +61,22 @@ do_start()
 # Global parameters
   NUM=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*n:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//" | tr -s ' ' | tr ' ' '\n' | wc -l)
   R=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*R:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
-  T=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*timeout:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+  LINGER=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*linger:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   I=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*iter:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   HOST=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*host:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   PORT=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*port:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
   LOGLEVEL=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*loglevel:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
+  TIMELIMIT=\$(cat \${DAEMON_ARGS} | sed -n /^[[:blank:]]*timelimit:/p | tail -n 1 | sed -e "s/#.*//" | sed -e "s/.*://" | sed -e "s/^ *//" | sed -e "s/[[:blank:]]*$//")
 # default values
-  [ -z "\${NUM}" ]   && NUM=1
+  [ -z "\${NUM}" ]    && NUM=1
   [ \${NUM} -eq 0 ]   && NUM=1
-  [ -z "\${R}" ]     && R=R
-  [ -z "\${T}" ]     && T=5
-  [ -z "\${I}" ]     && I=50
-  [ -z "\${HOST}" ]  && HOST=localhost
-  [ -z "\${PORT}" ]  && PORT=6379
+  [ -z "\${R}" ]      && R=R
+  [ -z "\${LINGER}" ] && LINGER=5
+  [ -z "\${I}" ]      && I=50
+  [ -z "\${HOST}" ]   && HOST=localhost
+  [ -z "\${PORT}" ]   && PORT=6379
   [ -z "\${LOGLEVEL}" ] && LOGLEVEL=0
+  [ -z "\${TIMELIMIT}" ] && TIMELIMIT=0
 
   mkdir -p \${TEMPDIR}
   chown \${USER} \${TEMPDIR}
@@ -88,7 +90,7 @@ do_start()
     [ -z "\${QUEUE}" ] && QUEUE=RJOBS
     K=1
     while test \${K} -le \${N}; do
-      TMPDIR=\${TEMPDIR} sudo -b -n -E -u \${USER} /usr/local/bin/doRedis \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT}, timeout=\${T}, iter=\${I}, loglevel=\${LOGLEVEL}), error=function(e) q(save='no'))});q(save='no')" 0<&- 2> >(logger -s -i -t doRedis)
+      TMPDIR=\${TEMPDIR} sudo -b -n -E -u \${USER} /usr/local/bin/doRedis \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT}, linger=\${T}, timelimit=\${TIMELIMIT}, iter=\${I}, loglevel=\${LOGLEVEL}), error=function(e) q(save='no'))});q(save='no')" 0<&- 2> >(logger -s -i -t doRedis)
       K=\$(( \${K} + 1 ))
     done
     J=\$(( \${J} + 1 ))
@@ -178,12 +180,13 @@ cat > /etc/doRedis.conf << 3ZZZ
 n: 2              # number of workers to start
 queue: RJOBS      # queue foreach job queue name
 R: R              # path to R (default assumes 'R' is in the PATH)
-timeout: 5        # wait in seconds after job queue is deleted before exiting
+linger: 5         # wait in seconds after job queue is deleted before exiting
 iter: 20          # maximum tasks to run before worker exit and restart
 host: localhost   # host redis host
 port: 6379        # port redis port
 user: nobody      # user that runs the service and R workers
 loglevel: 0       # set to 1 to log tasks as they run in the system log
+timelimit: 0      # per task maximum time limit in seconds, after which worker is killed
 #
 # The n: and queue: entries may list more than one set of worker numbers and
 # queue names delimited by exactly one space. If more than one queue is

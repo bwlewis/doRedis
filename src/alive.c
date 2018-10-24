@@ -259,7 +259,7 @@ ok (void *x)
   // WRITE ME XXX
 #else
 /* Rudely shut down this R process if task time limit is exceeded */
-            kill (getpid(), SIGUSR2);
+            kill (getpid(), SIGHUP);
 #endif
             thread_exit ();
           }
