@@ -90,7 +90,7 @@ do_start()
     [ -z "\${QUEUE}" ] && QUEUE=RJOBS
     K=1
     while test \${K} -le \${N}; do
-      TMPDIR=\${TEMPDIR} sudo -b -n -E -u \${USER} /usr/local/bin/doRedis \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT}, linger=\${T}, timelimit=\${TIMELIMIT}, iter=\${I}, loglevel=\${LOGLEVEL}), error=function(e) q(save='no'))});q(save='no')" 0<&- 2> >(logger -s -i -t doRedis)
+      TMPDIR=\${TEMPDIR} sudo -b -n -E -u \${USER} /usr/local/bin/doRedis \${R} --slave -e "suppressPackageStartupMessages({require('doRedis'); tryCatch(redisWorker(queue='\${QUEUE}', host='\${HOST}', port=\${PORT}, linger=\${LINGER}, timelimit=\${TIMELIMIT}, iter=\${I}, loglevel=\${LOGLEVEL}), error=function(e) q(save='no'))});q(save='no')" 0<&- 2> >(logger -s -i -t doRedis)
       K=\$(( \${K} + 1 ))
     done
     J=\$(( \${J} + 1 ))
