@@ -233,7 +233,7 @@ ok (void *x)
       thread_exit ();
     }
   pr_n = snprintf(transaction, BS_LARGE, 
-    "*1\r\n$5\r\nMULTI\r\n*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$1\r\n10\r\n*1\r\n$4\r\nEXEC\r\n",
+    "*1\r\n$5\r\nMULTI\r\n*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$2\r\nOK\r\n*3\r\n$6\r\nEXPIRE\r\n$%d\r\n%s\r\n$2\r\n10\r\n*1\r\n$4\r\nEXEC\r\n",
     (int)k, key, (int)k, key);
   if (pr_n < 0 || pr_n >= BS_LARGE)
     {
