@@ -1,7 +1,7 @@
 Package: doRedis
 Type: Package
 Title: "Foreach" Parallel Adapter Using the "Redis" Database
-Version: 1.2.1
+Version: 1.2.2
 Date: 2018-10-19
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
