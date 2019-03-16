@@ -240,7 +240,7 @@ setReduce <- function(fun=NULL)
   assign("gather", fun, envir=.doRedisGlobals)
 }
 
-#' Manually set symbol names to the worker environment export list.
+#' Manually add symbol names to the worker environment export list.
 #'
 #' The setExport function lets users manually declare symbol names
 #' of corresponding objects that should be exported to workers.
@@ -365,14 +365,12 @@ setProgress <- function(value=FALSE)
     stop("obj must be a foreach object")
 
 # Manage default parallel RNG, restoring an advanced old RNG state on exit
-  .seed <- NULL
-  if(exists(".Random.seed", envir=globalenv())) .seed <- get(".Random.seed", envir=globalenv())
-  RNG_STATE <- list(kind=RNGkind()[[1]], seed=.seed)
+  RNG_STATE <- list(kind=RNGkind()[[1]], seed=globalenv()$.Random.seed)
   on.exit(
   {
-# Reset RNG
+# Reset and advance RNG
     RNGkind(RNG_STATE$kind)
-    assign(".Random.seed", RNG_STATE$seed, envir=globalenv())
+    if(!is.null(RNG_STATE$seed)) assign(".Random.seed", RNG_STATE$seed, envir=globalenv())
     runif(1)
 # Clean up the session ID and session environment
     if(redisExists(queueEnv)) redisDelete(queueEnv)
@@ -424,7 +422,7 @@ setProgress <- function(value=FALSE)
     }
   }
 # Compute list of variables to export
-  export <- unique(c(obj$export,.doRedisGlobals$export))
+  export <- unique(c(obj$export, .doRedisGlobals$export))
   ignore <- intersect(export, vars)
   if (length(ignore) > 0) {
     warning(sprintf("already exporting objects(s): %s",
