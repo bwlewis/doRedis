@@ -59,3 +59,4 @@ removeQueue('jobs')
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{redisWorker}}
 }
+

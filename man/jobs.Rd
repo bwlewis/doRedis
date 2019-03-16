@@ -15,3 +15,4 @@ a data frame listing jobs by row with variables queue, id, user, host and time (
 \description{
 List doRedis jobs
 }
+

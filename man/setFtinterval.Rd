@@ -27,3 +27,4 @@ foreach(j=1:10,
         .options.redis=list(ftinterval=5)) \%dopar\% j
 }
 }
+

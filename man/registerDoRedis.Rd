@@ -71,3 +71,4 @@ removeQueue('jobs')
 \seealso{
 \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 }
+

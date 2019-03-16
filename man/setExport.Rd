@@ -2,7 +2,7 @@
 % Please edit documentation in R/doRedis.R
 \name{setExport}
 \alias{setExport}
-\title{Manually set symbol names to the worker environment export list.}
+\title{Manually add symbol names to the worker environment export list.}
 \usage{
 setExport(names = c())
 }
@@ -45,3 +45,4 @@ removeQueue("work queue")
 }
 
 }
+

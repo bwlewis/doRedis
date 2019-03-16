@@ -58,3 +58,4 @@ interval, the worker will exit after removing the queue.
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 }
+
