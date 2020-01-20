@@ -152,9 +152,6 @@ Workers self-terminate when their work queues have been deleted with the
 <a href="https://travis-ci.org/bwlewis/doRedis">
 <img src="https://travis-ci.org/bwlewis/doRedis.svg?branch=master" alt="Travis CI status"></img>
 </a>
-<a href="https://codecov.io/github/bwlewis/doRedis?branch=master">
-<img src="https://codecov.io/github/bwlewis/doRedis/coverage.svg?branch=master" alt="codecov.io"></img>
-</a>
 <a href="http://cran.rstudio.com/web/packages/doRedis/index.html">
 <img src="http://www.r-pkg.org/badges/version/doRedis" alt="CRAN version"></img>
 </a>
