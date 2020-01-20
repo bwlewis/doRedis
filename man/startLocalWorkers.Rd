@@ -38,8 +38,8 @@ in the background. The worker processes are started on the local system using
 the \code{redisWorker} function.
 }
 \details{
-Running workers self-terminate after a \code{linger} period when their work queues are deleted with the
-\code{removeQueue} function or when network activity with Redis remains
+Running workers self-terminate after a \code{linger} period if their work queues are deleted with the
+\code{removeQueue} function, or when network activity with Redis remains
 inactive for longer than the \code{timeout} period set in the \code{redisConnect}
 function. That value defaults internally to 3600 (one hour) in \code{startLocalWorkers}.
 You can increase it by including a {timeout=n} argument value.

@@ -174,6 +174,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @return NULL is invisibly returned.
 #'
 #' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
+#' @importFrom utils capture.output head tail object.size
 #'
 #' @export
 redisWorker <- function(queue, host="localhost", port=6379,
