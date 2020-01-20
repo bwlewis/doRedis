@@ -1,7 +1,7 @@
 Package: doRedis
 Type: Package
 Title: "Foreach" Parallel Adapter Using the "Redis" Database
-Version: 1.2.3
+Version: 2.0.0
 Date: 2020-01-09
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
@@ -10,7 +10,6 @@ Description: A parallel back end for the "foreach" package using the "Redis"
 BugReports: https://github.com/bwlewis/doRedis/issues
 Depends:
     R (>= 3.0),
-    rredis (>= 1.7.0),
     foreach(>= 1.3.0),
     iterators(>= 1.0.0),
     utils

@@ -78,7 +78,6 @@
 #'
 #' @seealso \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 #'
-#' @import rredis
 #' @import foreach
 #' @importFrom parallel nextRNGStream
 #' @importFrom iterators nextElem iter
@@ -113,7 +112,6 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 #' @return
 #' NULL is invisibly returned.
 #'
-#' @import rredis
 #' @export
 removeQueue <- function(queue)
 {
@@ -663,16 +661,17 @@ tryCatch(
 flushQueue <- function(queue, ID)
 {
   startkeys <- redisKeys(pattern=sprintf("%s.start*",queue))
-  redisSetPipeline(TRUE)
-  redisMulti()
-  redisLRange(queue,0L,1000000000L)  # retrieve everything on the work queue
+#  redisSetPipeline(TRUE)
+#  redisMulti()
+  tasks <- redisLRange(queue,0L,1000000000L)  # retrieve everything on the work queue
   tryCatch(redisDelete(queue), error=function(e) NULL) # delete the queue
   if(!is.null(startkeys)) tryCatch(redisDelete(startkeys), error=function(e) NULL)
-  redisExec()
-  tasks <- redisGetResponse(all=TRUE)
-  redisSetPipeline(FALSE)
+#  tasks <- redisExec()
+#  tasks <- redisGetResponse(all=TRUE)
+#  redisSetPipeline(FALSE)
 # Re-queue jobs not matching ID (these are other jobs submitted to the queue).
 # First we need to locate the IDs, if any, in the result.
+# XXX FIXME
   idx <- grep("ID", tasks)
   if(length(idx) == 0) return()
   lapply(tasks[[idx]][[1]], function(j)

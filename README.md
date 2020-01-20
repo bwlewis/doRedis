@@ -1,32 +1,9 @@
 # doRedis: A parallel backend for foreach using Redis.
 
-## CHANGES IN VERSION 1.2.0
+## CHANGES IN VERSION 2.0.0
 
-Warning, this is a major change!
-
-* Work queue structure has been greatly simplified. We got rid of the use
-  of server-side Lua Redis code and programmable task assignment features
-  which never worked very well and *are no longer supported*. Tasks
-  are now consumed by workers with a simple first-come, first-served rule
-  using basic Redis list value types (queues). This simpler scheme should
-  be more robust than the 1.1 versions of the package.
-
-* The `redisWOrker()` function arguments changed slightly, replacing
-  `timeout` with `linger` because `timeout` conflicted with an optional
-  paramter for the redis connection.
-
-* Now using the L'Ecuyer RNG functions from the parallel package
-  as the default parallel RNG for reproducible random numbers.
-  User-defined RNGs are still supported as outlined in the vignette.
-
-* New `jobs()`, `tasks()`, `removeJob()` functions and an optional R
-  progress meter (see `?setProgress`) for better job control and monitoring.
-
-* Greatly improved service examples for Linux systems and especially
-  Amazon EC2.
-
-* Improved fault tolerance and recovery.
-
+Version 2 of this package now depends on the redux package for
+communication with Redis instead of the deprecated rredis package.
 
 ## IMPORTANT NOTES
 
