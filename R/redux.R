@@ -71,7 +71,6 @@ redisDelete <- function(key)
 #' is a serialized (binary) R value and unserializes it on return.
 #'
 #' @param key (character or raw) Redis key name
-#' @param val (raw or character) value to set
 #' @return Unserialized R value.
 #' @seealso \code{\link{hiredis}}
 #' @export
