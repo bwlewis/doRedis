@@ -307,7 +307,7 @@ setPackages <- function(packages=c())
 #' @param value if \code{TRUE}, display a text progress bar indicating status of the computation
 #' @return \code{value} is invisibly returned
 #' @note Alternatively set within the foreach loop with \code{.options.redis=list(progress=TRUE)}.
-#' @importFrom utils txtProgressBar setTxtProgressBar
+#' @importFrom utils txtProgressBar setTxtProgressBar packageName
 #' @export
 setProgress <- function(value=FALSE)
 {
