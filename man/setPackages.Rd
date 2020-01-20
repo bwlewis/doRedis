@@ -23,3 +23,4 @@ Defines a way to set the foreach \code{.packages} option for users without direc
 to the \code{foreach} function, for example, when \code{foreach} is used
 inside another package.
 }
+

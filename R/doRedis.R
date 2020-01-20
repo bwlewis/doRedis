@@ -200,7 +200,8 @@ setFtinterval <- function(value=30)
 #'
 #' This approach can improve performance when the \code{.combine} function is
 #' expensive to compute, and when function emits significantly less data than
-#' it consumes.
+#' it consumes. The same effect is achievable by simply adding the reduction
+#' function to the end of the foreach loop expression.
 #'
 #' @param fun a function of two arguments, set to NULL to disable combining, or
 #'  leave missing to implicitly set the gather function formally identical to the
@@ -337,7 +338,13 @@ setProgress <- function(value=FALSE)
   function() NULL
 }
 
-# internal function called by foreach
+#' internal function called by foreach
+#' @param obj a foreach object
+#' @param expr the expression to evaluate
+#' @param envir the expression environment
+#' @param data a list of parameters from registerDoRedis
+#' @return the foreach result
+#' @importFrom redux redis
 .doRedis <- function(obj, expr, envir, data)
 {
   if (!inherits(obj, "foreach"))
@@ -507,9 +514,9 @@ setProgress <- function(value=FALSE)
   j <- 1
   done <- c()  # A vector of completed tasks
   blocknames <- list() # List of block names
-# use nonblocking call to submit all tasks at once # XXX FIXME
-  redisSetPipeline(TRUE)
-  redisMulti()
+
+# use nonblocking call to submit all tasks at once
+  commands <- redis$MULTI()
   while(j <= ntasks)
   {
     k <- min(j + chunkSize, ntasks)
@@ -518,14 +525,13 @@ setProgress <- function(value=FALSE)
     if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
     blocknames <- c(blocknames, list(names(block)))
-    redisRPush(queue, list(ID=ID, argsList=block))
+    commands <- c(commands, list(redis$RPUSH(queue, serialize(list(ID=ID, argsList=block), NULL))))
     j <- k + 1
     nout <- nout + 1
   }
-  redisExec()
-  redisGetResponse(all=TRUE)
-  redisSetPipeline(FALSE)
-
+  commands <- c(commands, list(redis$EXEC()))
+  .doRedisGlobals$r$pipeline(.commands=commands)
+  
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
   {

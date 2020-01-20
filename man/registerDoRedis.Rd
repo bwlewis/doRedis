@@ -62,7 +62,7 @@ redisWorker('jobs')
 ##    sampling approximation of pi:
 require('doRedis')
 registerDoRedis('jobs')
-foreach(j=1:10, .combine=sum, .multicombine=TRUE) \\%dopar\\%
+foreach(j=1:10, .combine=sum, .multicombine=TRUE) \\\%dopar\\\%
         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
 removeQueue('jobs')
 }
@@ -71,3 +71,4 @@ removeQueue('jobs')
 \seealso{
 \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 }
+

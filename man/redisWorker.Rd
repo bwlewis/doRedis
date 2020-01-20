@@ -4,19 +4,9 @@
 \alias{redisWorker}
 \title{Initialize a doRedis worker process.}
 \usage{
-redisWorker(
-  queue,
-  host = "localhost",
-  port = 6379,
-  iter = Inf,
-  linger = 30,
-  log = stderr(),
-  connected = FALSE,
-  password = NULL,
-  loglevel = 0,
-  timelimit = 0,
-  ...
-)
+redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
+  linger = 30, log = stderr(), connected = FALSE, password = NULL,
+  loglevel = 0, timelimit = 0, ...)
 }
 \arguments{
 \item{queue}{work queue name or a vector of queue names}
@@ -68,3 +58,4 @@ interval, the worker will exit after removing the queue.
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 }
+

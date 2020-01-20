@@ -11,6 +11,7 @@ redisConnect <- function(host="localhost", port=6379L, password, ...)
   assign("r", r, .doRedisGlobals)
   assign("host", host, .doRedisGlobals)
   assign("port", port, .doRedisGlobals)
+  NULL
 }
 
 redisGetContext <- function()

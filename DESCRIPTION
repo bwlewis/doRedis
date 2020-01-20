@@ -22,4 +22,4 @@ Suggests:
 VignetteBuilder: knitr
 License: GPL-2
 LazyLoad: yes
-RoxygenNote: 7.0.2
+RoxygenNote: 5.0.1

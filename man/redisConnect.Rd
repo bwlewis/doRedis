@@ -18,3 +18,4 @@ redisConnect(host = "localhost", port = 6379L, password, ...)
 \description{
 Internal redux compatability functions with old rredis package
 }
+

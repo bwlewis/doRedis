@@ -11,3 +11,4 @@ for foreach using the Redis key/value database.
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 }
+

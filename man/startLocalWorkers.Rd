@@ -4,18 +4,9 @@
 \alias{startLocalWorkers}
 \title{Start one or more background R worker processes on the local system.}
 \usage{
-startLocalWorkers(
-  n,
-  queue,
-  host = "localhost",
-  port = 6379,
-  iter = Inf,
-  linger = 30,
-  log = stdout(),
-  Rbin = paste(R.home(component = "bin"), "R", sep = "/"),
-  password,
-  ...
-)
+startLocalWorkers(n, queue, host = "localhost", port = 6379, iter = Inf,
+  linger = 30, log = stdout(), Rbin = paste(R.home(component = "bin"),
+  "R", sep = "/"), password, ...)
 }
 \arguments{
 \item{n}{number of workers to start}
@@ -59,7 +50,7 @@ require('doRedis')
 registerDoRedis('jobs')
 startLocalWorkers(n=2, queue='jobs', linger=5)
 print(getDoParWorkers())
-foreach(j=1:10,.combine=sum,.multicombine=TRUE) \\%dopar\\%
+foreach(j=1:10,.combine=sum,.multicombine=TRUE) \\\%dopar\\\%
           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
 removeQueue('jobs')
 }
@@ -68,3 +59,4 @@ removeQueue('jobs')
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{redisWorker}}
 }
+
