@@ -148,9 +148,6 @@ tcpconnect (int *s, char *host, int port)
 }
 #endif
 
-/* From Brian "Beej Jorgensen" Hall Beej's Guide to Network Programming
- * Keep sending until entire buffer is sent
- */
 #ifdef Win32
 int
 sendall (SOCKET s, char *buf, size_t * len)
