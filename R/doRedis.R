@@ -16,7 +16,7 @@
 # USA
 #
 # The environment initialization code is adapted (with minor changes)
-# from the doMPI package from Steve Weston.
+# from the doMPI package by Steve Weston.
 
 
 
@@ -78,7 +78,6 @@
 #'
 #' @seealso \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 #'
-#' @import rredis
 #' @import foreach
 #' @importFrom parallel nextRNGStream
 #' @importFrom iterators nextElem iter
@@ -113,7 +112,6 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 #' @return
 #' NULL is invisibly returned.
 #'
-#' @import rredis
 #' @export
 removeQueue <- function(queue)
 {
@@ -202,7 +200,8 @@ setFtinterval <- function(value=30)
 #'
 #' This approach can improve performance when the \code{.combine} function is
 #' expensive to compute, and when function emits significantly less data than
-#' it consumes.
+#' it consumes. The same effect is achievable by simply adding the reduction
+#' function to the end of the foreach loop expression.
 #'
 #' @param fun a function of two arguments, set to NULL to disable combining, or
 #'  leave missing to implicitly set the gather function formally identical to the
@@ -339,7 +338,13 @@ setProgress <- function(value=FALSE)
   function() NULL
 }
 
-# internal function called by foreach
+#' internal function called by foreach
+#' @param obj a foreach object
+#' @param expr the expression to evaluate
+#' @param envir the expression environment
+#' @param data a list of parameters from registerDoRedis
+#' @return the foreach result
+#' @importFrom redux redis
 .doRedis <- function(obj, expr, envir, data)
 {
   if (!inherits(obj, "foreach"))
@@ -509,9 +514,9 @@ setProgress <- function(value=FALSE)
   j <- 1
   done <- c()  # A vector of completed tasks
   blocknames <- list() # List of block names
+
 # use nonblocking call to submit all tasks at once
-  redisSetPipeline(TRUE)
-  redisMulti()
+  commands <- redis$MULTI()
   while(j <= ntasks)
   {
     k <- min(j + chunkSize, ntasks)
@@ -520,14 +525,13 @@ setProgress <- function(value=FALSE)
     if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
     blocknames <- c(blocknames, list(names(block)))
-    redisRPush(queue, list(ID=ID, argsList=block))
+    commands <- c(commands, list(redis$RPUSH(queue, serialize(list(ID=ID, argsList=block), NULL))))
     j <- k + 1
     nout <- nout + 1
   }
-  redisExec()
-  redisGetResponse(all=TRUE)
-  redisSetPipeline(FALSE)
-
+  commands <- c(commands, list(redis$EXEC()))
+  .doRedisGlobals$r$pipeline(.commands=commands)
+  
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
   {
@@ -573,7 +577,7 @@ tryCatch(
                      else Sys.sleep(max(floor(ftinterval / 3), 10))
                      e
                    })
-      retry <- "condition" %in% class(results)
+      retry <- inherits(results, "condition")
     }
     if(is.null(results))
     {
@@ -663,16 +667,17 @@ tryCatch(
 flushQueue <- function(queue, ID)
 {
   startkeys <- redisKeys(pattern=sprintf("%s.start*",queue))
-  redisSetPipeline(TRUE)
-  redisMulti()
-  redisLRange(queue,0L,1000000000L)  # retrieve everything on the work queue
+#  redisSetPipeline(TRUE)
+#  redisMulti()
+  tasks <- redisLRange(queue,0L,1000000000L)  # retrieve everything on the work queue
   tryCatch(redisDelete(queue), error=function(e) NULL) # delete the queue
   if(!is.null(startkeys)) tryCatch(redisDelete(startkeys), error=function(e) NULL)
-  redisExec()
-  tasks <- redisGetResponse(all=TRUE)
-  redisSetPipeline(FALSE)
+#  tasks <- redisExec()
+#  tasks <- redisGetResponse(all=TRUE)
+#  redisSetPipeline(FALSE)
 # Re-queue jobs not matching ID (these are other jobs submitted to the queue).
 # First we need to locate the IDs, if any, in the result.
+# XXX FIXME
   idx <- grep("ID", tasks)
   if(length(idx) == 0) return()
   lapply(tasks[[idx]][[1]], function(j)

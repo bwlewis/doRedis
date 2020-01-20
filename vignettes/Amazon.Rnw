@@ -95,15 +95,13 @@ sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  /etc/redis/redis.conf && sud
 
 \subsection*{Install R packages}
 
-Finally, we need to install the foreach, rredis, and doRedis packages, plus whatever other
-R packages you might want to use. The following script installs rredis and doRedis from their
-source repository on GitHub using the devtools package. Soon, you will also be able to install
-the latest versions (early 2016) from CRAN.
+Finally, we need to install the foreach, redux, and doRedis packages, plus whatever other
+R packages you might want to use. The following script installs redux and doRedis from their
+source repository on GitHub using the devtools package.
 
 \begin{lstlisting}[float=ht,language=]
-sudo R --slave -e "install.packages(c('devtools', 'foreach'), /
+sudo R --slave -e "install.packages(c('devtools', 'foreach', 'redux'), /
                    repos='https://cran.r-project.org')"
-sudo R --slave -e "devtools::install_github('bwlewis/rredis')"
 sudo R --slave -e "devtools::install_github('bwlewis/doRedis')"
 \end{lstlisting}
 

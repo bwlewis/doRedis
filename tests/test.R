@@ -11,7 +11,7 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
   setFtinterval(10)
 # Basic test with two local worker processes
   queue <- "jobs"
-  redisConnect()
+  redisConnect() # need to connect to Redis before removing a queue
   removeQueue(queue)
   startLocalWorkers(n=2, queue, timeout=1)
   registerDoRedis(queue)
@@ -21,15 +21,11 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
 # setX tests
   x <- 0
   setExport("x")
-  setPackages("rredis")
   setChunkSize(5)
   ans <- foreach(j=1:10, .combine=sum, .noexport="x") %dopar% {
     j + x
   }
   compare(ans, 55, "foreach")
-
-# covr code coverage can't discern that we're excercising the worker
-# code in the above tests.
 
   getDoParWorkers()
 

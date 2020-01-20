@@ -127,7 +127,7 @@ tcpconnect (int *s, char *host, int port)
   else
     {
       *s = socket (AF_INET, SOCK_STREAM, 0);
-      if (s < 0)
+      if (*s < 0)
         return;
       memset ((void *) &sa, 0, sizeof (sa));
       sa.sin_family = AF_INET;
@@ -148,9 +148,6 @@ tcpconnect (int *s, char *host, int port)
 }
 #endif
 
-/* From Brian "Beej Jorgensen" Hall Beej's Guide to Network Programming
- * Keep sending until entire buffer is sent
- */
 #ifdef Win32
 int
 sendall (SOCKET s, char *buf, size_t * len)
@@ -332,4 +329,21 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH, SEXP TIMELIMIT)
   pthread_create (&t, NULL, &ok, (void *) key);
 #endif
   return (R_NilValue);
+}
+
+static const R_CallMethodDef CallEntries[] = {
+  {"setOK", (DL_FUNC) &setOK, 5},
+  {"delOK", (DL_FUNC) &delOK, 0},
+  {NULL, NULL, 0}
+};
+
+#ifdef HAVE_VISIBILITY_ATTRIBUTE
+__attribute__ ((visibility ("default")))
+#endif
+void
+R_init_doRedis (DllInfo * dll)
+{
+  R_registerRoutines (dll, NULL, CallEntries, NULL, NULL);
+  R_useDynamicSymbols (dll, FALSE);
+  R_forceSymbols(dll, TRUE);
 }

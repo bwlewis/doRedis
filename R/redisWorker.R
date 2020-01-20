@@ -5,13 +5,13 @@
   if(missing(password)) password <- ""
   if(is.null(password)) password <- ""
   invisible(
-    .Call("setOK", as.integer(port), as.character(host),
+    .Call(C_setOK, as.integer(port), as.character(host),
         as.character(key), as.character(password), as.double(timelimit), PACKAGE="doRedis"))
 }
 
 `.delOK` <- function()
 {
-  invisible(.Call("delOK", PACKAGE="doRedis"))
+  invisible(.Call(C_delOK, PACKAGE="doRedis"))
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
@@ -280,16 +280,6 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # We saw that long-running jobs can sometimes lose connections to
 # Redis in an AWS EC2 example. The following tries to re-establish
 # a redis connecion on error here.
-
-      if(!is.null(globalenv()$.redis.debug) && abs(globalenv()$.redis.debug) == 10)
-      {
-# Simulated error: worker finishes work but does not return a result
-        cat("Simuating no return error\n", file=stderr())
-        tryCatch(redisDelete(fttag.start), error=function(e) invisible())
-        .delOK()
-        assign(".redis.debug", 1, envir=globalenv()) # reset
-        next
-      }
       tryCatch( redisLPush(queueOut, result), error=function(e)
       {
         cat(as.character(e), file=log)

@@ -1,34 +1,12 @@
 # doRedis: A parallel backend for foreach using Redis.
 
-## CHANGES IN VERSION 1.2.0
+## Important change in version 2.0.0
 
-Warning, this is a major change!
+Version 2 and greater of the doRedis package now depend on the redux package
+(see https://cran.r-project.org/package=redux)
+for communication with Redis instead of the deprecated rredis package.
 
-* Work queue structure has been greatly simplified. We got rid of the use
-  of server-side Lua Redis code and programmable task assignment features
-  which never worked very well and *are no longer supported*. Tasks
-  are now consumed by workers with a simple first-come, first-served rule
-  using basic Redis list value types (queues). This simpler scheme should
-  be more robust than the 1.1 versions of the package.
-
-* The `redisWorker()` function arguments changed slightly, replacing
-  `timeout` with `linger` because `timeout` conflicted with an optional
-  paramter for the redis connection.
-
-* Now using the L'Ecuyer RNG functions from the parallel package
-  as the default parallel RNG for reproducible random numbers.
-  User-defined RNGs are still supported as outlined in the vignette.
-
-* New `jobs()`, `tasks()`, `removeJob()` functions and an optional R
-  progress meter (see `?setProgress`) for better job control and monitoring.
-
-* Greatly improved service examples for Linux systems and especially
-  Amazon EC2.
-
-* Improved fault tolerance and recovery.
-
-
-## IMPORTANT NOTES
+## Important Redis configuration notes
 
 Set the following parameter in your redis.conf file before using doRedis:
 
@@ -43,10 +21,10 @@ functions instead of fork-based methods. The fork-based functions can work in
 some cases, but might also lead to trouble because the children share certain
 resources with the parent process like open socket descriptors. I have in
 particular run in to trouble with some fast BLAS libraries and fork--in
-particular the AMD ACML can't be used in this way at all. Again, excercise
+particular the AMD ACML can't be used in this way at all. Again, exercise
 caution with fork and `doRedis`!
 
-## DESCRIPTION
+## Description
 
 Steve Weston's foreach package is a remarkable parametric evaluation device for
 the R language. Similarly to lapply-like functions, foreach maps and parameter
@@ -54,20 +32,20 @@ values expressions to data and aggregates results. Even better, foreach lets
 you do this in parallel across multiple CPU cores and computers.  And even
 better yet, foreach abstracts the parallel computing details away into modular
 back-end code. Code written using foreach works sequentially in the absence of
-a parallel back-end, and works uniformly across a growing variety of back ends.
+a parallel back-end, and works uniformly across a variety of back ends.
 Think of foreach as the lingua Franca of parallel computing for R.
 
 Redis is a powerful, fast networked database with many innovative features,
 among them a blocking stack-like data structure (Redis "lists"). This feature
-makes Redis useful as a lightweight backend for parallel computing. The rredis
-package provides a native R interface to Redis. The doRedis package defines a
-parallel backend for foreach using Redis that is elastic and
-platform-independent.
+makes Redis useful as a lightweight backend for parallel computing.  The
+doRedis package relies on the redux package for communication with a Redis
+server to define a lightweight parallel backend for foreach using Redis that is
+elastic and platform-independent.
 
 Here is a quick example procedure for experimenting with doRedis:
 
 1. Install Redis on your computer.
-2. Install foreach, rredis and doRedis packages.
+2. Install foreach, redux and doRedis packages.
 3. Start the redis server running (see the redis documentation). We assume
    that the server is running on the host "localhost" and port 6379 (the
    default Redis port). We assume in the examples below that the worker R
@@ -155,3 +133,4 @@ Workers self-terminate when their work queues have been deleted with the
 <a href="http://cran.rstudio.com/web/packages/doRedis/index.html">
 <img src="http://www.r-pkg.org/badges/version/doRedis" alt="CRAN version"></img>
 </a>
+
