@@ -118,13 +118,13 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 removeQueue <- function(queue)
 {
   if(redisExists(queue)) redisDelete(queue)
-  queueEnv <- redisKeys(pattern=sprintf("%s\\.env.*",queue))
+  queueEnv <- redisKeys(pattern=sprintf("%s\\.env.*", queue))
   for (j in queueEnv) redisDelete(j)
-  queueOut <- redisKeys(pattern=sprintf("%s\\.out",queue))
+  queueOut <- redisKeys(pattern=sprintf("%s\\.out", queue))
   for (j in queueOut) redisDelete(j)
-  queueCount <- redisKeys(pattern=sprintf("%s\\.count",queue))
+  queueCount <- redisKeys(pattern=sprintf("%s\\.count", queue))
   for (j in queueCount) redisDelete(j)
-  queueLive <- redisKeys(pattern=sprintf("%s\\.live",queue))
+  queueLive <- redisKeys(pattern=sprintf("%s\\.live", queue))
   for (j in queueLive) redisDelete(j)
   invisible()
 }
@@ -240,7 +240,7 @@ setReduce <- function(fun=NULL)
   assign("gather", fun, envir=.doRedisGlobals)
 }
 
-#' Manually set symbol names to the worker environment export list.
+#' Manually add symbol names to the worker environment export list.
 #'
 #' The setExport function lets users manually declare symbol names
 #' of corresponding objects that should be exported to workers.
@@ -332,22 +332,24 @@ setProgress <- function(value=FALSE)
            NULL)
 }
 
-# internal function, see below for use
+# internal function used for its environment, see below for use
 .makeDotsEnv <- function(...)
 {
   list(...)
   function() NULL
 }
 
+# internal function called by foreach
 .doRedis <- function(obj, expr, envir, data)
 {
+  if (!inherits(obj, "foreach"))
+    stop("obj must be a foreach object")
+
 # ID associates the work with a job environment <queue>.env.<ID>. If
 # the workers current job environment does not match job ID, they retrieve
 # the new job environment data from queueEnv and run workerInit.
-  ID <- basename(tempfile(""))
-# The backslash escape charater present in Windows paths causes problems.
-  ID <- gsub("\\\\", "", ID)
-  ID <- paste(ID, Sys.info()["user"], Sys.info()["nodename"], Sys.time(), sep="_")
+  ID <- Sys.getpid()
+  ID <- paste( ID, Sys.info()["user"], Sys.info()["nodename"], format(Sys.time(), "%Y-%m-%d-%H:%M:%OS3"), sep="_")
   ID <- gsub(" ", "-", ID)
   queue <- data$queue
   queueEnv <- paste(queue,"env", ID, sep=".")
@@ -357,18 +359,16 @@ setProgress <- function(value=FALSE)
   queueAlive <- paste(queue,"alive", ID, sep=".")
   queueAlive <- paste(queueAlive, "*", sep="")
 
-  if (!inherits(obj, "foreach"))
-    stop("obj must be a foreach object")
+# packageName function added in R 3.0.0
+  parentenv <- packageName(envir)
 
 # Manage default parallel RNG, restoring an advanced old RNG state on exit
-  .seed <- NULL
-  if(exists(".Random.seed", envir=globalenv())) .seed <- get(".Random.seed", envir=globalenv())
-  RNG_STATE <- list(kind=RNGkind()[[1]], seed=.seed)
+  RNG_STATE <- list(kind=RNGkind()[[1]], seed=globalenv()$.Random.seed)
   on.exit(
   {
-# Reset RNG
+# Reset and advance RNG
     RNGkind(RNG_STATE$kind)
-    assign(".Random.seed", RNG_STATE$seed, envir=globalenv())
+    if(!is.null(RNG_STATE$seed)) assign(".Random.seed", RNG_STATE$seed, envir=globalenv())
     runif(1)
 # Clean up the session ID and session environment
     if(redisExists(queueEnv)) redisDelete(queueEnv)
@@ -377,6 +377,7 @@ setProgress <- function(value=FALSE)
   RNGkind("L'Ecuyer-CMRG")
 
   it <- iter(obj)
+  argsList <- .to.list(it)
 
 # Distributed reduce
   gather <- NULL
@@ -407,19 +408,26 @@ setProgress <- function(value=FALSE)
     new.env(parent=emptyenv())
   })
   noexport <- union(obj$noexport, obj$argnames)
-  getexports(expr, exportenv, envir, bad=noexport)
+  obj$packages = unique(c(obj$packages, getexports(expr, exportenv, envir, bad=noexport), .doRedisGlobals$packages, parentenv))
   vars <- ls(exportenv)
-  if (obj$verbose) {
-    if (length(vars) > 0) {
+  if(obj$verbose) {
+    if(length(vars) > 0) {
       cat("automatically exporting the following objects",
           "from the local environment:\n")
       cat(" ", paste(vars, collapse=", "), "\n")
     } else {
       cat("no objects are automatically exported\n")
     }
+    if(length(obj$packages) > 0) {
+      cat("exporting the following package requirements\n")
+      cat(paste(obj$packages, collapse=", "), "\n")
+    } else {
+      cat("no package dependencies are automatically exported\n")
+    }
+    if(!is.null(parentenv)) cat("parent environment: ", parentenv, "\n")
   }
 # Compute list of variables to export
-  export <- unique(c(obj$export,.doRedisGlobals$export))
+  export <- unique(c(obj$export, .doRedisGlobals$export))
   ignore <- intersect(export, vars)
   if (length(ignore) > 0) {
     warning(sprintf("already exporting objects(s): %s",
@@ -429,15 +437,27 @@ setProgress <- function(value=FALSE)
 # Add explicitly exported variables to exportenv
   if (length(export) > 0) {
     if (obj$verbose)
-      cat(sprintf("explicitly exporting objects(s): %s\n",
-                  paste(export, collapse=", ")))
+      cat(sprintf('explicitly exporting variables(s): %s\n',
+                  paste(export, collapse=', ')))
+
     for (sym in export) {
       if (!exists(sym, envir, inherits=TRUE))
-        stop(sprintf("unable to find variable \"%s\"", sym))
-      assign(sym, get(sym, envir, inherits=TRUE),
-             pos=exportenv, inherits=FALSE)
+        stop(sprintf('unable to find variable "%s"', sym))
+      val <- get(sym, envir, inherits=TRUE)
+      if (is.function(val) &&
+          (identical(environment(val), .GlobalEnv) ||
+           identical(environment(val), envir))) {
+        # Changing this function's environment to exportenv allows it to
+        # access/execute any other functions defined in exportenv.  This
+        # has always been done for auto-exported functions, and not
+        # doing so for explicitly exported functions results in
+        # functions defined in exportenv that can't call each other.
+        environment(val) <- exportenv
+      }
+      assign(sym, val, pos=exportenv, inherits=FALSE)
     }
   }
+
 # Upload `exportenv` and related data as common job data for the workers
 # making sure the data fit in Redis.
   if(object.size(exportenv) > REDIS_MAX_VALUE_SIZE)
@@ -446,6 +466,8 @@ setProgress <- function(value=FALSE)
     stop("exportenv too big")
   }
   results <- NULL
+
+  ntasks <- length(argsList)
 
   chunkSize <- 0
   if(!is.null(obj$options$redis$chunkSize))
@@ -467,9 +489,10 @@ setProgress <- function(value=FALSE)
     environment(exportCombineInfo$fun) <- emptyenv()
     redisSet(queueEnv, list(expr=expr,
                             exportenv=exportenv,
+                            parentenv=parentenv,
                             packages=obj$packages,
                             combineInfo=exportCombineInfo))
-  } else redisSet(queueEnv, list(expr=expr,
+  } else redisSet(queueEnv, list(expr=expr, parentenv=parentenv,
                                  exportenv=exportenv, packages=obj$packages))
 # Check for a fault-tolerance check interval (in seconds), do not
 # allow it to be less than 3 seconds (cf alive.c thread code in the worker).
@@ -480,67 +503,28 @@ setProgress <- function(value=FALSE)
     ftinterval <- get("ftinterval", envir=.doRedisGlobals)
   ftinterval <- max(ftinterval, 3)
 
-# Queue the task(s) and build a local copy of the submitted task data
+# Queue the task(s)
 # The task order is encoded in names(argsList).
-  
-  syncSize <- chunkSize*64 #The number of tasks to aggregate for each upload to redis
-  
   nout <- 1
   j <- 1
   done <- c()  # A vector of completed tasks
   blocknames <- list() # List of block names
-  
-  seed <- .Random.seed
-  n <- syncSize
-  argsList <- vector("list", length=n)
-  i <- 0
-  breakNext <- FALSE
-
+# use nonblocking call to submit all tasks at once
   redisSetPipeline(TRUE)
-  
-  repeat {
-    
-    # Aggregate the iterator into argsList 'syncSize' tasks at a time
-    tryCatch({
-      for (z in seq(from=1, to=syncSize)) {
-        if (i >= n) {
-          n <- 2 * n
-          length(argsList) <- n
-        }
-        seed <- nextRNGStream(seed)
-        rs <- list(.Random.seed=seed)
-        argsList[[i + 1]] <- c(nextElem(it), rs)
-        i <- i + 1
-      }
-    },
-    error=function(e) {
-      if (!identical(conditionMessage(e), "StopIteration")) {
-        stop(e)
-      } else {
-        breakNext <<- TRUE
-        length(argsList) <<- i
-        }
-    })
-
-    # use nonblocking call to submit syncSize tasks at once
-    redisMulti()
-    while(j <= i)
-    {
-      k <- min(j + chunkSize, i)
-      block <- argsList[j:k]
-      if(is.null(block)) break
-      if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
-      else names(block) <- j:k
-      blocknames <- c(blocknames, list(names(block)))
-      redisRPush(queue, list(ID=ID, argsList=block))
-      j <- k + 1
-      nout <- nout + 1
-    }
-    redisExec()
-    
-    if (breakNext) break #if we have reached the end of the iterator stop aggregating and submitting tasks
+  redisMulti()
+  while(j <= ntasks)
+  {
+    k <- min(j + chunkSize, ntasks)
+    block <- argsList[j:k]
+    if(is.null(block)) break
+    if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
+    else names(block) <- j:k
+    blocknames <- c(blocknames, list(names(block)))
+    redisRPush(queue, list(ID=ID, argsList=block))
+    j <- k + 1
+    nout <- nout + 1
   }
-
+  redisExec()
   redisGetResponse(all=TRUE)
   redisSetPipeline(FALSE)
 

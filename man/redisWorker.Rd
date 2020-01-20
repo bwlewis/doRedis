@@ -6,7 +6,7 @@
 \usage{
 redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
   linger = 30, log = stderr(), connected = FALSE, password = NULL,
-  loglevel = 0, ...)
+  loglevel = 0, timelimit = 0, ...)
 }
 \arguments{
 \item{queue}{work queue name or a vector of queue names}
@@ -27,6 +27,8 @@ redisWorker(queue, host = "localhost", port = 6379, iter = Inf,
 
 \item{loglevel}{set to > 0 to increase verbosity in the log}
 
+\item{timelimit}{set to > 0 to specify a task time limit in seconds, after which worker processes are killed; beware that setting this value > 0 will terminate any R worker process if their task takes too long.}
+
 \item{...}{Optional additional parameters passed to \code{\link{redisConnect}}}
 }
 \value{
@@ -36,10 +38,9 @@ NULL is invisibly returned.
 The redisWorker function enrolls the current R session in one or
 more doRedis worker pools specified by the work queue names. The worker
 loop takes over the R session until the work queue(s) are deleted, after
-which at most \code{linger} seconds the worker loop exits, or until
+which the worker loop exits after the \code{linger} period, or until
 the worker has processed \code{iter} tasks.
-Running workers also terminate after
-network activity with Redis remains
+Running workers also terminate after network activity with Redis remains
 inactive for longer than the \code{timeout} period set in the \code{redisConnect}
 function. That value defaults internally to 30 seconds in \code{redisWorker}.
 You can increase it by including a {timeout=n} argument value.

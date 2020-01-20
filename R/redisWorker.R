@@ -1,21 +1,21 @@
 # Do not use .setOK from interactive R sessions.
 # .setOK and .delOK support worker fault tolerance
-`.setOK` <- function(port, host, key, password)
+`.setOK` <- function(port, host, key, password, timelimit=0)
 {
   if(missing(password)) password <- ""
   if(is.null(password)) password <- ""
   invisible(
     .Call("setOK", as.integer(port), as.character(host),
-        as.character(key),as.character(password), PACKAGE="doRedis"))
+        as.character(key), as.character(password), as.double(timelimit), PACKAGE="doRedis"))
 }
 
 `.delOK` <- function()
 {
-  invisible(.Call("delOK",PACKAGE="doRedis"))
+  invisible(.Call("delOK", PACKAGE="doRedis"))
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
-`.workerInit` <- function(expr, exportenv, packages, combineInfo)
+`.workerInit` <- function(expr, exportenv, parentenv, packages, combineInfo)
 {
   tryCatch(
     {
@@ -30,10 +30,14 @@
   assign("expr", expr, .doRedisGlobals)
   assign("exportenv", exportenv, .doRedisGlobals)
   assign("combineInfo", combineInfo, .doRedisGlobals)
-# XXX This use of parent.env should be changed. It's used here to
+# XXX This use of parent.env is problematic. It's used here to
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
-  parent.env(.doRedisGlobals$exportenv) <- globalenv()
+  if(is.null(parentenv)) {
+    parent.env(.doRedisGlobals$exportenv) <- globalenv()
+  } else {
+    parent.env(.doRedisGlobals$exportenv) <- getNamespace(parentenv[[1]])
+  }
 }
 
 `.evalWrapper` <- function(args)
@@ -63,8 +67,8 @@
 #' in the background. The worker processes are started on the local system using
 #' the \code{redisWorker} function.
 #'
-#' Running workers self-terminate after a \code{linger} period when their work queues are deleted with the
-#' \code{removeQueue} function or when network activity with Redis remains
+#' Running workers self-terminate after a \code{linger} period if their work queues are deleted with the
+#' \code{removeQueue} function, or when network activity with Redis remains
 #' inactive for longer than the \code{timeout} period set in the \code{redisConnect}
 #' function. That value defaults internally to 3600 (one hour) in \code{startLocalWorkers}.
 #' You can increase it by including a {timeout=n} argument value.
@@ -108,25 +112,28 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   if(is.null(conargs$timeout)) conargs$timeout <- 3600
   conargs <- paste(paste(names(conargs), conargs, sep="="), collapse=",")
   
-  cmd <- paste("require(doRedis);redisWorker(queue='",
-      queue, "', host='", host,"', port=", port,", iter=", iter,", linger=",
+  # ensure that we pass multiple queues, if applicable, to each worker
+  queue <- sprintf("c(%s)", paste("'", queue, "'", collapse=", ", sep=""))
+
+  cmd <- paste("require(doRedis);redisWorker(queue=",
+      queue, ", host='", host,"', port=", port,", iter=", iter,", linger=",
       linger, ", log=", deparse(l), sep="")
   if(nchar(conargs) > 0) cm <- sprintf("%s, %s", cmd, conargs)
   if(!missing(password)) cmd <- sprintf("%s, password='%s'", cmd, password)
   dots <- list(...)
   if(length(dots) > 0)
   {
-    dots <- paste(paste(names(dots),dots,sep="="),collapse=",")
-    cmd <- sprintf("%s,%s",cmd,dots)
+    dots <- paste(paste(names(dots), dots, sep="="), collapse=",")
+    cmd <- sprintf("%s,%s", cmd, dots)
   }
-  cmd <- sprintf("%s)",cmd)
+  cmd <- sprintf("%s)", cmd)
   cmd <- gsub("\"", "'", cmd)
 
   j <- 0
-  args <- c("--slave","-e",paste("\"",cmd,"\"",sep=""))
+  args <- c("--slave", "-e", paste("\"", cmd,"\"", sep=""))
   while(j < n)
   {
-    system(paste(c(Rbin,args),collapse=" "),intern=FALSE,wait=FALSE)
+    system(paste(c(Rbin, args), collapse=" "), intern=FALSE, wait=FALSE)
     j <- j + 1
   }
 }
@@ -153,6 +160,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @param connected set to \code{TRUE} to reuse an existing open connection to Redis, otherwise establish a new one
 #' @param password optional Redis database password
 #' @param loglevel set to > 0 to increase verbosity in the log
+#' @param timelimit set to > 0 to specify a task time limit in seconds, after which worker processes are killed; beware that setting this value > 0 will terminate any R worker process if their task takes too long.
 #' @param ... Optional additional parameters passed to \code{\link{redisConnect}}
 #' @note The worker connection to Redis uses a TCP timeout value of 30 seconds by
 #' default. That means that the worker will exit after about 30 seconds of inactivity.
@@ -170,7 +178,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 #' @export
 redisWorker <- function(queue, host="localhost", port=6379,
                         iter=Inf, linger=30, log=stderr(),
-                        connected=FALSE, password=NULL, loglevel=0, ...)
+                        connected=FALSE, password=NULL, loglevel=0, timelimit=0, ...)
 {
   if (!connected)
   {
@@ -184,8 +192,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
     log <- file(log, open="w+")
   sink(type="message", file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
+  
   queueLive <- paste(queue, "live", sep=".")
-  if(!redisExists(queueLive)) redisSet(queueLive, "")
+  for(j in queueLive)
+    if(!redisExists(j)) redisSet(j, "")
+  
   queueCount <- paste(queue,"count",sep=".")
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())
@@ -235,7 +246,9 @@ redisWorker <- function(queue, host="localhost", port=6379,
 # setOK helper thread. Upon disruption of the thread (for example, a crash),
 # the resulting Redis state will be an unmatched start tag, which may be used
 # by fault tolerant code to resubmit the associated jobs.
-      .setOK(port, host, fttag.alive, password=password) # Immediately set an alive key for this task
+      redisSet(fttag.alive, 0)
+      redisExpire(fttag.alive, 10)
+      .setOK(port, host, fttag.alive, password=password, timelimit=timelimit) # refresh thread
       redisSet(fttag.start, as.integer(names(work[[1]]$argsList))) # then set a started key
 # Now do the work.
       k <- k + 1
@@ -252,7 +265,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
       if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
        {
         initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$packages, initdata$combineInfo)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$parentenv, initdata$packages, initdata$combineInfo)
         assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
       result <- lapply(work[[1]]$argsList, .evalWrapper)
