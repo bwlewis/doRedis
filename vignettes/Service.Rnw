@@ -2,37 +2,14 @@
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
-\usepackage{amsmath}
-%\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
-\usepackage{color}
-\usepackage{xspace}
-\usepackage{fancyvrb}
-\usepackage{fancyhdr}
 \usepackage[
      colorlinks=true,
      linkcolor=blue,
      citecolor=blue,
      urlcolor=blue]
      {hyperref}
-\usepackage{lscape}
 \usepackage{Sweave}
-\usepackage{tabularx}
-\usepackage{listings,relsize}
-\usepackage{upquote}
-
-\definecolor{lgray}{rgb}{0.94, 0.94, 0.94}
-\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
-\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
-
-
-\lstloadlanguages{R}
-\lstset{frame=single, language=, keywordstyle=\color{blue}, commentstyle=\color{dkgreen}, stringstyle=\color{textc}, backgroundcolor=\color{lgray}, basicstyle=\footnotesize\ttfamily, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
-\usepackage{caption}
-%%\DeclareCaptionFont{white}{\color{white}}
-%%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
-%%\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white,margin=0pt}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
@@ -46,27 +23,28 @@ configuration of the service.
 
 The service installation script should work on at least RHEL/CentOS and
 Ubuntu/Debian Linux systems, and probably most Linux systems (with or without
-systemd).
-We outline installation instructions for Ubuntu/Debian Linux flavors.
-Installation and configuration proceeds similarly for RHEL, replacing the
-apt-get lines with comparable yum ones.
+systemd).  We outline installation instructions for Ubuntu/Debian Linux
+flavors.  Installation and configuration proceeds similarly for RHEL, replacing
+the apt-get lines with comparable yum ones.
 
 
 \subsection*{Install R and Redis}
 
 The bash shell is required by the doRedis service.
 
-\begin{lstlisting}[float=ht,caption=Installing prerequisites]
-sudo apt-get build-dep r-base libxml2-dev libssl-dev \\
+\begin{verbatim}
+sudo apt-get build-dep r-base libxml2-dev libssl-dev \
      libcurl4-openssl-dev unzip  redis-server
-wget https://www.cran.r-project.org/src/base/R-3/R-3.2.3.tar.gz
-# (or most current version of R)
-tar xf R-3.2.3.tar.gz
-cd R-3.2.3
+# (substitute with current version of R as required)
+wget --quiet -O - \
+    https://cran.r-project.org/src/base/R-3/R-3.6.2.tar.gz | \
+tar -zxvf -
+
+cd R-3.6.2
 ./configure --enable-R-shlib --enable-memory-profiling
 make -j 2     # use an appropriate number of CPUs here
 sudo make install
-\end{lstlisting}
+\end{verbatim}
 
 
 
@@ -76,10 +54,10 @@ It is \emph{important} to combine this step with reasonable security firewall ru
 need access on the Redis port 6379 between nodes in your compute cluster, \emph{but
 not to nodes on the internet}.
 The following command will configure your Redis server to listen on all interfaces:
-\begin{lstlisting}[float=ht,language=]
-sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  /
+\begin{verbatim}
+sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  \
      /etc/redis/redis.conf && sudo /etc/init.d/redis-server restart
-\end{lstlisting}
+\end{verbatim}
 
 \subsection*{Install R packages}
 
@@ -87,23 +65,23 @@ Finally, we need to install the foreach, redux, and doRedis packages, plus whate
 R packages you might want to use. The following script installs redux and doRedis from their
 source repository on GitHub using the devtools package.
 
-\begin{lstlisting}[float=ht,language=]
-sudo R --slave -e "install.packages(c('devtools', 'foreach', 'redux'), /
+\begin{verbatim}
+sudo R --slave -e "install.packages(c('devtools', 'foreach', 'redux'),
                   repos='https://cran.r-project.org')"
 sudo R --slave -e "devtools::install_github('bwlewis/doRedis')"
-\end{lstlisting}
+\end{verbatim}
 
 \subsection*{Install the doRedis service}
 
 The doRedis package includes an example script for setting up R workers as a service.
 The script works on generic Linux systems including RHEL/CentOS and Ubuntu.
 
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 script=$(R --slave -e "cat(
          system.file('scripts/redis-worker-installer.sh',
                      package='doRedis'))")
 sudo $script
-\end{lstlisting}
+\end{verbatim}
 
 The script creates a sample configuration file in \verb+/etc/doRedis.conf+ and starts the
 service. You may wish to edit the config file and restart the service with your own
@@ -119,10 +97,10 @@ The script configures the doRedis service to start automatically in default runl
 \section*{Uninstall the doRedis service}
 
 To fully un-install the service, run:
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 sudo R --slave -e "system(system.file(
      'scripts/redis-worker-uninstaller.sh', package='doRedis'))"
-\end{lstlisting}
+\end{verbatim}
 That will terminate any running R workers and remove the service.
 
 
@@ -132,7 +110,7 @@ Service configuration is controlled by the \verb`/etc/doRedis.conf` file.  The \
 character means comment and everything after that character is ignored per
 line. Settings appear as \verb`key: value` and may appear in any line order.
 Here is an example:
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 n: 2              # number of R workers to start
 queue: RJOBS      # foreach job queue name
 R: R              # path to R (default assumes 'R' is in the PATH)
@@ -142,7 +120,7 @@ iter: 50          # max tasks to run before worker exit and restart
 host: localhost   # redis host
 port: 6379        # redis port
 user: nobody      # user that runs the R workers
-\end{lstlisting}
+\end{verbatim}
 The example config file above will start and maintain two R worker processes
 listening on the doRedis work queue named "RJOBS". If an R worker crashes
 or otherwise terminates the service will replace it with a new one to
@@ -152,11 +130,11 @@ The \verb`n:` and \verb`queue:` entries may list more than one set of worker num
 queue names delimited by exactly one space. If more than one queue is
 specified, then the n: and queue: entries *must* be of the same length.  For
 example,
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 n: 2 1
 queue: RJOBS SYSTEM
-\end{lstlisting}
-starts a set of two R workers listening on the queue named "RJOBS" and
+\end{verbatim}
+starts a set of two R workers listening on the queue named "RJOBS" and,
 separately, a single R worker listening on the queue named "SYSTEM".
 
 Why multiple queues? We find it sometimes convenient, especially on larger
@@ -170,7 +148,7 @@ queue.
 
 Stop and start the service with the usual system service commands in your
 operating system, examples are shown in the listing below.
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 sudo /etc/init.d/doRedis stop
 sudo /etc/init.d/doRedis start
 
@@ -178,7 +156,7 @@ sudo /etc/init.d/doRedis start
 
 sudo service doRedis stop
 sudo service doRedis start
-\end{lstlisting}
+\end{verbatim}
 
 \section*{Logging}
 

@@ -2,37 +2,14 @@
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
-\usepackage{amsmath}
-%\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
-\usepackage{color}
-\usepackage{xspace}
-\usepackage{fancyvrb}
-\usepackage{fancyhdr}
 \usepackage[
      colorlinks=true,
      linkcolor=blue,
      citecolor=blue,
      urlcolor=blue]
      {hyperref}
-\usepackage{lscape}
 \usepackage{Sweave}
-\usepackage{tabularx}
-\usepackage{listings,relsize}
-\usepackage{upquote}
-
-\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
-\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
-\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
-
-
-\lstloadlanguages{R}
-\lstset{frame=single, language=R, keywordstyle=\color{blue}, commentstyle=\color{dkgreen}, stringstyle=\color{textc}, backgroundcolor=\color{lgray}, basicstyle=\footnotesize\ttfamily, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
-\usepackage{caption}
-%%\DeclareCaptionFont{white}{\color{white}}
-%%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
-%%\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white,margin=0pt}
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -59,26 +36,27 @@ program that is rigged to explicitly return an error in one of the loop
 iterations. We use the `doSEQ` back end below, but this example works exactly
 the same using any foreach back end.
 
-\begin{lstlisting}
+<<echo=FALSE>>=
+cat('
 library(foreach)
 registerDoSEQ()
 
-x <- foreach(j=1:3, .errorhandling="pass") %dopar%
+foreach(j=1:3, .errorhandling="pass") %dopar%
 {
-  if(j==2) return(j + undefined_variable)
-  j
+  if(j==2) j + undefined_variable   else j
 }
-print(x)
+
 # [[1]]
 # [1] 1
 # 
 # [[2]]
 # <simpleError in eval(expr, envir, enclos): 
-#          object 'undefined_variable' not found>
+#          object \'undefined_variable\' not found>
 # 
 # [[3]]
 # [1] 3
-\end{lstlisting}
+')
+@
 The example shows the error when \verb`j=2`.
 
 
@@ -89,12 +67,13 @@ Use the \verb`log` and \verb`loglevel` options in the doRedis
 \verb`startLocalWorkers()` functions to direct output
 to a file. Use the \verb`logger()` function inside your foreach loop to write
 messages to the log. The logger function appends process ID and time stamps to
-your message. You can alternatively use the plain old R \verb+message()+
-function too. These options together provide a kind of "printf"-style debug
+your message. Alternatively use the plain old R \verb+message()+
+function instead. These options together provide a kind of "printf"-style debug
 facility--crude but sometimes effective.
 Here is an example:
 
-\begin{lstlisting}
+<<echo=FALSE>>=
+cat('
 library(doRedis)
 registerDoRedis("cazart")
 
@@ -121,7 +100,8 @@ file.show("/tmp/cazart.log")
 # Processing task(s) 3...3 from queue cazart ID 9ba32925bee...
 # @ 2016-04-23 20:17:26 hostname 3406   hello from loop iteration  3 
 # Normal worker exit.
-\end{lstlisting}
+')
+@
 Note that log files from workers running on different hosts are stored on the
 corresponding host file systems.
 
@@ -131,9 +111,9 @@ The doRedis package includes \verb`setProgress()`, \verb`jobs()` and \verb`tasks
 that list detailed information about all processes working for doRedis.
 
 The function
-\begin{lstlisting}
+\begin{verbatim}
 setProgress(TRUE)
-\end{lstlisting}
+\end{verbatim}
 enables an R progress meter during foreach execution. While a foreach loop is
 running, open a separate R terminal session and use the \verb`jobs()` and \verb`tasks()`
 functions to list details about running operations. See the help pages for
@@ -149,7 +129,6 @@ A very low-level but effective debugging approach works as follows:
 \verb`redisWorker()` function.
 \item Start, in a separate terminal, a master R process running a foreach job.
 \end{enumerate}
-
 You can monitor the worker R process as the work progresses in its terminal,
 even including interactive function debugging. With the \verb`loglevel=1` argument,
 loop task information is printed to standard output in the R worker process
@@ -158,8 +137,12 @@ function.
 
 Here is an example split into two R sessions, one for the worker and one for
 the master (it's assumed that you run these in separate R terminal windows).
+All standard R debugging options are available in each R session, for example
+use \verb`option(error=recover)` to explore the call stack after encountering
+an error condition.
 
-\begin{lstlisting}[caption=R master process]
+<<echo=FALSE>>=
+cat('
 library(doRedis)
 registerDoRedis("cazart")
 x <- foreach(j=1:3) %dopar%
@@ -168,9 +151,11 @@ x <- foreach(j=1:3) %dopar%
   j
 }
 removeQueue("cazart")  # remove the work queue
-\end{lstlisting}
+')
+@
 
-\begin{lstlisting}[caption=R worker process]
+<<echo=FALSE>>=
+cat('
 library(doRedis)
 redisWorker(queue="cazart", loglevel=1, timeout=1)
 
@@ -182,5 +167,7 @@ redisWorker(queue="cazart", loglevel=1, timeout=1)
 # Processing task(s) 3...3 from queue cazart ID 9ba77ba191c...
 # @ 2016-04-23 21:09:04 homer 3882   log message from iteration 3
 # Normal worker exit.
-\end{lstlisting}
+')
+@
+
 \end{document}

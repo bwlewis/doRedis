@@ -2,37 +2,14 @@
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
-\usepackage{amsmath}
-%\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
-\usepackage{color}
-\usepackage{xspace}
-\usepackage{fancyvrb}
-\usepackage{fancyhdr}
 \usepackage[
      colorlinks=true,
      linkcolor=blue,
      citecolor=blue,
      urlcolor=blue]
      {hyperref}
-\usepackage{lscape}
 \usepackage{Sweave}
-\usepackage{tabularx}
-\usepackage{listings,relsize}
-\usepackage{upquote}
-
-\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
-\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
-\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
-
-
-\lstloadlanguages{R}
-\lstset{frame=single, language=, keywordstyle=\color{blue}, commentstyle=\color{dkgreen}, stringstyle=\color{textc}, backgroundcolor=\color{lgray}, basicstyle=\footnotesize\ttfamily, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
-\usepackage{caption}
-%%\DeclareCaptionFont{white}{\color{white}}
-%%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
-%%\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white,margin=0pt}
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -55,25 +32,26 @@ outlined below assumes Ubuntu.
 
 The bash shell is required by the doRedis service.
 
-\begin{lstlisting}[float=ht,caption=Installing prerequisites,language=]
+\begin{verbatim}
 sudo apt-get build-dep r-base libxml2-dev libssl-dev \
      libcurl4-openssl-dev unzip  redis-server
-wget https://www.cran.r-project.org/src/base/R-3/R-3.2.3.tar.gz
-# (or most current version of R)
-tar xf R-3.2.3.tar.gz
-cd R-3.2.3
+# (substitute with current version of R as required)
+wget --quiet -O - \
+    https://cran.r-project.org/src/base/R-3/R-3.6.2.tar.gz | \
+tar -zxvf -
+
+cd R-3.6.2
 ./configure --enable-R-shlib --enable-memory-profiling
 make -j 2     # use an appropriate number of CPUs here
 sudo make install
-\end{lstlisting}
-
+\end{verbatim}
 
 
 \subsection*{Configure Redis to listen on all interfaces}
 
-It is *important* to combine this step with EC2 security firewall rules. You
-need access on the Redis port 6379 between nodes in your compute cluster, *but
-not to nodes on the internet*.  This is important. Fortunately, it's easy to
+It is \emph{important} to combine this step with EC2 security firewall rules. You
+need access on the Redis port 6379 between nodes in your compute cluster, \emph{but
+not to nodes on the internet}.  This is important. Fortunately, it's easy to
 achieve in two steps:
 
 \begin{enumerate}
@@ -82,28 +60,28 @@ achieve in two steps:
 \item Edit your security group to add the following inbound rule,
    Protocol: TCP, Port Range: 6379, Source: Custom IP 172.31.0.0/16
 \end{enumerate}
-
 Those steps can be performed with the Amazon EC2 GUI console, or from the EC2
 CLI or API. Again, it's very important to carefully prevent outsiders from
 accessing your Redis port. It must only be available within a VPC network used
 by your compute nodes.
 
 The following command will configure your Redis server to listen on all interfaces:
-\begin{lstlisting}[float=ht,language=]
-sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  /etc/redis/redis.conf && sudo /etc/init.d/redis-server restart
-\end{lstlisting}
+\begin{verbatim}
+sudo sed -i.bak  "s/^bind 127.0.0.1/bind 0.0.0.0/"  \
+  /etc/redis/redis.conf && \
+sudo /etc/init.d/redis-server restart
+\end{verbatim}
 
 \subsection*{Install R packages}
-
 Finally, we need to install the foreach, redux, and doRedis packages, plus whatever other
 R packages you might want to use. The following script installs redux and doRedis from their
 source repository on GitHub using the devtools package.
 
-\begin{lstlisting}[float=ht,language=]
-sudo R --slave -e "install.packages(c('devtools', 'foreach', 'redux'), /
+\begin{verbatim}
+sudo R --slave -e "install.packages(c('devtools', 'foreach', 'redux'),
                    repos='https://cran.r-project.org')"
 sudo R --slave -e "devtools::install_github('bwlewis/doRedis')"
-\end{lstlisting}
+\end{verbatim}
 
 \subsection*{Install the doRedis service}
 
@@ -111,11 +89,11 @@ The doRedis package includes an example script for setting up R workers as a ser
 The script works on generic Linux systems and also has special options to facilitate
 running on EC2. Setting up the service for EC2 is easy:
 
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 script=$(R --slave -e "cat(system.file(
          'scripts/redis-worker-installer.sh', package='doRedis'))")
 sudo $script EC2
-\end{lstlisting}
+\end{verbatim}
 
 
 \section*{Make an AMI from your instance}
@@ -129,6 +107,7 @@ Plan on including all the R packages you normally need in your AMI. If you run
 the doRedis service as the ``nobody'' user (the default), that user will not be
 able to easily install new packages other than in a temporary directory.
 
+
 \subsection*{Re-start your instance and log back in}
 
 After creating an AMI, you're ready to play with doRedis on EC2. Start up your
@@ -138,16 +117,16 @@ EC2 R/Redis/foreach workers are configured using the Amazon EC2 "user data"
 service. We simply need to supply a valid doRedis configuration file as user
 data. An example minimum configuration file is, replacing ``172.31.20.55'' with
 the IP address of your master node:
-\begin{lstlisting}[float=ht,language=]
+\begin{verbatim}
 n: 2
 host: 172.31.20.55
-\end{lstlisting}
+\end{verbatim}
 
 This configures 2 R workers to run per Amazon instance, communicating with the Redis
 host at 172.31.20.55, (using a default job queue named ``RJOBS'' in Redis).
 You can supply that to newly launched nodes by pasting that in to the user data box
 in the EC2 control panel web GUI.
 
-New workers can be added at any time to your R/Redis/foreach cluster at any time by
+New workers can be added to your R/Redis/foreach cluster at any time by
 simply turning them on and passing the configuration user data at startup.
 \end{document}
