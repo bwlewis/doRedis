@@ -15,7 +15,7 @@
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
-`.workerInit` <- function(expr, exportenv, packages, combineInfo)
+`.workerInit` <- function(expr, exportenv, parentenv, packages, combineInfo)
 {
   tryCatch(
     {
@@ -30,10 +30,14 @@
   assign("expr", expr, .doRedisGlobals)
   assign("exportenv", exportenv, .doRedisGlobals)
   assign("combineInfo", combineInfo, .doRedisGlobals)
-# XXX This use of parent.env should be changed. It's used here to
+# XXX This use of parent.env is problematic. It's used here to
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
-  parent.env(.doRedisGlobals$exportenv) <- globalenv()
+  if(is.null(parentenv)) {
+    parent.env(.doRedisGlobals$exportenv) <- globalenv()
+  } else {
+    parent.env(.doRedisGlobals$exportenv) <- getNamespace(parentenv[[1]])
+  }
 }
 
 `.evalWrapper` <- function(args)
@@ -63,8 +67,8 @@
 #' in the background. The worker processes are started on the local system using
 #' the \code{redisWorker} function.
 #'
-#' Running workers self-terminate after a \code{linger} period when their work queues are deleted with the
-#' \code{removeQueue} function or when network activity with Redis remains
+#' Running workers self-terminate after a \code{linger} period if their work queues are deleted with the
+#' \code{removeQueue} function, or when network activity with Redis remains
 #' inactive for longer than the \code{timeout} period set in the \code{redisConnect}
 #' function. That value defaults internally to 3600 (one hour) in \code{startLocalWorkers}.
 #' You can increase it by including a {timeout=n} argument value.
@@ -261,7 +265,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
       if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
        {
         initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$packages, initdata$combineInfo)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$parentenv, initdata$packages, initdata$combineInfo)
         assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
       result <- lapply(work[[1]]$argsList, .evalWrapper)
