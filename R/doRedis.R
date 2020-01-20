@@ -642,10 +642,11 @@ tryCatch(
 }, interrupt=function(e)
    {
      flushQueue(queue, ID)
-   }, error=function(e)
-   {
-     flushQueue(queue, ID)
    })
+#, error=function(e)
+#   {
+#     flushQueue(queue, ID)
+#   })
 
 
 # check for errors

@@ -125,7 +125,7 @@ redisKeys <- function(pattern = "*")
 redisMGet <- function(keys, ...)
 {
   checkConnect()
-  x <- .doRedisGlobals$r$MGET(keys)
+  x <- Map(unserialize, .doRedisGlobals$r$MGET(keys))
   names(x) <- if (length(x) == length(keys)) keys else NULL
   x
 }
