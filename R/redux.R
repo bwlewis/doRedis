@@ -32,6 +32,11 @@ redisGetContext <- function()
   .doRedisGlobals
 }
 
+uncerealize <- function(x)
+{
+  if(!is.null(x) && is.raw(x)) unserialize(x) else NULL
+}
+
 redisExists <- function(key)
 {
   checkConnect()
@@ -77,7 +82,7 @@ redisDelete <- function(key)
 redisGet <- function(key)
 {
   checkConnect()
-  unserialize(.doRedisGlobals$r$GET(key))
+  uncerealize(.doRedisGlobals$r$GET(key))
 }
 
 redisSetPipeline <- function(value)
@@ -122,7 +127,7 @@ redisBRPop <- function(keys, timeout=0, ...)
   x <- .doRedisGlobals$r$BRPOP(keys, timeout=timeout)
   if (length(x) > 1) {
       n <- x[[1]]
-      x <- list(unserialize(x[[2]]))
+      x <- list(uncerealize(x[[2]]))
       names(x) <- n
   }
   x
@@ -134,7 +139,7 @@ redisBLPop <- function(keys, timeout=0, ...)
   x <- .doRedisGlobals$r$BLPOP(keys, timeout=timeout)
   if (length(x) > 1) {
       n <- x[[1]]
-      x <- list(unserialize(x[[2]]))
+      x <- list(uncerealize(x[[2]]))
       names(x) <- n
   }
   x
@@ -149,7 +154,7 @@ redisKeys <- function(pattern = "*")
 redisMGet <- function(keys, ...)
 {
   checkConnect()
-  x <- Map(unserialize, .doRedisGlobals$r$MGET(keys))
+  x <- Map(uncerealize, .doRedisGlobals$r$MGET(keys))
   names(x) <- if (length(x) == length(keys)) keys else NULL
   x
 }
@@ -163,7 +168,7 @@ redisLLen <- function(key)
 redisLRange <- function (key, start, end, ...)
 {
   checkConnect()
-  Map(unserialize, .doRedisGlobals$r$LRANGE(key, start, end))
+  Map(uncerealize, .doRedisGlobals$r$LRANGE(key, start, end))
 }
 
 redisIncr <- function (key)
