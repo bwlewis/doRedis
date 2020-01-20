@@ -64,9 +64,9 @@ redisLPush <- function(key, value, ...)
   .doRedisGlobals$r$LPUSH(key, serialize(value, NULL))
 }
 
-redisBRPop <- function(keys, timeout, ...)
+redisBRPop <- function(keys, timeout=0, ...)
 {
-  x <- .doRedisGlobals$r$BRPOP(keys, timeout=0)
+  x <- .doRedisGlobals$r$BRPOP(keys, timeout=timeout)
   if (length(x) > 1) {
       n <- x[[1]]
       x <- list(unserialize(x[[2]]))
@@ -75,9 +75,9 @@ redisBRPop <- function(keys, timeout, ...)
   x
 }
 
-redisBLPop <- function(keys, timeout, ...)
+redisBLPop <- function(keys, timeout=0, ...)
 {
-  x <- .doRedisGlobals$r$BLPOP(keys, timeout=0)
+  x <- .doRedisGlobals$r$BLPOP(keys, timeout=timeout)
   if (length(x) > 1) {
       n <- x[[1]]
       x <- list(unserialize(x[[2]]))
