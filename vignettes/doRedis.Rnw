@@ -2,7 +2,7 @@
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
-\usepackage{amsmath}
+%\usepackage{amsmath}
 %\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
 \usepackage{color}
@@ -17,21 +17,19 @@
      {hyperref}
 \usepackage{lscape}
 \usepackage{Sweave}
-\usepackage{tabularx}
-\usepackage{listings,relsize}
+%\usepackage{tabularx}
+\usepackage{relsize}
 \usepackage{upquote}
 
 \usepackage[absolute]{textpos}
 \setlength{\TPHorizModule}{40mm}
 \setlength{\TPVertModule}{\TPHorizModule}
 \textblockorigin{0mm}{0mm}
-\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
-\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
-\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
+%%\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
+%%\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
+%%\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
 
-\lstloadlanguages{R}
-\lstset{frame=single, language=R, keywordstyle=\color{blue}, commentstyle=\color{dkgreen}, stringstyle=\color{textc}, backgroundcolor=\color{lgray}, basicstyle=\footnotesize\ttfamily, showstringspaces=false, literate={'}{{$^{\prime}$}}{1} {~}{{$\sim$}}1,escapeinside={(*}{*)}}   % for (*\ref{ }*) inside lstlistings (S code)
-\usepackage{caption}
+%%\usepackage{caption}
 %%\DeclareCaptionFont{white}{\color{white}}
 %%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
 %%\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white,margin=0pt}
@@ -40,13 +38,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % define new colors for use
-\definecolor{gray}{rgb}{0.4,0.4,0.4}
-\definecolor{darkgreen}{rgb}{0,0.6,0}
-\definecolor{darkred}{rgb}{0.6,0.0,0}
-\definecolor{lightbrown}{rgb}{1,0.9,0.8}
-\definecolor{brown}{rgb}{0.6,0.3,0.3}
-\definecolor{darkblue}{rgb}{0,0,0.8}
-\definecolor{darkmagenta}{rgb}{0.5,0,0.5}
+%%\definecolor{gray}{rgb}{0.4,0.4,0.4}
+%%\definecolor{darkgreen}{rgb}{0,0.6,0}
+%%\definecolor{darkred}{rgb}{0.6,0.0,0}
+%%\definecolor{lightbrown}{rgb}{1,0.9,0.8}
+%%\definecolor{brown}{rgb}{0.6,0.3,0.3}
+%%\definecolor{darkblue}{rgb}{0,0,0.8}
+%%\definecolor{darkmagenta}{rgb}{0.5,0,0.5}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -154,9 +152,15 @@ Windows systems, and should work well on most POSIX systems.  Back end parallel
 R worker processes are effectively anonymous--they may run anywhere as long as
 all the R package dependencies required by the task at hand are available.
 
-\item Like all {\tt foreach} parallel back ends, intermediate results may be
+\item The {\tt foreach} package generally allows intermediate results to be
 aggregated incrementally and in- or out-of order, significantly reducing
-required memory overhead for problems that return large data.
+required memory overhead for problems that return large data (not all
+{\tt foreach} back ends support this but {\tt doRedis} does).
+
+\item The key benefit of the {\tt foreach} package is clear separation of
+program and run-time parallel computing dependencies.  This allows R scripts
+and packages to indicate code that can benefit from parallel computation, while
+leaving the particular choice of implementation up to users at run-time.
 
 \end{itemize}
 
@@ -194,7 +198,8 @@ running on the local computer (``localhost'').
 The simple example below is one version of a Monte Carlo
 approximation of $\pi$. Variations on this example are often used to
 illustrate parallel programming ideas. 
-\begin{lstlisting}[float=ht,caption=Monte Carlo Example]
+
+<<eval=FALSE>>=
 library("doRedis")
 registerDoRedis("RJOBS")
 startLocalWorkers(n=2, queue="RJOBS")
@@ -203,7 +208,8 @@ foreach(icount(10), .combine=sum,
           4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
 
 # [1] 3.144212
-\end{lstlisting}
+@
+
 \begin{center}
 \resizebox{0.5\textwidth}{!}{\rotatebox{0}{\includegraphics{circle}}}
 \end{center}
@@ -280,10 +286,11 @@ minimum allowed value is
 three seconds. (Very frequent checks for failure increase overhead and will
 slow computations down--the default value is usually reasonable.)
 
-Listing \ref{fault} presents a contrived, but entirely self-contained
+The following code listing presents a contrived but entirely self-contained
 example of fault tolerance. Verbose logging output is enabled to help document
 the inner workings of the example.
-\begin{lstlisting}[float=ht,caption=Fault Tolerance Example,label=fault]
+
+<<eval=FALSE>>=
 require("doRedis")
 registerDoRedis("RJOBS")
 startLocalWorkers(n=4, queue="RJOBS", linger=1)
@@ -292,15 +299,15 @@ start <- Sys.time()
 x <- foreach(j=1:4, .combine=sum, .verbose=TRUE,
            .options.redis=list(ftinterval=5, chunkSize=2)) %dopar%
      {
-       if(difftime(Sys.time(),start) < 5) quit(save="no")
-       j
+       if(difftime(Sys.time(),start) < 5) quit(save="no") else j
      }
 
 removeQueue("RJOBS")
-\end{lstlisting}
+@
 
 The example starts up four local worker processes and submits two tasks to the
-work queue ``jobs.'' (There are four loop iterations, but the \verb+chunkSize+
+work queue ``jobs.'' (There are four loop iterations--\verb+j=1,2,3,4+,
+but the \verb+chunkSize+
 option splits them into two tasks of two iterations each.) The parallel code
 block in the {\tt foreach} loop instructs worker processes to quit if less than
 5 seconds have elapsed since the start of the program. Note that the
@@ -323,16 +330,16 @@ detail in Section 4.
 
 \subsection{A Parallel boot Function}
 
-Listing \ref{bootforeach} presents a parallel-capable variation of the {\tt
-boot} function from the {\tt boot} package. The {\tt bootForEach} function uses
-{\tt foreach} to distributed bootstrap processing to available workers. It has
-two more arguments than the standard {\tt boot} function: {\tt chunks} and {\tt
+The code listing below presents a parallel-capable variation of the {\tt boot}
+function from the {\tt boot} package. The {\tt bootForEach} function uses {\tt
+foreach} to distributed bootstrap processing to available workers. It has two
+more arguments than the standard {\tt boot} function: {\tt chunks} and {\tt
 verbose}. Set {\tt verbose=TRUE} to enabled back end worker process debugging.
 The bootstrap resampling replicates will be divided into {\tt chunks} tasks for
 processing by {\tt foreach}.  The example also illustrates the use of a custom
 combine function in the {\tt foreach} loop.
 
-\begin{lstlisting}[float=!ht,caption=Parallel boot Function,basicstyle=\footnotesize\ttfamily,label=bootforeach]
+<<eval=FALSE>>=
 bootForEach <- function (data, statistic, R, sim="ordinary",
                  stype="i", strata=rep(1, n), L=NULL, m=0,
                  weights=NULL, ran.gen=function(d, p) d,
@@ -376,16 +383,17 @@ bootForEach <- function (data, statistic, R, sim="ordinary",
    list(t=res$t)
  }
 }
-\end{lstlisting}
+@
 
 
 \section{Technical Details}
 
 A \verb+foreach+ loop iteration is a parameterized R expression that represents
 a unit of work. The expression is the body of the \verb+foreach+ loop and the
-parameter, if it exists, is the loop variable. Note that it's also possible to use
+parameters, if they exist, are the loop variables. It's also possible to use
 \verb+foreach+ non-parametrically with an anonymous iterator to simply
-replicate the loop body expression a number of times.  Each iteration is
+replicate the loop body expression a number of times similar to
+\verb+replicate+.  Each iteration is
 enumerated so that \verb+foreach+ can put the results together in order if
 required.
 
@@ -393,8 +401,8 @@ A \emph{task} is a collection of one or more loop iterations. The number of
 iterations per task is at most \verb+chunkSize+.
 
 A \emph{job} is a collection of one or more tasks that covers all the
-iterations in the \verb+foreach+ loop. Each job is assigned a unique
-identifier.
+iterations required by a single \verb+foreach+ loop. Each job is assigned a
+unique identifier.
 
 Jobs are submitted as a sequence of tasks to a \emph{work queue}--technically,
 a special Redis value called a ``list'' that supports blocking reads. Users
@@ -575,10 +583,10 @@ or for manual experimentation.
 
 The user-defined random seed initialization function must be called {\tt
 set.seed.worker}, take one argument and must be exported to the workers
-explicitly in the {\tt foreach} loop. The example shown in Listing \ref{rng}
+explicitly in the {\tt foreach} loop. The example shown  below
 illustrates a simple user-defined seed function.
 
-\begin{lstlisting}[float=!ht,caption=User-defined RNG initialization,label=rng]
+<<eval=FALSE>>=
 startLocalWorkers(n=5, queue="jobs")
 registerDoRedis("jobs")
 
@@ -591,7 +599,7 @@ set.seed.worker <- function(n) {
 foreach(j=1:5, .combine="c", .export="set.seed.worker") %dopar% runif(1)
 
 #[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
-\end{lstlisting}
+@
 
 
 \subsection{Known Problems and Limitations}
@@ -626,7 +634,7 @@ For the purposes of illustration, the example matrix is tiny and we break it
 up into only two chunks. But the idea extends directly to very large
 problems.
 
-\begin{lstlisting}[float=!ht,caption=Explicitly breaking a problem up into chunks,basicstyle=\footnotesize\ttfamily,label=chunk]
+<<eval=FALSE>>=
 registerDoRedis("jobs")
 
 set.seed(1)
@@ -653,9 +661,9 @@ ans <- foreach(j=1:2, .combine=c) %dopar% {
 print(ans)
 
 # [1] 6.216482 4.672254
-\end{lstlisting}
+@
 
-The point of the example in Listing \ref{chunk} is that the workers explicitly
+The point of the example above is that the workers explicitly
 download just their portion of the data inside the \verb+foreach+ loop. This
 avoids putting the data into the exported R environment, which could exceed the
 Redis 2\,GB value size limit. The example also avoids sending data to workers
@@ -715,14 +723,14 @@ variable exports and packages:
 \verb+setExport()+ and \verb+setPackages()+.
 
 Thus,
-\begin{lstlisting}[float=!ht,caption=Option-setting foreach-style,basicstyle=\footnotesize\ttfamily,label=chunk]
+\begin{verbatim}
 foreach(j=1:10, .options.redis = list(chunksize=5))
-\end{lstlisting}
+\end{verbatim}
 is equivalent to
-\begin{lstlisting}[float=!ht,caption=Option-setting alternative-style,basicstyle=\footnotesize\ttfamily,label=chunk]
+\begin{verbatim}
 setChunkSize(5)
 foreach(j=1:10)
-\end{lstlisting}
+\end{verbatim}
 
 The package provides the extra \verb+set*+ functions to facilitate working with
 other R packages that use \verb+foreach+ internally. In such cases it might not

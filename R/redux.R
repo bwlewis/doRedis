@@ -38,18 +38,43 @@ redisExists <- function(key)
   .doRedisGlobals$r$EXISTS(key) == 1
 }
 
+#' A convenience function to set an R value in a Redis key
+#'
+#' This function serializes the val argument.
+#'
+#' @param key (character or raw) Redis key name
+#' @param val R value to set
+#' @return Redis status message
+#' @seealso \code{\link{hiredis}}
+#' @export
 redisSet <- function(key, val)
 {
   checkConnect()
   .doRedisGlobals$r$SET(key, serialize(val, NULL))
 }
 
+#' A convenience function to delete a Redis key
+#'
+#' @param key (character or raw) Redis key name to delete
+#' @return Redis status message
+#' @seealso \code{\link{hiredis}}
+#' @export
 redisDelete <- function(key)
 {
   checkConnect()
   .doRedisGlobals$r$DEL(key)
 }
 
+#' A convenience function to return an R value from a Redis key.
+#'
+#' This function assumes the value associated with the Redis key
+#' is a serialized (binary) R value and unserializes it on return.
+#'
+#' @param key (character or raw) Redis key name
+#' @param val (raw or character) value to set
+#' @return Unserialized R value.
+#' @seealso \code{\link{hiredis}}
+#' @export
 redisGet <- function(key)
 {
   checkConnect()
