@@ -5,7 +5,7 @@
 #'
 #' @name doRedis-package
 #' 
-#' @useDynLib irlba, .registration=TRUE, .fixes="C_"
+#' @useDynLib doRedis, .registration=TRUE, .fixes="C_"
 #' @seealso \code{\link{registerDoRedis}}, \code{\link{startLocalWorkers}}
 #' @docType package
 NULL
