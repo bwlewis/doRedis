@@ -333,3 +333,19 @@ setOK (SEXP PORT, SEXP HOST, SEXP KEY, SEXP AUTH, SEXP TIMELIMIT)
 #endif
   return (R_NilValue);
 }
+
+static const R_CallMethodDef CallEntries[] = {
+  {"setOK", (DL_FUNC) & setOK, 5},
+  {"delOK", (DL_FUNC) & delOK, 0},
+  {NULL, NULL, 0}
+};
+
+#ifdef HAVE_VISIBILITY_ATTRIBUTE
+__attribute__ ((visibility ("default")))
+#endif
+void
+R_init_doRedis (DllInfo * dll)
+{
+  R_registerRoutines (dll, NULL, CallEntries, NULL, NULL);
+  R_useDynamicSymbols (dll, 0);
+}
