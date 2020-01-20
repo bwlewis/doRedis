@@ -4,7 +4,16 @@
 \alias{redisConnect}
 \title{Internal redux compatability functions with old rredis package}
 \usage{
-redisConnect(host = "localhost", port = 6379, password, ...)
+redisConnect(host = "localhost", port = 6379L, password, ...)
+}
+\arguments{
+\item{host}{character Redis host name}
+
+\item{port}{integer Redis port number}
+
+\item{password}{optional character Redis password}
+
+\item{...}{optional additional arguments for compatability with old rredis, ignored}
 }
 \description{
 Internal redux compatability functions with old rredis package
