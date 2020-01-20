@@ -2,7 +2,7 @@
 % Please edit documentation in R/redux.R
 \name{redisConnect}
 \alias{redisConnect}
-\title{Internal redux compatability functions with old rredis package}
+\title{Explicitly connect to a Redis server.}
 \usage{
 redisConnect(host = "localhost", port = 6379L, password, ...)
 }
@@ -16,6 +16,10 @@ redisConnect(host = "localhost", port = 6379L, password, ...)
 \item{...}{optional additional arguments for compatability with old rredis, ignored}
 }
 \description{
-Internal redux compatability functions with old rredis package
+This function is normally not needed, use the redux package functions instead,
+or simply registerDoRedis.
+}
+\seealso{
+\code{\link{registerDoRedis}}, \code{\link{redisWorker}}, \code{\link{startLocalWorkers}}
 }
 

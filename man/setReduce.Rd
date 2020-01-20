@@ -26,7 +26,8 @@ one, and automatically sets \code{.multicombine=FALSE}.
 \details{
 This approach can improve performance when the \code{.combine} function is
 expensive to compute, and when function emits significantly less data than
-it consumes.
+it consumes. The same effect is achievable by simply adding the reduction
+function to the end of the foreach loop expression.
 }
 \note{
 This value is overriden by setting the 'reduce' option in the

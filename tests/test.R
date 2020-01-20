@@ -11,6 +11,7 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
   setFtinterval(10)
 # Basic test with two local worker processes
   queue <- "jobs"
+  redisConnect() # need to connect to Redis before removing a queue
   removeQueue(queue)
   startLocalWorkers(n=2, queue, timeout=1)
   registerDoRedis(queue)

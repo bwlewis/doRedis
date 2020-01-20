@@ -2,6 +2,7 @@
 
 export(jobs)
 export(logger)
+export(redisConnect)
 export(redisWorker)
 export(registerDoRedis)
 export(removeJob)
