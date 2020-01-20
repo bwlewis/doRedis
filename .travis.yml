@@ -8,6 +8,7 @@ addons:
   apt:
     packages:
       - pandoc
+      - libhiredis-dev
       - texinfo
       - texlive
       - texlive-latex-base

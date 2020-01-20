@@ -16,7 +16,7 @@
 # USA
 #
 # The environment initialization code is adapted (with minor changes)
-# from the doMPI package from Steve Weston.
+# from the doMPI package by Steve Weston.
 
 
 
@@ -571,7 +571,7 @@ tryCatch(
                      else Sys.sleep(max(floor(ftinterval / 3), 10))
                      e
                    })
-      retry <- "condition" %in% class(results)
+      retry <- inherits(results, "condition")
     }
     if(is.null(results))
     {
