@@ -21,15 +21,11 @@ if(Sys.getenv("TEST_DOREDIS") == "TRUE")
 # setX tests
   x <- 0
   setExport("x")
-  setPackages("rredis")
   setChunkSize(5)
   ans <- foreach(j=1:10, .combine=sum, .noexport="x") %dopar% {
     j + x
   }
   compare(ans, 55, "foreach")
-
-# covr code coverage can't discern that we're excercising the worker
-# code in the above tests.
 
   getDoParWorkers()
 

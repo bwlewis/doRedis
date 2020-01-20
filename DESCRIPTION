@@ -15,6 +15,7 @@ Depends:
     utils
 Imports:
     parallel,
+    redux,
     stats
 Suggests:
     knitr

@@ -36,15 +36,15 @@ Think of foreach as the lingua Franca of parallel computing for R.
 
 Redis is a powerful, fast networked database with many innovative features,
 among them a blocking stack-like data structure (Redis "lists"). This feature
-makes Redis useful as a lightweight backend for parallel computing. The rredis
-package provides a native R interface to Redis. The doRedis package defines a
-parallel backend for foreach using Redis that is elastic and
-platform-independent.
+makes Redis useful as a lightweight backend for parallel computing.  The
+doRedis package relies on the redux package for communication with a Redis
+server to define a lightweight parallel backend for foreach using Redis that is
+elastic and platform-independent.
 
 Here is a quick example procedure for experimenting with doRedis:
 
 1. Install Redis on your computer.
-2. Install foreach, rredis and doRedis packages.
+2. Install foreach, redux and doRedis packages.
 3. Start the redis server running (see the redis documentation). We assume
    that the server is running on the host "localhost" and port 6379 (the
    default Redis port). We assume in the examples below that the worker R
@@ -129,5 +129,3 @@ Workers self-terminate when their work queues have been deleted with the
 <a href="https://travis-ci.org/bwlewis/doRedis">
 <img src="https://travis-ci.org/bwlewis/doRedis.svg?branch=master" alt="Travis CI status"></img>
 </a>
-[![codecov.io](https://codecov.io/github/bwlewis/doRedis/coverage.svg?branch=master)](https://codecov.io/github/bwlewis/doRedis?branch=master)
-[![CRAN version](http://www.r-pkg.org/badges/version/doRedis)](http://cran.rstudio.com/web/packages/doRedis/index.html)

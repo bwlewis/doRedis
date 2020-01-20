@@ -101,7 +101,7 @@ blewis@illposed.net}
 \section{Introduction}
 
 The {\tt doRedis} package defines a {\tt foreach} parallel back end using Redis
-and the {\tt rredis} package. It lets users easily run parallel
+and the {\tt redux} package. It lets users easily run parallel
 jobs across multiple R sessions over one or more computers.
 
 Steve Weston's {\tt foreach} package is a remarkable parallel computing
@@ -118,8 +118,8 @@ its package documentation.
 Redis is a fast, persistent, networked in-memory key/value database with many
 innovative features, among them a blocking queue-like data structure (Redis
 ``lists'').  This feature makes Redis useful as a lightweight back end for
-parallel computing.  The {\tt rredis} package provides a native R interface to
-Redis used by {\tt doRedis}.
+parallel computing.  The {\tt redux} package defines an R interface to
+Redis based on the hiredis C library.
 
 \subsection{Why doRedis?}
 

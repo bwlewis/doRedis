@@ -507,7 +507,7 @@ setProgress <- function(value=FALSE)
   j <- 1
   done <- c()  # A vector of completed tasks
   blocknames <- list() # List of block names
-# use nonblocking call to submit all tasks at once
+# use nonblocking call to submit all tasks at once # XXX FIXME
   redisSetPipeline(TRUE)
   redisMulti()
   while(j <= ntasks)

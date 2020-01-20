@@ -1,17 +1,21 @@
-# Internal redux compatability functions with old rredis package
-
-redisGetContext <- function()
+#' Internal redux compatability functions with old rredis package
+#' @importFrom redux hiredis
+#' @param host character Redis host name
+#' @param port integer Redis port number
+#' @param password optional character Redis password
+#' @param ... optional additional arguments for compatability with old rredis, ignored
+redisConnect <- function(host="localhost", port=6379L, password, ...)
 {
-  .doRedisGlobals
-}
-
-redisConnect <- function(host="localhost", port=6379, password, ...)
-{
-  r <- redux::hiredis(host=host, port=port)
+  r <- hiredis(host=host, port=port)
   if(!missing(password)) r$AUTH(password)
   assign("r", r, .doRedisGlobals)
   assign("host", host, .doRedisGlobals)
   assign("port", port, .doRedisGlobals)
+}
+
+redisGetContext <- function()
+{
+  .doRedisGlobals
 }
 
 redisExists <- function(key)
