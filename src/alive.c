@@ -106,7 +106,7 @@ tcpconnect (SOCKET * s, const char *host, int port)
   j = connect (*s, ap->ai_addr, (int) ap->ai_addrlen);
   if (j != 0)
     {
-      close (*s);
+      closesocket (*s);
       *s = INVALID_SOCKET;
     }
 }
