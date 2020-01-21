@@ -111,7 +111,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
   conargs <- list(...)
   if(is.null(conargs$timeout)) conargs$timeout <- 3600
   conargs <- paste(paste(names(conargs), conargs, sep="="), collapse=",")
-  
+
   # ensure that we pass multiple queues, if applicable, to each worker
   queue <- sprintf("c(%s)", paste("'", queue, "'", collapse=", ", sep=""))
 
@@ -193,11 +193,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
     log <- file(log, open="w+")
   sink(type="message", file=log)
   assign(".jobID", "0", envir=.doRedisGlobals)
-  
+
   queueLive <- paste(queue, "live", sep=".")
   for(j in queueLive)
     if(!redisExists(j)) redisSet(j, "")
-  
+
   queueCount <- paste(queue,"count",sep=".")
   for (j in queueCount)
     tryCatch(redisIncr(j),error=function(e) invisible())

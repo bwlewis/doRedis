@@ -26,10 +26,10 @@
 #' for foreach that uses Redis for inter-process communication. The work
 #' queue name specifies the base name of a small set of Redis keys that the master
 #' and worker processes use to exchange data.
-#' 
+#'
 #' Back-end worker R processes  advertise their availablility for work
 #' with the \code{\link{redisWorker}} function.
-#' 
+#'
 #' The doRedis parallel back end tolerates faults among the worker processes and
 #' automatically resubmits failed tasks. It is also portable and supports
 #' heterogeneous sets of workers, even across operative systems.  The back end
@@ -42,7 +42,7 @@
 #' @param password An optional Redis database password
 #' @param ...  Optional arguments passed to \code{\link{redisConnect}}
 #'
-#' @note 
+#' @note
 #' All doRedis functions require access to a Redis database server (not included
 #' with this package).
 #'
@@ -67,7 +67,7 @@
 #' require('doRedis')
 #' redisWorker('jobs')
 #'
-#' ## 2. Open another R session acting as a 'master' and run this simple 
+#' ## 2. Open another R session acting as a 'master' and run this simple
 #' ##    sampling approximation of pi:
 #' require('doRedis')
 #' registerDoRedis('jobs')
@@ -151,7 +151,7 @@ removeQueue <- function(queue)
 #' foreach(j=1:10) %dopar% j
 #'
 #' # Same effect as:
-#' 
+#'
 #' foreach(j=1:10,
 #'         .options.redis=list(chunkSize=5)) %dopar% j
 #' }
@@ -176,7 +176,7 @@ setChunkSize <- function(value=1)
 #' foreach(j=1:10) %dopar% j
 #'
 #' # Same effect as:
-#' 
+#'
 #' foreach(j=1:10,
 #'         .options.redis=list(ftinterval=5)) %dopar% j
 #' }
@@ -221,7 +221,7 @@ setFtinterval <- function(value=30)
 #' foreach(j=1:10, .combine=c) %dopar% j
 #'
 #' # Same effect as:
-#' 
+#'
 #' foreach(j=1:10, .combine=c,
 #'         .options.redis=list(chunksize=3, reduce=list)) %dopar% j
 #' }
@@ -261,7 +261,7 @@ setReduce <- function(fun=NULL)
 #' startLocalWorkers(n=1, queue="work queue")
 #'
 #' f <- function() pi
-#' 
+#'
 #' foreach(1) %dopar% eval(call("f"))
 #' # Returns the error:
 #' # Error in eval(call("f")) : task 1 failed - could not find function "f"
@@ -531,7 +531,7 @@ setProgress <- function(value=FALSE)
   }
   commands <- c(commands, list(redis$EXEC()))
   .doRedisGlobals$r$pipeline(.commands=commands)
-  
+
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
   {

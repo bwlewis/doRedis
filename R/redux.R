@@ -7,7 +7,7 @@
 #' @param port integer Redis port number
 #' @param password optional character Redis password
 #' @param ... optional additional arguments for compatability with old rredis, ignored
-#' @seealso \code{\link{registerDoRedis}}, \code{\link{redisWorker}}, \code{\link{startLocalWorkers}} 
+#' @seealso \code{\link{registerDoRedis}}, \code{\link{redisWorker}}, \code{\link{startLocalWorkers}}
 #' @export
 redisConnect <- function(host="localhost", port=6379L, password, ...)
 {
