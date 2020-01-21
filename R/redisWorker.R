@@ -15,9 +15,16 @@
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
+# expr, exportenv, parentenv, packages, combinInfo are parameters from
+# the job environment, see invocation of .workerInit below.
+# If an error is encountered at any step here, the expression to be
+# evaluated is replaced with the error for return to the master process.
 `.workerInit` <- function(expr, exportenv, parentenv, packages, combineInfo)
 {
-  tryCatch(
+  assign("expr", expr, .doRedisGlobals)
+  assign("exportenv", exportenv, .doRedisGlobals)
+  assign("combineInfo", combineInfo, .doRedisGlobals)
+  err = tryCatch(
     {
       for (p in packages) library(p, character.only=TRUE)
       RNGkind("L'Ecuyer-CMRG")
@@ -25,19 +32,18 @@
       if(!is.null(exportenv$worker.init))
         if(is.function(exportenv$worker.init))
           do.call(exportenv$worker.init, list(), envir=globalenv())
-    }, error=function(e) cat(as.character(e), "\n", file=stderr())
-  )
-  assign("expr", expr, .doRedisGlobals)
-  assign("exportenv", exportenv, .doRedisGlobals)
-  assign("combineInfo", combineInfo, .doRedisGlobals)
 # XXX This use of parent.env is problematic. It's used here to
 # set up a valid search path above the working evironment, but its use
 # is fraglie as this may function be dropped in a future release of R.
-  if(is.null(parentenv)) {
-    parent.env(.doRedisGlobals$exportenv) <- globalenv()
-  } else {
-    parent.env(.doRedisGlobals$exportenv) <- getNamespace(parentenv[[1]])
-  }
+      parent.env(.doRedisGlobals$exportenv) <- 
+        if(is.null(parentenv)) globalenv() else getNamespace(parentenv[[1]])
+    },
+    error=function(e) {
+      message(gettext(e))
+      e
+    }
+  )
+  if(inherits(err, "error")) assign("expr", err, .doRedisGlobals)
 }
 
 `.evalWrapper` <- function(args)
