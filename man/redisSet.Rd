@@ -20,4 +20,3 @@ This function serializes the val argument.
 \seealso{
 \code{\link{hiredis}}
 }
-

@@ -48,4 +48,3 @@ foreach(j=1:10, .combine=c,
 \seealso{
 \code{\link{foreach}}, \code{\link{setChunkSize}}
 }
-
