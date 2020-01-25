@@ -18,3 +18,4 @@ A convenience function to delete a Redis key
 \seealso{
 \code{\link{hiredis}}
 }
+

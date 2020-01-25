@@ -98,31 +98,31 @@ blewis@illposed.net}
 
 \section{Introduction}
 
-The {\tt doRedis} package defines a {\tt foreach} parallel back end using Redis
-and the {\tt redux} package. It lets users easily run parallel
-jobs across multiple R sessions over one or more computers.
+The {\tt doRedis} package defines a \verb`foreach` parallel computing adapter
+using Redis and the {\tt redux} package. It lets users easily run parallel jobs
+across multiple R sessions over one or more computers.
 
 Steve Weston's {\tt foreach} package is a remarkable parallel computing
 framework for the R language, similar to {\tt lapply}-like functions but
 structured as a for loop. Similarly to R's native {\tt parLapply} and {\tt
 mclapply} functions, foreach lets you do this in parallel across multiple CPU
 cores and computers, abstracting the parallel computing details away into
-modular back end code. Code written using foreach works sequentially in the
-absence of a parallel back end, and works uniformly across different back ends,
-allowing programmers to write code independently of specific parallel computing
+modular adapters. Code written using foreach works sequentially in the absence
+of a parallel adapter, and works uniformly across different adapters, allowing
+programmers to write code independently of specific parallel computing
 implementations. The {\tt foreach} package has many nice features outlined in
 its package documentation.
 
 Redis is a fast, persistent, networked in-memory key/value database with many
 innovative features, among them a blocking queue-like data structure (Redis
-``lists'').  This feature makes Redis useful as a lightweight back end for
+``lists'').  This feature makes Redis useful as a lightweight adapter for
 parallel computing.  The {\tt redux} package defines an R interface to
 Redis based on the hiredis C library.
 
 \subsection{Why doRedis?}
 
 Why write a {\tt doRedis} package? After all, the {\tt foreach} package already
-has available many parallel back end packages, including {\tt doMC}, 
+has available many parallel adapter packages, including {\tt doMC}, 
 {\tt doSNOW} and {\tt doMPI}.
 
 The key features of {\tt doRedis} are elasticity, fault-tolerance, and
@@ -142,7 +142,7 @@ systems can dynamically schedule R workers as cluster resources become
 available.
 
 \item {\tt doRedis} computations are partially fault tolerant. Failure of
-back end worker R processes (for example due to a machine crash or simply
+worker R processes (for example due to a machine crash or simply
 scaling back elastic resources) are automatically detected and the affected
 tasks are automatically re-submitted.
 
@@ -155,7 +155,7 @@ all the R package dependencies required by the task at hand are available.
 \item The {\tt foreach} package generally allows intermediate results to be
 aggregated incrementally and in- or out-of order, significantly reducing
 required memory overhead for problems that return large data (not all
-{\tt foreach} back ends support this but {\tt doRedis} does).
+{\tt foreach} adapters support this but {\tt doRedis} does).
 
 \item The key benefit of the {\tt foreach} package is clear separation of
 program and run-time parallel computing dependencies.  This allows R scripts
@@ -230,7 +230,8 @@ for new jobs. The line
 
 \noindent \verb+registerDoRedis("RJOBS")+
 
-\noindent registers the {\tt doRedis} back end with {\tt foreach} using the
+\noindent registers the \verb`doRedis` adapter with the \verb`foreach %dopar%`
+operator using the
 user-specified work queue name ``RJOBS'' (you are free to use any name you wish
 for the work queue). R can issue work to a work queue even if there aren't
 any workers yet.
@@ -269,14 +270,14 @@ function accepts an arbitrary number of function arguments (some aggregation
 functions only work on two arguments). The {\tt .inorder=FALSE} option tells
 foreach that results may be passed to the {\tt .combine} function as they 
 arrive, in any order. The {\tt \%dopar\%} operator instructs
-{\tt foreach} to use the {\tt doRedis} back end that we previously registered
+{\tt foreach} to use the {\tt doRedis} adapter that we previously registered
 to place each task in the work queue.  Finally, each iteration runs the scaled
 estimation of $\pi$ using 1,000,000 points.
 
 \subsection{Fault tolerance}
 
 Parallel computations managed by {\tt doRedis} tolerate failures among the back
-end worker R processes. Examples of failures include crashed back end R
+end worker R processes. Examples of failures include crashed worker R
 sessions, operating system crash or reboot, power outages, or simply dialing
 down the number of workers by turning them off (elasticity). When a failure is
 detected, affected tasks are automatically re-submitted to the work queue.
@@ -334,7 +335,7 @@ The code listing below presents a parallel-capable variation of the {\tt boot}
 function from the {\tt boot} package. The {\tt bootForEach} function uses {\tt
 foreach} to distributed bootstrap processing to available workers. It has two
 more arguments than the standard {\tt boot} function: {\tt chunks} and {\tt
-verbose}. Set {\tt verbose=TRUE} to enabled back end worker process debugging.
+verbose}. Set {\tt verbose=TRUE} to enabled worker process debugging.
 The bootstrap resampling replicates will be divided into {\tt chunks} tasks for
 processing by {\tt foreach}.  The example also illustrates the use of a custom
 combine function in the {\tt foreach} loop.
@@ -733,10 +734,10 @@ foreach(j=1:10)
 \end{verbatim}
 
 The package provides the extra \verb+set*+ functions to facilitate working with
-other R packages that use \verb+foreach+ internally. In such cases it might not
+R packages that use \verb+foreach+ internally. In such cases it might not
 be practical to directly supply arguments to the \verb+foreach+ invocation
 (used within the package). The \verb+set*+ functions provide a way to register
-an external \verb+foreach+ back end and control its behavior. When both forms
+an external \verb+foreach+ adapter and control its behavior. When both forms
 of setting options are used, the \verb+set*+ functions take precedence (which
 lets you override the default behavior in another R package, for example).
 

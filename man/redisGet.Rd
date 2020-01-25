@@ -19,3 +19,4 @@ is a serialized (binary) R value and unserializes it on return.
 \seealso{
 \code{\link{hiredis}}
 }
+

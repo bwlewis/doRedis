@@ -22,19 +22,11 @@ Setting the default chunk size larger for shorter-running jobs can
 substantially improve performance. Setting this value too high can
 negatively impact load-balancing across workers, however.
 }
-\note{
-This value is overrides the 'chunkSize' option in the
-foreach loop (see the examples).
-}
 \examples{
 \dontrun{
 setChunkSize(5)
 foreach(j=1:10) \%dopar\% j
-
-# Same effect as:
-
-foreach(j=1:10,
-        .options.redis=list(chunkSize=5)) \%dopar\% j
 }
 
 }
+

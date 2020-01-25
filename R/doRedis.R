@@ -40,6 +40,10 @@
 #' @param host The Redis server host name or IP address
 #' @param port The Redis server port number
 #' @param password An optional Redis database password
+#' @param chunkSize Default iteration granularity, see \code{\link{setChunkSize}}
+#' @param ftinterval Default fault tolerance interval in seconds
+#' @param reduce Optional per-task reduce function, see \code{\link{setReduce}}
+#' @param progress (logical) Show progress bar for computations?
 #' @param ...  Optional arguments passed to \code{\link{redisConnect}}
 #'
 #' @note
@@ -84,7 +88,7 @@
 #' @importFrom stats runif
 #' @importFrom utils packageDescription
 #' @export
-registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
+registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinterval=30, chunkSize=1, reduce, progress=FALSE, ...)
 {
   if(missing(password)) redisConnect(host, port, ...)
   else redisConnect(host, port, password=password, ...)
@@ -94,6 +98,10 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ...)
 # empty lists.
   queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
+  if(!missing(ftinterval)) setFtInterval(ftinterval)
+  if(!missing(chunkSize)) setChunkSize(chunkSize)
+  if(!missing(progress)) setProgress(progress)
+  if(!missing(reduce)) setReduce(reduce)
   setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
   invisible()
 }
@@ -140,20 +148,12 @@ removeQueue <- function(queue)
 #'
 #' @param value positive integer chunk size setting
 #'
-#' @note
-#' This value is overrides the 'chunkSize' option in the
-#' foreach loop (see the examples).
 #'
 #' @return \code{value} is invisibly returned.
 #' @examples
 #' \dontrun{
 #' setChunkSize(5)
 #' foreach(j=1:10) %dopar% j
-#'
-#' # Same effect as:
-#'
-#' foreach(j=1:10,
-#'         .options.redis=list(chunkSize=5)) %dopar% j
 #' }
 #'
 #' @export
@@ -166,20 +166,14 @@ setChunkSize <- function(value=1)
 
 #' Set the fault tolerance check interval in seconds.
 #'
-#' The \code{setFtinterval} function overrides the same option specified
-#' inline in the \code{foreach} statement.
 #' @param value positive integer number of seconds
 #' @return \code{value} is invisibly returned.
 #' @examples
 #' \dontrun{
 #' setFtinterval(5)
 #' foreach(j=1:10) %dopar% j
-#'
-#' # Same effect as:
-#'
-#' foreach(j=1:10,
-#'         .options.redis=list(ftinterval=5)) %dopar% j
 #' }
+#'
 #' @export
 setFtinterval <- function(value=30)
 {
@@ -191,7 +185,8 @@ setFtinterval <- function(value=30)
 
 #' Set two-level distributed reduction
 #'
-#' Instruct doRedis to perform the \code{.combine} reduction per task on each
+#' Instruct doRedis to perform either the \code{.combine} reduction function
+#' or another specified function per task on each
 #' worker before returning results, cf. \code{\link{foreach}}.
 #' Combined results are then processed through
 #' the specified function \code{fun} for two levels of reduction
@@ -200,16 +195,14 @@ setFtinterval <- function(value=30)
 #'
 #' This approach can improve performance when the \code{.combine} function is
 #' expensive to compute, and when function emits significantly less data than
-#' it consumes. The same effect is achievable by simply adding the reduction
-#' function to the end of the foreach loop expression.
+#' it consumes. The same effect is usually achievable by simply adding the reduction
+#' function to the end of the foreach loop expression (but must be decided prior
+#' to run time).
 #'
 #' @param fun a function of two arguments, set to NULL to disable combining, or
 #'  leave missing to implicitly set the gather function formally identical to the
 #'  \code{.combine} function but with an empty environment.
 #'
-#' @note
-#' This value is overriden by setting the 'reduce' option in the
-#' foreach loop (see the examples).
 #'
 #' @return \code{fun} is invisibly returned, or TRUE is returned when
 #'  \code{fun} is missing (in which case the \code{.combine} function is used).
@@ -219,12 +212,8 @@ setFtinterval <- function(value=30)
 #' setChunkSize(3)
 #' setReduce(list)
 #' foreach(j=1:10, .combine=c) %dopar% j
-#'
-#' # Same effect as:
-#'
-#' foreach(j=1:10, .combine=c,
-#'         .options.redis=list(chunksize=3, reduce=list)) %dopar% j
 #' }
+#'
 #' @export
 setReduce <- function(fun=NULL)
 {
@@ -305,7 +294,6 @@ setPackages <- function(packages=c())
 #' Progress bar
 #' @param value if \code{TRUE}, display a text progress bar indicating status of the computation
 #' @return \code{value} is invisibly returned
-#' @note Alternatively set within the foreach loop with \code{.options.redis=list(progress=TRUE)}.
 #' @importFrom utils txtProgressBar setTxtProgressBar packageName
 #' @export
 setProgress <- function(value=FALSE)
@@ -387,7 +375,10 @@ setProgress <- function(value=FALSE)
 # Distributed reduce
   gather <- NULL
   if(!is.null(obj$options$redis$reduce))
+  {
+    warning(".options.redis use is deprecated; use setReduce or registerDoRedis options instead.")
     gather <- obj$options$redis$reduce
+  }
   if(exists("gather", envir=.doRedisGlobals))
     gather <- get("gather", envir=.doRedisGlobals)
   if(is.logical(gather) && isTRUE(gather))
@@ -398,7 +389,10 @@ setProgress <- function(value=FALSE)
 # Progress bar
   .progress <- FALSE
   if(!is.null(obj$options$redis$progress))
+  {
+    warning(".options.redis use is deprecated; use setProgress or registerDoRedis options instead.")
     .progress <- obj$options$redis$progress
+  }
   if(exists("progress", envir=.doRedisGlobals))
     .progress <- get("progress", envir=.doRedisGlobals)
 
@@ -476,12 +470,18 @@ setProgress <- function(value=FALSE)
 
   chunkSize <- 0
   if(!is.null(obj$options$redis$chunkSize))
+  {
+    warning(".options.redis use is deprecated; use setChunkSize or registerDoRedis options instead.")
     chunkSize <- obj$options$redis$chunkSize
+  }
   if(exists("chunkSize", envir=.doRedisGlobals))
     chunkSize <- get("chunkSize", envir=.doRedisGlobals)
 # Accept lower case too
   if(!is.null(obj$options$redis$chunksize))
+  {
+    warning(".options.redis use is deprecated; use setChunkSize or registerDoRedis options instead.")
     chunkSize <- obj$options$redis$chunksize
+  }
   if(exists("chunksize", envir=.doRedisGlobals))
     chunkSize <- get("chunksize", envir=.doRedisGlobals)
 
@@ -503,7 +503,10 @@ setProgress <- function(value=FALSE)
 # allow it to be less than 3 seconds (cf alive.c thread code in the worker).
   ftinterval <- 30
   if(!is.null(obj$options$redis$ftinterval))
+  {
+    warning(".options.redis use is deprecated; use setFtInterval or registerDoRedis options instead.")
     ftinterval <- obj$options$redis$ftinterval
+  }
   if(exists("ftinterval", envir=.doRedisGlobals))
     ftinterval <- get("ftinterval", envir=.doRedisGlobals)
   ftinterval <- max(ftinterval, 3)

@@ -16,7 +16,8 @@ leave missing to implicitly set the gather function formally identical to the
  \code{fun} is missing (in which case the \code{.combine} function is used).
 }
 \description{
-Instruct doRedis to perform the \code{.combine} reduction per task on each
+Instruct doRedis to perform either the \code{.combine} reduction function
+or another specified function per task on each
 worker before returning results, cf. \code{\link{foreach}}.
 Combined results are then processed through
 the specified function \code{fun} for two levels of reduction
@@ -26,25 +27,19 @@ one, and automatically sets \code{.multicombine=FALSE}.
 \details{
 This approach can improve performance when the \code{.combine} function is
 expensive to compute, and when function emits significantly less data than
-it consumes. The same effect is achievable by simply adding the reduction
-function to the end of the foreach loop expression.
-}
-\note{
-This value is overriden by setting the 'reduce' option in the
-foreach loop (see the examples).
+it consumes. The same effect is usually achievable by simply adding the reduction
+function to the end of the foreach loop expression (but must be decided prior
+to run time).
 }
 \examples{
 \dontrun{
 setChunkSize(3)
 setReduce(list)
 foreach(j=1:10, .combine=c) \%dopar\% j
-
-# Same effect as:
-
-foreach(j=1:10, .combine=c,
-        .options.redis=list(chunksize=3, reduce=list)) \%dopar\% j
 }
+
 }
 \seealso{
 \code{\link{foreach}}, \code{\link{setChunkSize}}
 }
+

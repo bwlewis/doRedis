@@ -13,17 +13,13 @@ setFtinterval(value = 30)
 \code{value} is invisibly returned.
 }
 \description{
-The \code{setFtinterval} function overrides the same option specified
-inline in the \code{foreach} statement.
+Set the fault tolerance check interval in seconds.
 }
 \examples{
 \dontrun{
 setFtinterval(5)
 foreach(j=1:10) \%dopar\% j
-
-# Same effect as:
-
-foreach(j=1:10,
-        .options.redis=list(ftinterval=5)) \%dopar\% j
 }
+
 }
+
