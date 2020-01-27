@@ -97,7 +97,7 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinte
 # empty lists.
   queueLive <- paste(queue, "live", sep=".")
   if(!redisExists(queueLive)) redisSet(queueLive, "")
-  if(!missing(ftinterval)) setFtInterval(ftinterval)
+  if(!missing(ftinterval)) setFtinterval(ftinterval)
   if(!missing(chunkSize)) setChunkSize(chunkSize)
   if(!missing(progress)) setProgress(progress)
   setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
