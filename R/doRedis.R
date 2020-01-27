@@ -42,7 +42,6 @@
 #' @param password An optional Redis database password
 #' @param chunkSize Default iteration granularity, see \code{\link{setChunkSize}}
 #' @param ftinterval Default fault tolerance interval in seconds
-#' @param reduce Optional per-task reduce function, see \code{\link{setReduce}}
 #' @param progress (logical) Show progress bar for computations?
 #' @param ...  Optional arguments passed to \code{\link{redisConnect}}
 #'
@@ -88,7 +87,7 @@
 #' @importFrom stats runif
 #' @importFrom utils packageDescription
 #' @export
-registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinterval=30, chunkSize=1, reduce, progress=FALSE, ...)
+registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinterval=30, chunkSize=1, progress=FALSE, ...)
 {
   if(missing(password)) redisConnect(host, port, ...)
   else redisConnect(host, port, password=password, ...)
@@ -101,7 +100,6 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinte
   if(!missing(ftinterval)) setFtInterval(ftinterval)
   if(!missing(chunkSize)) setChunkSize(chunkSize)
   if(!missing(progress)) setProgress(progress)
-  if(!missing(reduce)) setReduce(reduce)
   setDoPar(fun=.doRedis, data=list(queue=queue), info=.info)
   invisible()
 }
@@ -199,6 +197,10 @@ setFtinterval <- function(value=30)
 #' function to the end of the foreach loop expression (but must be decided prior
 #' to run time).
 #'
+#' @note Do not use this function, use the 'compile-time' version instead directly
+#' in the foreach loop: \code{foreach(..., .options.redis=list(reduce=...))}.
+#' Setting a reduction function at run-time will generally alter the result.
+#'
 #' @param fun a function of two arguments, set to NULL to disable combining, or
 #'  leave missing to implicitly set the gather function formally identical to the
 #'  \code{.combine} function but with an empty environment.
@@ -210,8 +212,7 @@ setFtinterval <- function(value=30)
 #' @examples
 #' \dontrun{
 #' setChunkSize(3)
-#' setReduce(list)
-#' foreach(j=1:10, .combine=c) %dopar% j
+#' foreach(j=1:10, .combine=c, .options.redis=list(reduce=list)) %dopar% j
 #' }
 #'
 #' @export
@@ -374,13 +375,9 @@ setProgress <- function(value=FALSE)
 
 # Distributed reduce
   gather <- NULL
-  if(!is.null(obj$options$redis$reduce))
-  {
-    warning(".options.redis use is deprecated; use setReduce or registerDoRedis options instead.")
-    gather <- obj$options$redis$reduce
-  }
   if(exists("gather", envir=.doRedisGlobals))
     gather <- get("gather", envir=.doRedisGlobals)
+  if(!is.null(obj$options$redis$reduce)) gather <- obj$options$redis$reduce
   if(is.logical(gather) && isTRUE(gather))
   {
     gather <- it$combineInfo$fun

@@ -5,7 +5,7 @@
 \title{Register the Redis back end for foreach.}
 \usage{
 registerDoRedis(queue, host = "localhost", port = 6379, password,
-  ftinterval = 30, chunkSize = 1, reduce, progress = FALSE, ...)
+  ftinterval = 30, chunkSize = 1, progress = FALSE, ...)
 }
 \arguments{
 \item{queue}{A work queue name}
@@ -19,8 +19,6 @@ registerDoRedis(queue, host = "localhost", port = 6379, password,
 \item{ftinterval}{Default fault tolerance interval in seconds}
 
 \item{chunkSize}{Default iteration granularity, see \code{\link{setChunkSize}}}
-
-\item{reduce}{Optional per-task reduce function, see \code{\link{setReduce}}}
 
 \item{progress}{(logical) Show progress bar for computations?}
 

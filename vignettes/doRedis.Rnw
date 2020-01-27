@@ -276,10 +276,12 @@ estimation of $\pi$ using 1,000,000 points.
 
 \subsection{Fault tolerance}
 
-Parallel computations managed by {\tt doRedis} tolerate failures among the back
-end worker R processes. Examples of failures include crashed worker R
-sessions, operating system crash or reboot, power outages, or simply dialing
-down the number of workers by turning them off (elasticity). When a failure is
+Parallel computations managed by {\tt doRedis} tolerate failures among the
+worker R processes. Examples of failures include crashed worker R
+sessions, operating system crash or reboot, and power outages. Fault
+tolerance enables elasticity--the pool of workers can be reduced at any
+time by simply turning them off without disturbing the running computation.
+When a failure is
 detected, affected tasks are automatically re-submitted to the work queue.
 The option {\tt ftinterval} sets an upper bound on how frequently
 {\tt doRedis} checks for failure. The default value is 30 seconds, and the
@@ -287,18 +289,16 @@ minimum allowed value is
 three seconds. (Very frequent checks for failure increase overhead and will
 slow computations down--the default value is usually reasonable.)
 
-The following code listing presents a contrived but entirely self-contained
-example of fault tolerance. Verbose logging output is enabled to help document
-the inner workings of the example.
+The following code listing presents a contrived but self-contained example of
+fault tolerance.
 
 <<eval=FALSE>>=
 require("doRedis")
-registerDoRedis("RJOBS")
+registerDoRedis("RJOBS", ftinterval=5, chunkSize=2)
 startLocalWorkers(n=4, queue="RJOBS", linger=1)
 cat("Workers started.\n")
 start <- Sys.time()
-x <- foreach(j=1:4, .combine=sum, .verbose=TRUE,
-           .options.redis=list(ftinterval=5, chunkSize=2)) %dopar%
+x <- foreach(j=1:4, .combine=sum) %dopar%
      {
        if(difftime(Sys.time(),start) < 5) quit(save="no") else j
      }
@@ -394,9 +394,8 @@ a unit of work. The expression is the body of the \verb+foreach+ loop and the
 parameters, if they exist, are the loop variables. It's also possible to use
 \verb+foreach+ non-parametrically with an anonymous iterator to simply
 replicate the loop body expression a number of times similar to
-\verb+replicate+.  Each iteration is
-enumerated so that \verb+foreach+ can put the results together in order if
-required.
+\verb+replicate+.  The iterations are enumerated so that \verb+foreach+ can put
+the results together in order if required.
 
 A \emph{task} is a collection of one or more loop iterations. The number of
 iterations per task is at most \verb+chunkSize+.

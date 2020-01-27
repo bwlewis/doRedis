@@ -31,11 +31,15 @@ it consumes. The same effect is usually achievable by simply adding the reductio
 function to the end of the foreach loop expression (but must be decided prior
 to run time).
 }
+\note{
+Do not use this function, use the 'compile-time' version instead directly
+in the foreach loop: \code{foreach(..., .options.redis=list(reduce=...))}.
+Setting a reduction function at run-time will generally alter the result.
+}
 \examples{
 \dontrun{
 setChunkSize(3)
-setReduce(list)
-foreach(j=1:10, .combine=c) \%dopar\% j
+foreach(j=1:10, .combine=c, .options.redis=list(reduce=list)) \%dopar\% j
 }
 
 }
