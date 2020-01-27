@@ -46,4 +46,3 @@ foreach(j=1:10, .combine=c, .options.redis=list(reduce=list)) \%dopar\% j
 \seealso{
 \code{\link{foreach}}, \code{\link{setChunkSize}}
 }
-

@@ -15,4 +15,3 @@ setProgress(value = FALSE)
 \description{
 Progress bar
 }
-

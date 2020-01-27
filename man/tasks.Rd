@@ -33,4 +33,3 @@ Tasks are listed until a key associated with them expires in Redis. Thus running
 are not explicitly removed from the task list immediately when they terminate, but may
 linger on the list for a short while after (a few seconds).
 }
-

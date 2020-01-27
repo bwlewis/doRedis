@@ -4,8 +4,16 @@
 \alias{registerDoRedis}
 \title{Register the Redis back end for foreach.}
 \usage{
-registerDoRedis(queue, host = "localhost", port = 6379, password,
-  ftinterval = 30, chunkSize = 1, progress = FALSE, ...)
+registerDoRedis(
+  queue,
+  host = "localhost",
+  port = 6379,
+  password,
+  ftinterval = 30,
+  chunkSize = 1,
+  progress = FALSE,
+  ...
+)
 }
 \arguments{
 \item{queue}{A work queue name}
@@ -69,7 +77,7 @@ redisWorker('jobs')
 ##    sampling approximation of pi:
 require('doRedis')
 registerDoRedis('jobs')
-foreach(j=1:10, .combine=sum, .multicombine=TRUE) \\\%dopar\\\%
+foreach(j=1:10, .combine=sum, .multicombine=TRUE) \\%dopar\\%
         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
 removeQueue('jobs')
 }
@@ -78,4 +86,3 @@ removeQueue('jobs')
 \seealso{
 \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 }
-

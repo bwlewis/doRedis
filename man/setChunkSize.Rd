@@ -29,4 +29,3 @@ foreach(j=1:10) \%dopar\% j
 }
 
 }
-

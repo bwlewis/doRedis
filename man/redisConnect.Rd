@@ -22,4 +22,3 @@ or simply registerDoRedis.
 \seealso{
 \code{\link{registerDoRedis}}, \code{\link{redisWorker}}, \code{\link{startLocalWorkers}}
 }
-
