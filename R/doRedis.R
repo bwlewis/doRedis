@@ -85,7 +85,7 @@
 #' @importFrom parallel nextRNGStream
 #' @importFrom iterators nextElem iter
 #' @importFrom stats runif
-#' @importFrom utils packageDescription
+#' @importFrom utils packageDescription flush.console
 #' @export
 registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinterval=30, chunkSize=1, progress=FALSE, ...)
 {
