@@ -516,7 +516,10 @@ setProgress <- function(value=FALSE)
   blocknames <- list() # List of block names
 
 # use nonblocking call to submit all tasks at once
-  commands <- redis$MULTI()
+# NOTE! May-2020: avoid pipelining for now due to likely bug in hiredis.
+# See https://github.com/bwlewis/doRedis/issues/56
+#  commands <- redis$MULTI()
+  redisMulti()
   while(j <= ntasks)
   {
     k <- min(j + chunkSize, ntasks)
@@ -525,12 +528,15 @@ setProgress <- function(value=FALSE)
     if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
     else names(block) <- j:k
     blocknames <- c(blocknames, list(names(block)))
-    commands <- c(commands, list(redis$RPUSH(queue, serialize(list(ID=ID, argsList=block), NULL))))
+    if(obj$verbose) message("Submitting task(s) ", j, ":", k)
+#    commands <- c(commands, list(redis$RPUSH(queue, serialize(list(ID=ID, argsList=block), NULL))))
+    redisRPush(queue, list(ID=ID, argsList=block))
     j <- k + 1
     nout <- nout + 1
   }
-  commands <- c(commands, list(redis$EXEC()))
-  .doRedisGlobals$r$pipeline(.commands=commands)
+  redisExec()
+#  commands <- c(commands, list(redis$EXEC()))
+#  .doRedisGlobals$r$pipeline(.commands=commands)
 
 # Adjust iterator, accumulator function for distributed accumulation
   if(!is.null(gather))
