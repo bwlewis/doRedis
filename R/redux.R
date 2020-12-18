@@ -34,7 +34,7 @@ redisGetContext <- function()
 
 uncerealize <- function(x)
 {
-  if(!is.null(x) && is.raw(x)) unserialize(x) else NULL
+  if(!is.null(x) && is.raw(x)) unserialize(x) else x
 }
 
 redisExists <- function(key)
