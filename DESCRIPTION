@@ -2,10 +2,10 @@ Package: doRedis
 Type: Package
 Title: 'Foreach' Parallel Adapter Using the 'Redis' Database
 Version: 2.0.1
-Date: 2020-01-30
+Date: 2020-12-21
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
-Description: Define and use a fault-tolerant task queue-like parallel back end for the 'foreach' package using the 'Redis' key/value database.
+Description: Create and manage fault-tolerant task queues for the 'foreach' package using the 'Redis' key/value database.
 BugReports: https://github.com/bwlewis/doRedis/issues
 Depends:
     R (>= 3.0),
