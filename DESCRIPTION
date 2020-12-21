@@ -16,9 +16,6 @@ Imports:
     parallel,
     redux,
     stats
-Suggests:
-    knitr
-VignetteBuilder: knitr
 License: GPL-2
 LazyLoad: yes
 RoxygenNote: 7.0.2

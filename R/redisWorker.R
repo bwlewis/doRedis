@@ -112,7 +112,7 @@ startLocalWorkers <- function(n, queue, host="localhost", port=6379,
 {
   m <- match.call()
   f <- formals()
-  l <- m$log
+  l <- m[["log"]]
   if(is.null(l)) l <- f$log
   conargs <- list(...)
   if(is.null(conargs$timeout)) conargs$timeout <- 3600
