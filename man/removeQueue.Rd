@@ -10,7 +10,8 @@ removeQueue(queue)
 \item{queue}{the doRedis queue name}
 }
 \value{
-NULL is invisibly returned.
+\code{NULL} is invisibly returned; this function is called for the side effect of removing
+Redis keys associated with the specified queue.
 }
 \description{
 Removing a doRedis queue cleans up associated keys in the Redis

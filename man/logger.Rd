@@ -10,7 +10,7 @@ logger(msg)
 \item{msg}{a character message to print to the standard error stream}
 }
 \value{
-The character string that was printed, decorated with time and system info.
+The character message that was printed, decorated with time and system info.
 }
 \description{
 Use to help debug remote doRedis workers.

@@ -12,7 +12,7 @@ tasks(queue = "*", id = "*")
 \item{id}{List tasks for the specified job id, or set to "*" to list tasks for all job ids}
 }
 \value{
-a data frame listing jobs by row with variables queue, id, user, master, time, iter, host, pid
+a data frame listing jobs by row with variables queue, id, user, coordinator, time, iter, host, pid (see Note)
 }
 \description{
 List running doRedis tasks
@@ -23,7 +23,7 @@ The returned values indicate
 \item \code{queue} the doRedis queue name
 \item \code{id} the doRedis job id
 \item \code{user} the user running the job
-\item \code{master} the host name or I.P. address where the job was submitted (and the master R process runs)
+\item \code{coordinator} the host name or I.P. address where the job was submitted (and the coordinator R process runs)
 \item \code{time} system time on the worker node when the task was started
 \item \code{iter} the loop iterations being run by the task
 \item \code{host} the host name or I.P. address where the task is running

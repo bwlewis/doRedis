@@ -10,7 +10,7 @@ setPackages(packages = c())
 \item{packages}{A character vector of package names.}
 }
 \value{
-The value of \code{packages} is invisibly returned.
+The value of \code{packages} is invisibly returned (this function is used for its side effect).
 }
 \description{
 The \code{setPackages} function lets users manually declare packages

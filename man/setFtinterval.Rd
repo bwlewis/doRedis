@@ -10,7 +10,7 @@ setFtinterval(value = 30)
 \item{value}{positive integer number of seconds}
 }
 \value{
-\code{value} is invisibly returned.
+\code{value} is invisibly returned (this function is used for its side effect).
 }
 \description{
 Set the fault tolerance check interval in seconds.

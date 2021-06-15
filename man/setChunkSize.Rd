@@ -10,7 +10,7 @@ setChunkSize(value = 1)
 \item{value}{positive integer chunk size setting}
 }
 \value{
-\code{value} is invisibly returned.
+\code{value} is invisibly returned; this value is called for its side effect.
 }
 \description{
 A job is the collection of all tasks in a foreach loop.

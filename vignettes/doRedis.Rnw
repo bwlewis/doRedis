@@ -716,8 +716,7 @@ shared R workers somewhat simpler to administrate.
 
 All options can be set using the standard {\tt foreach} interface (example
 shown below) or by using the special \verb+setProgress()+,
-\verb+setChunkSize()+, \verb+setFtinterval+, \verb+setStream+ and
-\verb+setReduce()+ functions.
+\verb+setChunkSize()+, \verb+setFtinterval+, and \verb+setStream+ functions.
 Additionally, the package defines two special functions to explicitly set
 variable exports and packages:
 \verb+setExport()+ and \verb+setPackages()+.

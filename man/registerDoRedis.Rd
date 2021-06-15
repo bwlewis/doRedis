@@ -33,13 +33,13 @@ registerDoRedis(
 \item{...}{Optional arguments passed to \code{\link{redisConnect}}}
 }
 \value{
-NULL is invisibly returned.
+\code{NULL} is invisibly returned; this function is called for side effect of registering a foreach backend.
 }
 \description{
 The doRedis package imlpements a simple but flexible parallel back end
 for foreach that uses Redis for inter-process communication. The work
-queue name specifies the base name of a small set of Redis keys that the master
-and worker processes use to exchange data.
+queue name specifies the base name of a small set of Redis keys that the
+coordinator and worker processes use to exchange data.
 }
 \details{
 Back-end worker R processes  advertise their availablility for work
@@ -55,10 +55,12 @@ queues at any time and can be used by running foreach computations.
 All doRedis functions require access to a Redis database server (not included
 with this package).
 
-The doRedis package sets RNG streams across the worker processes using the
-L'Ecuyer-CMRG method from R's parallel package for reproducible pseudorandom
-numbers independent of the number of workers or task distribution. See the
-package vignette for more details and additional options.
+Worker processes default to same random number generator as
+the coordinator process by default with seeds set per iteration rather than per
+worker to yield reproducible output independent of the number of worker
+processes. The L'Ecuyer-CMRG RNG available from the parallel package is
+recommended when high-quality distributed pseudorandom numbers are needed.
+See package vignette for more details and additional options.
 
 Avoid using fork-based parallel functions within doRedis expressions.
 Use of \code{mclapply} and similar functions in the body of a doRedis foreach
@@ -73,7 +75,7 @@ loop can result in worker faults.
 require('doRedis')
 redisWorker('jobs')
 
-## 2. Open another R session acting as a 'master' and run this simple
+## 2. Open another R session acting as a 'coordinator' and run this simple
 ##    sampling approximation of pi:
 require('doRedis')
 registerDoRedis('jobs')

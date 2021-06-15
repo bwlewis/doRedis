@@ -1,8 +1,8 @@
 Package: doRedis
 Type: Package
 Title: 'Foreach' Parallel Adapter Using the 'Redis' Database
-Version: 2.0.1
-Date: 2020-12-21
+Version: 3.0.0
+Date: 2021-5-25
 Author: B. W. Lewis <blewis@illposed.net>
 Maintainer: B. W. Lewis <blewis@illposed.net>
 Description: Create and manage fault-tolerant task queues for the 'foreach' package using the 'Redis' key/value database.
