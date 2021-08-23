@@ -25,22 +25,20 @@ inside another package.
 }
 \examples{
 \dontrun{
-require("doRedis")
 registerDoRedis("work queue")
-startLocalWorkers(n=1, queue="work queue")
+startLocalWorkers(n=1, queue="work queue", linger=1)
 
 f <- function() pi
 
-foreach(1) \%dopar\% eval(call("f"))
-# Returns the error:
+(foreach(1) \%dopar\% tryCatch(eval(call("f")), error = as.character))
+# Returns the error converted to a message:
 # Error in eval(call("f")) : task 1 failed - could not find function "f"
 
-# Manuall export the symbol f:
+# Manually export the symbol f:
 setExport("f")
-foreach(1) \%dopar\% eval(call("f"))
-# Ok then.
-#[[1]]
-#[1] 3.141593
+(foreach(1) \%dopar\% eval(call("f")))
+# Now f is found.
+
 removeQueue("work queue")
 }
 

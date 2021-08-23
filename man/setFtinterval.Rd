@@ -13,12 +13,8 @@ setFtinterval(value = 30)
 \code{value} is invisibly returned (this function is used for its side effect).
 }
 \description{
-Set the fault tolerance check interval in seconds.
-}
-\examples{
-\dontrun{
-setFtinterval(5)
-foreach(j=1:10) \%dopar\% j
-}
-
+Failed tasks are automatically re-submitted to the work queue.
+The \code{setFtinterval} sets an upper bound on how frequently
+the system checks for failure. See the package vignette for
+discussion and examples.
 }

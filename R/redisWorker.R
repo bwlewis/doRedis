@@ -58,8 +58,6 @@
         if(isTRUE(is.integer(.doRedisGlobals$exportenv[[".Random.seed"]])) &&
            isTRUE(length(.doRedisGlobals$exportenv[[".Random.seed"]]) == 1)) {
            set.seed(.doRedisGlobals$exportenv[[".Random.seed"]])
-        } else {
-          assign(".Random.seed", .doRedisGlobals$exportenv[[".Random.seed"]], envir=globalenv())
         }
         rm(list=".Random.seed", pos=.doRedisGlobals[["exportenv"]])
       }
@@ -69,7 +67,7 @@
         if(exists("set.seed.worker", envir=.doRedisGlobals$exportenv))
           do.call("set.seed.worker", list(0), envir=.doRedisGlobals$exportenv)
        }, error=function(e) cat(as.character(e), "\n"))
-      eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+      eval(.doRedisGlobals[["expr"]], envir=.doRedisGlobals[["exportenv"]])
     },
     error=function(e) e
   )
@@ -103,14 +101,21 @@
 #' @seealso \code{\link{registerDoRedis}}, \code{\link{redisWorker}}
 #'
 #' @examples
-#' \dontrun{
-#' require('doRedis')
-#' registerDoRedis('jobs')
-#' startLocalWorkers(n=2, queue='jobs', linger=5)
-#' print(getDoParWorkers())
-#' foreach(j=1:10,.combine=sum,.multicombine=TRUE) \%dopar\%
-#'           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
-#' removeQueue('jobs')
+#' # Only run if a Redis server is running
+#' if (redux::redis_available()) {
+#' ## The example assumes that a Redis server is running on the local host
+#' ## and standard port.
+#'
+#' # Start a single local R worker process
+#' startLocalWorkers(n=1, queue="R jobs", linger=1)
+#'
+#' # Run a simple sampling approximation of pi:
+#' registerDoRedis("R jobs")
+#' print(foreach(j=1:10, .combine=sum, .multicombine=TRUE) %dopar%
+#'         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000)
+#'
+#' # Clean up
+#' removeQueue("R jobs")
 #' }
 #'
 #' @export
@@ -222,7 +227,7 @@ redisWorker <- function(queue, host="localhost", port=6379,
   while(k < iter)
   {
     work <- tryCatch(redisBLPop(queue, timeout=linger), error=function(e) list())
-    if(!is.null(globalenv()$.redis.debug) && globalenv()$.redis.debug > 0)
+    if(isTRUE(!is.null(globalenv()[[".redis.debug"]]) && globalenv()[[".redis.debug"]] > 0))
       cat(paste(capture.output(print(work)), collapse="\n"), "\n", file=stderr())
 # Note the apparent fragility here. The worker has downloaded a task but
 # not yet set alive/started keys. If a failure occurs before that, it

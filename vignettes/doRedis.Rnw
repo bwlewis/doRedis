@@ -300,7 +300,7 @@ cat("Workers started.\n")
 start <- Sys.time()
 x <- foreach(j=1:4, .combine=sum) %dopar%
      {
-       if(difftime(Sys.time(),start) < 5) quit(save="no") else j
+       if(difftime(Sys.time(), start) < 5) quit(save="no") else j
      }
 
 removeQueue("RJOBS")
@@ -564,19 +564,16 @@ task imbalance is found, affected tasks are re-submitted.
 \subsection{Random Number Generator Seeds}
 
 The initialization of pseudorandom number generators is an important
-consideration, especially when running simulations in parallel.  By default,
-workers use the L'Ecuyer-CMRG method from R's \verb+parallel+ package. Each
-\verb+foreach+ loop iteration is assigned a L'Ecuyer stream making parallel
-random number generation reproducible regardless of the number of workers or
-chunk size settings. Simply set the random seed prior to a \verb+foreach+
-loop as you would do in a sequential program.
+consideration, especially when running large simulations in parallel.  As of
+package version 3, default L'Ecuyer-CMRG support was removed to comply with
+CRAN policy.  The worker processes now default to the same pseudorandom number
+generator used by the coordinator R process. Each loop iteration is initialized
+reproducibly using \verb+set.seed+, making parallel random number generation
+reproducible regardless of the number of workers or chunk size settings. Simply
+set the random seed prior to a \verb+foreach+ loop as you would do in a
+sequential program.
 
-Note that, although \verb+doRedis+ uses the L'Ecuyer random number generator
-internally, it records and restores the state and kind of random number
-generator in use in your R session prior to the \verb+foreach+ loop.
-
-Although the standard L'Ecuyer-CMRG method is preferred for typical operation,
-the {\tt doRedis} package includes a mechanism to define an arbitrary random
+The {\tt doRedis} package includes a mechanism to define an arbitrary random
 seed initialization function. Such a function could be used, for example, with
 the {\tt SPRNG} library or with the \verb+doRNG+ package for \verb+foreach+,
 or for manual experimentation.

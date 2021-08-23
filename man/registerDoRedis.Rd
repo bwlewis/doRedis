@@ -67,21 +67,22 @@ Use of \code{mclapply} and similar functions in the body of a doRedis foreach
 loop can result in worker faults.
 }
 \examples{
-\dontrun{
+# Only run if a Redis server is running
+if (redux::redis_available()) {
 ## The example assumes that a Redis server is running on the local host
 ## and standard port.
 
-## 1. Open one or more 'worker' R sessions and run:
-require('doRedis')
-redisWorker('jobs')
+# 1. Start a single local R worker process
+startLocalWorkers(n=1, queue="jobs", linger=1)
 
-## 2. Open another R session acting as a 'coordinator' and run this simple
-##    sampling approximation of pi:
-require('doRedis')
-registerDoRedis('jobs')
-foreach(j=1:10, .combine=sum, .multicombine=TRUE) \\%dopar\\%
+# 2. Run a simple sampling approximation of pi:
+registerDoRedis("jobs")
+pie = foreach(j=1:10, .combine=sum, .multicombine=TRUE) \%dopar\%
         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
-removeQueue('jobs')
+removeQueue("jobs")
+print(pie)
+
+# Note that removing the work queue automatically terminates worker processes.
 }
 
 }

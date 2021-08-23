@@ -21,5 +21,6 @@ queue is deleted.
 }
 \note{
 Workers listening for work on more than one queue will only
-terminate after all their queues have been deleted.
+terminate after all their queues have been deleted. See \code{\link{registerDoRedis}}
+for an example.
 }

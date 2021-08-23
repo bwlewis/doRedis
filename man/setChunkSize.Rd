@@ -23,9 +23,25 @@ substantially improve performance. Setting this value too high can
 negatively impact load-balancing across workers, however.
 }
 \examples{
-\dontrun{
-setChunkSize(5)
-foreach(j=1:10) \%dopar\% j
+# Only run if a Redis server is running
+if (redux::redis_available()) {
+
+# Start a single local R worker process
+startLocalWorkers(n=1, queue="jobs", linger=1)
+
+# Register the work queue with the coordinator R process
+registerDoRedis("jobs")
+
+# Compare verbose task submission output from...
+setChunkSize(1)
+foreach(j=1:4, .combine=c, .verbose=TRUE) \%dopar\% j
+
+# with the verbose task submission output from:
+setChunkSize(2)
+foreach(j=1:4, .combine=c, .verbose=TRUE) \%dopar\% j
+
+# Clean up
+removeQueue("jobs")
 }
 
 }

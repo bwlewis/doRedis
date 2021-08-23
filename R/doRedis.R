@@ -42,30 +42,31 @@
 #' \code{NULL} is invisibly returned; this function is called for side effect of registering a foreach backend.
 #'
 #' @examples
-#' \dontrun{
+#' # Only run if a Redis server is running
+#' if (redux::redis_available()) {
 #' ## The example assumes that a Redis server is running on the local host
 #' ## and standard port.
 #'
-#' ## 1. Open one or more 'worker' R sessions and run:
-#' require('doRedis')
-#' redisWorker('jobs')
+#' # 1. Start a single local R worker process
+#' startLocalWorkers(n=1, queue="jobs", linger=1)
 #'
-#' ## 2. Open another R session acting as a 'coordinator' and run this simple
-#' ##    sampling approximation of pi:
-#' require('doRedis')
-#' registerDoRedis('jobs')
-#' foreach(j=1:10, .combine=sum, .multicombine=TRUE) \%dopar\%
+#' # 2. Run a simple sampling approximation of pi:
+#' registerDoRedis("jobs")
+#' pie = foreach(j=1:10, .combine=sum, .multicombine=TRUE) %dopar%
 #'         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
-#' removeQueue('jobs')
+#' removeQueue("jobs")
+#' print(pie)
+#'
+#' # Note that removing the work queue automatically terminates worker processes.
 #' }
 #'
 #' @seealso \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 #'
 #' @import foreach
-#' @importFrom parallel nextRNGStream
 #' @importFrom iterators nextElem iter
 #' @importFrom stats runif
 #' @importFrom utils packageDescription flush.console
+#' @importFrom redux redis_available
 #' @export
 registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinterval=30, chunkSize=1, progress=FALSE, ...)
 {
@@ -93,7 +94,8 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinte
 #' @param queue the doRedis queue name
 #'
 #' @note Workers listening for work on more than one queue will only
-#' terminate after all their queues have been deleted.
+#' terminate after all their queues have been deleted. See \code{\link{registerDoRedis}}
+#' for an example.
 #'
 #' @return
 #' \code{NULL} is invisibly returned; this function is called for the side effect of removing
@@ -129,9 +131,25 @@ removeQueue <- function(queue)
 #'
 #' @return \code{value} is invisibly returned; this value is called for its side effect.
 #' @examples
-#' \dontrun{
-#' setChunkSize(5)
-#' foreach(j=1:10) %dopar% j
+#' # Only run if a Redis server is running
+#' if (redux::redis_available()) {
+#'
+#' # Start a single local R worker process
+#' startLocalWorkers(n=1, queue="jobs", linger=1)
+#'
+#' # Register the work queue with the coordinator R process
+#' registerDoRedis("jobs")
+#' 
+#' # Compare verbose task submission output from...
+#' setChunkSize(1)
+#' foreach(j=1:4, .combine=c, .verbose=TRUE) %dopar% j
+#' 
+#' # with the verbose task submission output from:
+#' setChunkSize(2)
+#' foreach(j=1:4, .combine=c, .verbose=TRUE) %dopar% j
+#'
+#' # Clean up
+#' removeQueue("jobs")
 #' }
 #'
 #' @export
@@ -144,14 +162,13 @@ setChunkSize <- function(value=1)
 
 #' Set the fault tolerance check interval in seconds.
 #'
+#' Failed tasks are automatically re-submitted to the work queue.
+#' The \code{setFtinterval} sets an upper bound on how frequently
+#' the system checks for failure. See the package vignette for
+#' discussion and examples.
+#'
 #' @param value positive integer number of seconds
 #' @return \code{value} is invisibly returned (this function is used for its side effect).
-#' @examples
-#' \dontrun{
-#' setFtinterval(5)
-#' foreach(j=1:10) %dopar% j
-#' }
-#'
 #' @export
 setFtinterval <- function(value=30)
 {
@@ -179,22 +196,20 @@ setFtinterval <- function(value=30)
 #'
 #' @examples
 #' \dontrun{
-#' require("doRedis")
 #' registerDoRedis("work queue")
-#' startLocalWorkers(n=1, queue="work queue")
+#' startLocalWorkers(n=1, queue="work queue", linger=1)
 #'
 #' f <- function() pi
 #'
-#' foreach(1) %dopar% eval(call("f"))
-#' # Returns the error:
+#' (foreach(1) %dopar% tryCatch(eval(call("f")), error = as.character))
+#' # Returns the error converted to a message:
 #' # Error in eval(call("f")) : task 1 failed - could not find function "f"
 #'
-#' # Manuall export the symbol f:
+#' # Manually export the symbol f:
 #' setExport("f")
-#' foreach(1) %dopar% eval(call("f"))
-#' # Ok then.
-#' #[[1]]
-#' #[1] 3.141593
+#' (foreach(1) %dopar% eval(call("f")))
+#' # Now f is found.
+#'
 #' removeQueue("work queue")
 #' }
 #'
@@ -576,7 +591,7 @@ flushQueue <- function(queue, ID)
   if(length(idx) == 0) return()
   lapply(tasks[[idx]][[1]], function(j)
   {
-    if(j$ID != ID) redisRPush(queue, list(ID=j$ID, argsList=j$argsList))
+    if(!isTRUE(j[["ID"]] == ID)) redisRPush(queue, list(ID=j[["ID"]], argsList=j[["argsList"]]))
   })
 }
 
@@ -584,13 +599,12 @@ flushQueue <- function(queue, ID)
 #
 # @param x an iterator
 # @return A list with two entries per element. The first entry is the
-# corresponding iterator value. The 2nd is a random seed, a L'Ecuyer random
-# seed value if available, rolling with whatever RNG is in use on the
+# corresponding iterator value. The 2nd is a random seed, (not) a L'Ecuyer
+# random seed value, rolling with whatever RNG is in use on the
 # coordinator--see the .workerInit function in redisWorker.R.  Because doRedis
 # is an anonymous work queue with an unknown (indeed, variable) nunmber of
 # workers, reproducibility requires that we encode random seeds with each taks.
 # @keywords internal
-# @importFrom parallel nextRNGStream
 .to.list <- function(x)
 {
   n <- 64
@@ -602,7 +616,7 @@ flushQueue <- function(queue, ID)
         n <- 2 * n
         length(a) <- n
       }
-      seed <- tryCatch({nextRNGStream(seed)}, error = function(e) as.integer(i + 1L))
+      seed <- tryCatch(as.integer(i + 1L), error = function(e) 0L)
       rs <- list(.Random.seed=seed)
       a[[i + 1]] <- c(nextElem(x), rs)
       i <- i + 1
