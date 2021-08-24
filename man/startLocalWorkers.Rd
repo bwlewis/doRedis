@@ -54,14 +54,21 @@ function. That value defaults internally to 3600 (one hour) in \code{startLocalW
 You can increase it by including a {timeout=n} argument value.
 }
 \examples{
-\dontrun{
-require('doRedis')
-registerDoRedis('jobs')
-startLocalWorkers(n=2, queue='jobs', linger=5)
-print(getDoParWorkers())
-foreach(j=1:10,.combine=sum,.multicombine=TRUE) \\%dopar\\%
-          4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
-removeQueue('jobs')
+# Only run if a Redis server is running
+if (redux::redis_available()) {
+## The example assumes that a Redis server is running on the local host
+## and standard port.
+
+# Start a single local R worker process
+startLocalWorkers(n=1, queue="R jobs", linger=1)
+
+# Run a simple sampling approximation of pi:
+registerDoRedis("R jobs")
+print(foreach(j=1:10, .combine=sum, .multicombine=TRUE) \%dopar\%
+        4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000)
+
+# Clean up
+removeQueue("R jobs")
 }
 
 }

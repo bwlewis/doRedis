@@ -15,26 +15,27 @@
 }
 
 # .workerInit runs once per worker when it encounters a new job ID
-# expr, exportenv, parentenv, packages, combinInfo are parameters from
+# expr, exportenv, parentenv, packages are parameters from
 # the job environment, see invocation of .workerInit below.
 # If an error is encountered at any step here, the expression to be
-# evaluated is replaced with the error for return to the master process.
-`.workerInit` <- function(expr, exportenv, parentenv, packages, combineInfo)
+# evaluated is replaced with the error for return to the coordinator process.
+`.workerInit` <- function(expr, exportenv, parentenv, packages)
 {
   assign("expr", expr, .doRedisGlobals)
   assign("exportenv", exportenv, .doRedisGlobals)
-  assign("combineInfo", combineInfo, .doRedisGlobals)
   err = tryCatch(
     {
+# First load packages
       for (p in packages) library(p, character.only=TRUE)
-      RNGkind("L'Ecuyer-CMRG")
+# Check for .RNGkind and set if possible
+      if(!is.null(exportenv[[".RNGkind"]]))
+      {
+        do.call("RNGkind", list(exportenv[[".RNGkind"]]), envir=globalenv())
+      }
 # Check for worker.init function
-      if(!is.null(exportenv$worker.init))
-        if(is.function(exportenv$worker.init))
-          do.call(exportenv$worker.init, list(), envir=globalenv())
-# XXX This use of parent.env is problematic. It's used here to
-# set up a valid search path above the working evironment, but its use
-# is fraglie as this may function be dropped in a future release of R.
+      if(!is.null(exportenv[["worker.init"]]))
+        if(is.function(exportenv[["worker.init"]]))
+          do.call(exportenv[["worker.init"]], list(), envir=globalenv())
       parent.env(.doRedisGlobals$exportenv) <- 
         if(is.null(parentenv)) globalenv() else getNamespace(parentenv[[1]])
     },
@@ -46,6 +47,7 @@
   if(inherits(err, "error")) assign("expr", err, .doRedisGlobals)
 }
 
+# .evalWrapper runs once per worker loop iteration
 `.evalWrapper` <- function(args)
 {
   tryCatch({
@@ -53,7 +55,11 @@
                          assign(n, args[[n]], pos=.doRedisGlobals$exportenv))
       if(exists(".Random.seed", envir=.doRedisGlobals$exportenv))
       {
-        assign(".Random.seed", .doRedisGlobals$exportenv$.Random.seed, envir=globalenv())
+        if(isTRUE(is.integer(.doRedisGlobals$exportenv[[".Random.seed"]])) &&
+           isTRUE(length(.doRedisGlobals$exportenv[[".Random.seed"]]) == 1)) {
+           set.seed(.doRedisGlobals$exportenv[[".Random.seed"]])
+        }
+        rm(list=".Random.seed", pos=.doRedisGlobals[["exportenv"]])
       }
       tryCatch(
       {
@@ -61,7 +67,7 @@
         if(exists("set.seed.worker", envir=.doRedisGlobals$exportenv))
           do.call("set.seed.worker", list(0), envir=.doRedisGlobals$exportenv)
        }, error=function(e) cat(as.character(e), "\n"))
-      eval(.doRedisGlobals$expr, envir=.doRedisGlobals$exportenv)
+      eval(.doRedisGlobals[["expr"]], envir=.doRedisGlobals[["exportenv"]])
     },
     error=function(e) e
   )
@@ -95,14 +101,21 @@
 #' @seealso \code{\link{registerDoRedis}}, \code{\link{redisWorker}}
 #'
 #' @examples
-#' \dontrun{
-#' require('doRedis')
-#' registerDoRedis('jobs')
-#' startLocalWorkers(n=2, queue='jobs', linger=5)
-#' print(getDoParWorkers())
-#' foreach(j=1:10,.combine=sum,.multicombine=TRUE) \%dopar\%
-#'           4*sum((runif(1000000)^2 + runif(1000000)^2)<1)/10000000
-#' removeQueue('jobs')
+#' # Only run if a Redis server is running
+#' if (redux::redis_available()) {
+#' ## The example assumes that a Redis server is running on the local host
+#' ## and standard port.
+#'
+#' # Start a single local R worker process
+#' startLocalWorkers(n=1, queue="R jobs", linger=1)
+#'
+#' # Run a simple sampling approximation of pi:
+#' registerDoRedis("R jobs")
+#' print(foreach(j=1:10, .combine=sum, .multicombine=TRUE) %dopar%
+#'         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000)
+#'
+#' # Clean up
+#' removeQueue("R jobs")
 #' }
 #'
 #' @export
@@ -214,13 +227,13 @@ redisWorker <- function(queue, host="localhost", port=6379,
   while(k < iter)
   {
     work <- tryCatch(redisBLPop(queue, timeout=linger), error=function(e) list())
-    if(!is.null(globalenv()$.redis.debug) && globalenv()$.redis.debug > 0)
+    if(isTRUE(!is.null(globalenv()[[".redis.debug"]]) && globalenv()[[".redis.debug"]] > 0))
       cat(paste(capture.output(print(work)), collapse="\n"), "\n", file=stderr())
 # Note the apparent fragility here. The worker has downloaded a task but
 # not yet set alive/started keys. If a failure occurs before that, it
 # seems like the task has been consumed and finished but no matching result
-# appears in the output queue. But, the master keeps track of missing output
-# as of version 1.2.0 and will eventually re-submit such lost tasks.
+# appears in the output queue. But, the coordinator keeps track of missing output
+# and will eventually re-submit such lost tasks.
     if(length(work) == 0) work <- NULL
     myQueue <- head(names(work), 1) # note that the worker might listen on multiple queues
     queueEnv <- paste(myQueue, "env", work[[1]]$ID, sep=".")
@@ -272,17 +285,11 @@ redisWorker <- function(queue, host="localhost", port=6379,
       if(get(".jobID", envir=.doRedisGlobals) != work[[1]]$ID)
        {
         initdata <- redisGet(queueEnv)
-        .workerInit(initdata$expr, initdata$exportenv, initdata$parentenv, initdata$packages, initdata$combineInfo)
+        .workerInit(initdata$expr, initdata$exportenv, initdata$parentenv, initdata$packages)
         assign(".jobID", work[[1]]$ID, envir=.doRedisGlobals)
        }
       result <- lapply(work[[1]]$argsList, .evalWrapper)
       names(result) <- names(work[[1]]$argsList)
-      if(!is.null(.doRedisGlobals$combineInfo))
-      {
-        environment(.doRedisGlobals$combineInfo$fun) <- initdata$exportenv
-        result <- list(Reduce(.doRedisGlobals$combineInfo$fun, result)) ## XXX init?
-        names(result) <- names(work[[1]]$argsList[1])
-      }
 # We saw that long-running jobs can sometimes lose connections to
 # Redis in an AWS EC2 example. The following tries to re-establish
 # a redis connecion on error here.

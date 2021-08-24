@@ -10,7 +10,7 @@ setProgress(value = FALSE)
 \item{value}{if \code{TRUE}, display a text progress bar indicating status of the computation}
 }
 \value{
-\code{value} is invisibly returned
+\code{value} is invisibly returned (this function is used for its side effect).
 }
 \description{
 Progress bar

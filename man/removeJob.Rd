@@ -12,7 +12,7 @@ job queue and job id, or a list with equal-length "queue" and "id" entries, or a
 "queue" and "id" entries, for example as returned by \code{\link{jobs}}.}
 }
 \value{
-NULL is invisibly returned
+\code{NULL} is invisibly returned; this function is used for its side effect--in particular, removing all Redis keys associated with the specified job.
 }
 \description{
 Remove Redis keys associated with one or more doRedis jobs

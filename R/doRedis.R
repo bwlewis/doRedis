@@ -1,31 +1,9 @@
-# Copyright (c) 2010 by Bryan W. Lewis.
-#
-# This is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as published
-# by the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
-# USA
-#
-# The environment initialization code is adapted (with minor changes)
-# from the doMPI package by Steve Weston.
-
-
-
 #' Register the Redis back end for foreach.
 #'
 #' The doRedis package imlpements a simple but flexible parallel back end
 #' for foreach that uses Redis for inter-process communication. The work
-#' queue name specifies the base name of a small set of Redis keys that the master
-#' and worker processes use to exchange data.
+#' queue name specifies the base name of a small set of Redis keys that the
+#' coordinator and worker processes use to exchange data.
 #'
 #' Back-end worker R processes  advertise their availablility for work
 #' with the \code{\link{redisWorker}} function.
@@ -49,43 +27,46 @@
 #' All doRedis functions require access to a Redis database server (not included
 #' with this package).
 #'
-#' The doRedis package sets RNG streams across the worker processes using the
-#' L'Ecuyer-CMRG method from R's parallel package for reproducible pseudorandom
-#' numbers independent of the number of workers or task distribution. See the
-#' package vignette for more details and additional options.
+#' Worker processes default to same random number generator as
+#' the coordinator process by default with seeds set per iteration rather than per
+#' worker to yield reproducible output independent of the number of worker
+#' processes. The L'Ecuyer-CMRG RNG available from the parallel package is
+#' recommended when high-quality distributed pseudorandom numbers are needed.
+#' See package vignette for more details and additional options.
 #'
 #' Avoid using fork-based parallel functions within doRedis expressions.
 #' Use of \code{mclapply} and similar functions in the body of a doRedis foreach
 #' loop can result in worker faults.
 #'
 #' @return
-#' NULL is invisibly returned.
+#' \code{NULL} is invisibly returned; this function is called for side effect of registering a foreach backend.
 #'
 #' @examples
-#' \dontrun{
+#' # Only run if a Redis server is running
+#' if (redux::redis_available()) {
 #' ## The example assumes that a Redis server is running on the local host
 #' ## and standard port.
 #'
-#' ## 1. Open one or more 'worker' R sessions and run:
-#' require('doRedis')
-#' redisWorker('jobs')
+#' # 1. Start a single local R worker process
+#' startLocalWorkers(n=1, queue="jobs", linger=1)
 #'
-#' ## 2. Open another R session acting as a 'master' and run this simple
-#' ##    sampling approximation of pi:
-#' require('doRedis')
-#' registerDoRedis('jobs')
-#' foreach(j=1:10, .combine=sum, .multicombine=TRUE) \%dopar\%
+#' # 2. Run a simple sampling approximation of pi:
+#' registerDoRedis("jobs")
+#' pie = foreach(j=1:10, .combine=sum, .multicombine=TRUE) %dopar%
 #'         4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
-#' removeQueue('jobs')
+#' removeQueue("jobs")
+#' print(pie)
+#'
+#' # Note that removing the work queue automatically terminates worker processes.
 #' }
 #'
 #' @seealso \code{\link{foreach}}, \code{\link{doRedis-package}}, \code{\link{setChunkSize}}, \code{\link{removeQueue}}
 #'
 #' @import foreach
-#' @importFrom parallel nextRNGStream
 #' @importFrom iterators nextElem iter
 #' @importFrom stats runif
 #' @importFrom utils packageDescription flush.console
+#' @importFrom redux redis_available
 #' @export
 registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinterval=30, chunkSize=1, progress=FALSE, ...)
 {
@@ -113,10 +94,12 @@ registerDoRedis <- function(queue, host="localhost", port=6379, password, ftinte
 #' @param queue the doRedis queue name
 #'
 #' @note Workers listening for work on more than one queue will only
-#' terminate after all their queues have been deleted.
+#' terminate after all their queues have been deleted. See \code{\link{registerDoRedis}}
+#' for an example.
 #'
 #' @return
-#' NULL is invisibly returned.
+#' \code{NULL} is invisibly returned; this function is called for the side effect of removing
+#' Redis keys associated with the specified queue.
 #'
 #' @export
 removeQueue <- function(queue)
@@ -146,12 +129,27 @@ removeQueue <- function(queue)
 #'
 #' @param value positive integer chunk size setting
 #'
-#'
-#' @return \code{value} is invisibly returned.
+#' @return \code{value} is invisibly returned; this value is called for its side effect.
 #' @examples
-#' \dontrun{
-#' setChunkSize(5)
-#' foreach(j=1:10) %dopar% j
+#' # Only run if a Redis server is running
+#' if (redux::redis_available()) {
+#'
+#' # Start a single local R worker process
+#' startLocalWorkers(n=1, queue="jobs", linger=1)
+#'
+#' # Register the work queue with the coordinator R process
+#' registerDoRedis("jobs")
+#' 
+#' # Compare verbose task submission output from...
+#' setChunkSize(1)
+#' foreach(j=1:4, .combine=c, .verbose=TRUE) %dopar% j
+#' 
+#' # with the verbose task submission output from:
+#' setChunkSize(2)
+#' foreach(j=1:4, .combine=c, .verbose=TRUE) %dopar% j
+#'
+#' # Clean up
+#' removeQueue("jobs")
 #' }
 #'
 #' @export
@@ -164,14 +162,13 @@ setChunkSize <- function(value=1)
 
 #' Set the fault tolerance check interval in seconds.
 #'
-#' @param value positive integer number of seconds
-#' @return \code{value} is invisibly returned.
-#' @examples
-#' \dontrun{
-#' setFtinterval(5)
-#' foreach(j=1:10) %dopar% j
-#' }
+#' Failed tasks are automatically re-submitted to the work queue.
+#' The \code{setFtinterval} sets an upper bound on how frequently
+#' the system checks for failure. See the package vignette for
+#' discussion and examples.
 #'
+#' @param value positive integer number of seconds
+#' @return \code{value} is invisibly returned (this function is used for its side effect).
 #' @export
 setFtinterval <- function(value=30)
 {
@@ -181,53 +178,6 @@ setFtinterval <- function(value=30)
 }
 
 
-#' Set two-level distributed reduction
-#'
-#' Instruct doRedis to perform either the \code{.combine} reduction function
-#' or another specified function per task on each
-#' worker before returning results, cf. \code{\link{foreach}}.
-#' Combined results are then processed through
-#' the specified function \code{fun} for two levels of reduction
-#' functions. This option only applies when the \code{chunkSize} option is greater than
-#' one, and automatically sets \code{.multicombine=FALSE}.
-#'
-#' This approach can improve performance when the \code{.combine} function is
-#' expensive to compute, and when function emits significantly less data than
-#' it consumes. The same effect is usually achievable by simply adding the reduction
-#' function to the end of the foreach loop expression (but must be decided prior
-#' to run time).
-#'
-#' @note Do not use this function, use the 'compile-time' version instead directly
-#' in the foreach loop: \code{foreach(..., .options.redis=list(reduce=...))}.
-#' Setting a reduction function at run-time will generally alter the result.
-#'
-#' @param fun a function of two arguments, set to NULL to disable combining, or
-#'  leave missing to implicitly set the gather function formally identical to the
-#'  \code{.combine} function but with an empty environment.
-#'
-#'
-#' @return \code{fun} is invisibly returned, or TRUE is returned when
-#'  \code{fun} is missing (in which case the \code{.combine} function is used).
-#' @seealso \code{\link{foreach}}, \code{\link{setChunkSize}}
-#' @examples
-#' \dontrun{
-#' setChunkSize(3)
-#' foreach(j=1:10, .combine=c, .options.redis=list(reduce=list)) %dopar% j
-#' }
-#'
-#' @export
-setReduce <- function(fun=NULL)
-{
-  if(missing(fun))
-  {
-# Special case: defer assignment of the function until foreach is called,
-# then set it equal to the .combine function.
-    return(assign("gather", TRUE, envir=.doRedisGlobals))
-  }
-# Otherwise explicitly set or clear the function
-  if(!(is.function(fun) || is.null(fun))) stop("setGather requires a function or NULL")
-  assign("gather", fun, envir=.doRedisGlobals)
-}
 
 #' Manually add symbol names to the worker environment export list.
 #'
@@ -242,26 +192,24 @@ setReduce <- function(fun=NULL)
 #'
 #' @param names A character vector of symbol names to export.
 #'
-#' @return \code{names} is invisibly returned.
+#' @return The value of \code{names} is invisibly returned (this function is used ofr its side effect).
 #'
 #' @examples
 #' \dontrun{
-#' require("doRedis")
 #' registerDoRedis("work queue")
-#' startLocalWorkers(n=1, queue="work queue")
+#' startLocalWorkers(n=1, queue="work queue", linger=1)
 #'
 #' f <- function() pi
 #'
-#' foreach(1) %dopar% eval(call("f"))
-#' # Returns the error:
+#' (foreach(1) %dopar% tryCatch(eval(call("f")), error = as.character))
+#' # Returns the error converted to a message:
 #' # Error in eval(call("f")) : task 1 failed - could not find function "f"
 #'
-#' # Manuall export the symbol f:
+#' # Manually export the symbol f:
 #' setExport("f")
-#' foreach(1) %dopar% eval(call("f"))
-#' # Ok then.
-#' #[[1]]
-#' #[1] 3.141593
+#' (foreach(1) %dopar% eval(call("f")))
+#' # Now f is found.
+#'
 #' removeQueue("work queue")
 #' }
 #'
@@ -284,7 +232,7 @@ setExport <- function(names=c())
 #'
 #' @param packages A character vector of package names.
 #'
-#' @return The value of \code{packages} is invisibly returned.
+#' @return The value of \code{packages} is invisibly returned (this function is used for its side effect).
 #'
 #' @export
 setPackages <- function(packages=c())
@@ -294,7 +242,7 @@ setPackages <- function(packages=c())
 
 #' Progress bar
 #' @param value if \code{TRUE}, display a text progress bar indicating status of the computation
-#' @return \code{value} is invisibly returned
+#' @return \code{value} is invisibly returned (this function is used for its side effect).
 #' @importFrom utils txtProgressBar setTxtProgressBar packageName
 #' @export
 setProgress <- function(value=FALSE)
@@ -356,32 +304,15 @@ setProgress <- function(value=FALSE)
 # packageName function added in R 3.0.0
   parentenv <- packageName(envir)
 
-# Manage default parallel RNG, restoring an advanced old RNG state on exit
-  RNG_STATE <- list(kind=RNGkind()[[1]], seed=globalenv()$.Random.seed)
+# Clean up the session ID and session environment
   on.exit(
   {
-# Reset and advance RNG
-    RNGkind(RNG_STATE$kind)
-    if(!is.null(RNG_STATE$seed)) assign(".Random.seed", RNG_STATE$seed, envir=globalenv())
-    runif(1)
-# Clean up the session ID and session environment
     if(redisExists(queueEnv)) redisDelete(queueEnv)
     if(redisExists(queueOut)) redisDelete(queueOut)
   })
-  RNGkind("L'Ecuyer-CMRG")
 
   it <- iter(obj)
   argsList <- .to.list(it)
-
-# Distributed reduce
-  gather <- NULL
-  if(exists("gather", envir=.doRedisGlobals))
-    gather <- get("gather", envir=.doRedisGlobals)
-  if(!is.null(obj$options$redis$reduce)) gather <- obj$options$redis$reduce
-  if(is.logical(gather) && isTRUE(gather))
-  {
-    gather <- it$combineInfo$fun
-  }
 
 # Progress bar
   .progress <- FALSE
@@ -403,6 +334,7 @@ setProgress <- function(value=FALSE)
   error=function(e) {
     new.env(parent=emptyenv())
   })
+  exportenv[[".RNGkind"]] = RNGkind()[[1]]
   noexport <- union(obj$noexport, obj$argnames)
   obj$packages = unique(c(obj$packages, getexports(expr, exportenv, envir, bad=noexport), .doRedisGlobals$packages, parentenv))
   vars <- ls(exportenv)
@@ -484,17 +416,7 @@ setProgress <- function(value=FALSE)
 
   chunkSize <- tryCatch(max(chunkSize - 1, 0), error=function(e) 0)
 
-  if(!is.null(gather))
-  {
-# Modify iterator to include the combine function
-    exportCombineInfo <- it$combineInfo
-    environment(exportCombineInfo$fun) <- emptyenv()
-    redisSet(queueEnv, list(expr=expr,
-                            exportenv=exportenv,
-                            parentenv=parentenv,
-                            packages=obj$packages,
-                            combineInfo=exportCombineInfo))
-  } else redisSet(queueEnv, list(expr=expr, parentenv=parentenv,
+  redisSet(queueEnv, list(expr=expr, parentenv=parentenv,
                                  exportenv=exportenv, packages=obj$packages))
 # Check for a fault-tolerance check interval (in seconds), do not
 # allow it to be less than 3 seconds (cf alive.c thread code in the worker).
@@ -516,7 +438,7 @@ setProgress <- function(value=FALSE)
   blocknames <- list() # List of block names
 
 # use nonblocking call to submit all tasks at once
-# NOTE! May-2020: avoid pipelining for now due to likely bug in hiredis.
+# NOTE! May-2020: avoid pipelining for now due to likely, now confirmed, bug in hiredis.
 # See https://github.com/bwlewis/doRedis/issues/56
 #  commands <- redis$MULTI()
   redisMulti()
@@ -525,8 +447,7 @@ setProgress <- function(value=FALSE)
     k <- min(j + chunkSize, ntasks)
     block <- argsList[j:k]
     if(is.null(block)) break
-    if(!is.null(gather)) names(block) <- rep(nout, k - j + 1)
-    else names(block) <- j:k
+    names(block) <- j:k
     blocknames <- c(blocknames, list(names(block)))
     if(obj$verbose) message("Submitting task(s) ", j, ":", k)
 #    commands <- c(commands, list(redis$RPUSH(queue, serialize(list(ID=ID, argsList=block), NULL))))
@@ -535,19 +456,6 @@ setProgress <- function(value=FALSE)
     nout <- nout + 1
   }
   redisExec()
-#  commands <- c(commands, list(redis$EXEC()))
-#  .doRedisGlobals$r$pipeline(.commands=commands)
-
-# Adjust iterator, accumulator function for distributed accumulation
-  if(!is.null(gather))
-  {
-    it$state$numValues <- nout - 1
-    it$combineInfo$fun <- gather
-    it$state$fun <- gather # this is the only one that matters?
-    it$combineInfo$multi.combine <- FALSE
-    it$combineInfo$has.init <- FALSE
-    it$combineInfo$init <- c()
-  }
   accumulator <- makeAccum(it)
 
 # Collect the results and pass through the accumulator
@@ -617,13 +525,7 @@ tryCatch(
           if(resub_init)
           {
             # Reset the job environment just in case
-            if(!is.null(gather))
-            {
-              redisSet(queueEnv, list(expr=expr,
-                            exportenv=exportenv,
-                            packages=obj$packages,
-                            combineInfo=exportCombineInfo))
-            } else redisSet(queueEnv, list(expr=expr, exportenv=exportenv, packages=obj$packages))
+            redisSet(queueEnv, list(expr=expr, exportenv=exportenv, packages=obj$packages))
             resub_init <- FALSE
           }
           block <- argsList[resub]
@@ -689,7 +591,7 @@ flushQueue <- function(queue, ID)
   if(length(idx) == 0) return()
   lapply(tasks[[idx]][[1]], function(j)
   {
-    if(j$ID != ID) redisRPush(queue, list(ID=j$ID, argsList=j$argsList))
+    if(!isTRUE(j[["ID"]] == ID)) redisRPush(queue, list(ID=j[["ID"]], argsList=j[["argsList"]]))
   })
 }
 
@@ -697,22 +599,24 @@ flushQueue <- function(queue, ID)
 #
 # @param x an iterator
 # @return A list with two entries per element. The first entry is the
-# corresponding iterator value. The 2nd is a L'Ecuyer random seed value.
+# corresponding iterator value. The 2nd is a random seed, (not) a L'Ecuyer
+# random seed value, rolling with whatever RNG is in use on the
+# coordinator--see the .workerInit function in redisWorker.R.  Because doRedis
+# is an anonymous work queue with an unknown (indeed, variable) nunmber of
+# workers, reproducibility requires that we encode random seeds with each taks.
 # @keywords internal
-# @importFrom parallel nextRNGStream
 .to.list <- function(x)
 {
-  seed <- .Random.seed
   n <- 64
   a <- vector("list", length=n)
-  i <- 0
+  i <- 0L
   tryCatch({
     repeat {
       if (i >= n) {
         n <- 2 * n
         length(a) <- n
       }
-      seed <- nextRNGStream(seed)
+      seed <- tryCatch(as.integer(i + 1L), error = function(e) 0L)
       rs <- list(.Random.seed=seed)
       a[[i + 1]] <- c(nextElem(x), rs)
       i <- i + 1
@@ -744,13 +648,13 @@ jobs <- function(queue="*")
 #' List running doRedis tasks
 #' @param queue List jobs for the specified queue, or set to "*" to list jobs for all queues
 #' @param id List tasks for the specified job id, or set to "*" to list tasks for all job ids
-#' @return a data frame listing jobs by row with variables queue, id, user, master, time, iter, host, pid
+#' @return a data frame listing jobs by row with variables queue, id, user, coordinator, time, iter, host, pid (see Note)
 #' @note The returned values indicate
 #' \enumerate{
 #' \item \code{queue} the doRedis queue name
 #' \item \code{id} the doRedis job id
 #' \item \code{user} the user running the job
-#' \item \code{master} the host name or I.P. address where the job was submitted (and the master R process runs)
+#' \item \code{coordinator} the host name or I.P. address where the job was submitted (and the coordinator R process runs)
 #' \item \code{time} system time on the worker node when the task was started
 #' \item \code{iter} the loop iterations being run by the task
 #' \item \code{host} the host name or I.P. address where the task is running
@@ -769,7 +673,7 @@ tasks <- function(queue="*", id="*")
            lapply(lapply(strsplit(x, "_"),
              function(x) c(strsplit(x[1], "\\.")[[1]], x[-1])),
                function(x) c(x[-c(2,6)], strsplit(x[6], " ")[[1]][c(8,2,4,6)])))), stringsAsFactors=FALSE, row.names=NULL)
-  names(ans) <- c("queue", "id", "user", "master", "time", "iter", "host", "pid")
+  names(ans) <- c("queue", "id", "user", "coordinator", "time", "iter", "host", "pid")
   ans$time <- gsub("\\.iters", "", ans$time)
   ans
 }
@@ -778,7 +682,7 @@ tasks <- function(queue="*", id="*")
 #' @param job Either a named character vector with "queue" and "id" entries corresponding to a doRedis
 #'  job queue and job id, or a list with equal-length "queue" and "id" entries, or a data frame with
 #'  "queue" and "id" entries, for example as returned by \code{\link{jobs}}.
-#' @return NULL is invisibly returned
+#' @return \code{NULL} is invisibly returned; this function is used for its side effect--in particular, removing all Redis keys associated with the specified job.
 #' @export
 removeJob <- function(job)
 {
@@ -800,7 +704,7 @@ removeJob <- function(job)
 #'
 #' Use to help debug remote doRedis workers.
 #' @param msg a character message to print to the standard error stream
-#' @return The character string that was printed, decorated with time and system info.
+#' @return The character message that was printed, decorated with time and system info.
 #' @export
 logger <- function(msg)
 {

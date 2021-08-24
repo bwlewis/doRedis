@@ -1,10 +1,23 @@
 # doRedis: A parallel backend for foreach using Redis.
 
-## Important change in version 2.0.0
+## Version 3.0.0
 
-Version 2 and greater of the doRedis package now depend on the redux package
-(see https://cran.r-project.org/package=redux)
-for communication with Redis instead of the deprecated rredis package.
+- Removed the problematic setReduce function (an API change, but probably
+  very little effect on users since it was not widely used and deprecated in
+  2.0.0 anyway).
+- Simplified default behavior of RNG, see vignette (a significant change,
+  but also mostly painless for users).
+
+
+## Important changes
+
+Version 3 and greater removed default use of L'Ecuyer RNG (repeatable
+non-L'Ecuyer RNGs are available by default). See the package vignette for
+details.
+
+Version 2 and greater now depend on the redux package (see
+https://cran.r-project.org/package=redux) for communication with Redis instead
+of the deprecated rredis package.
 
 ## Important Redis configuration notes
 
