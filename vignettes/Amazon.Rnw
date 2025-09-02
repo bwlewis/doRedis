@@ -3,12 +3,6 @@
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
 \usepackage[pdftex]{graphicx}
-\usepackage[
-     colorlinks=true,
-     linkcolor=blue,
-     citecolor=blue,
-     urlcolor=blue]
-     {hyperref}
 \usepackage{Sweave}
 
 
@@ -37,10 +31,10 @@ sudo apt-get build-dep r-base libxml2-dev libssl-dev \
      libcurl4-openssl-dev unzip  redis-server
 # (substitute with current version of R as required)
 wget --quiet -O - \
-    https://cran.r-project.org/src/base/R-3/R-3.6.2.tar.gz | \
+    https://cran.r-project.org/src/base/R-4/R-4.1.2.tar.gz | \
 tar -zxvf -
 
-cd R-3.6.2
+cd R-4.1.2
 ./configure --enable-R-shlib --enable-memory-profiling
 make -j 2     # use an appropriate number of CPUs here
 sudo make install

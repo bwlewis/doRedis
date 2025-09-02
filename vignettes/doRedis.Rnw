@@ -2,86 +2,9 @@
 % \VignetteDepends{doRedis}
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
-%\usepackage{amsmath}
-%\usepackage{lmodern}
 \usepackage[pdftex]{graphicx}
-\usepackage{color}
-\usepackage{xspace}
-\usepackage{fancyvrb}
-\usepackage{fancyhdr}
-\usepackage[
-     colorlinks=true,
-     linkcolor=blue,
-     citecolor=blue,
-     urlcolor=blue]
-     {hyperref}
-\usepackage{lscape}
 \usepackage{Sweave}
-%\usepackage{tabularx}
-\usepackage{relsize}
-\usepackage{upquote}
 
-\usepackage[absolute]{textpos}
-\setlength{\TPHorizModule}{40mm}
-\setlength{\TPVertModule}{\TPHorizModule}
-\textblockorigin{0mm}{0mm}
-%%\definecolor{lgray}{rgb}{0.9, 0.9, 0.9}
-%%\definecolor{textc}{rgb}{0.7, 0.2, 0.4}
-%%\definecolor{dkgreen}{rgb}{0.2, 0.5, 0.2}
-
-%%\usepackage{caption}
-%%\DeclareCaptionFont{white}{\color{white}}
-%%\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox{\textwidth}{#1#2#3}}}
-%%\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white,margin=0pt}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% define new colors for use
-%%\definecolor{gray}{rgb}{0.4,0.4,0.4}
-%%\definecolor{darkgreen}{rgb}{0,0.6,0}
-%%\definecolor{darkred}{rgb}{0.6,0.0,0}
-%%\definecolor{lightbrown}{rgb}{1,0.9,0.8}
-%%\definecolor{brown}{rgb}{0.6,0.3,0.3}
-%%\definecolor{darkblue}{rgb}{0,0,0.8}
-%%\definecolor{darkmagenta}{rgb}{0.5,0,0.5}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\newcommand{\bld}[1]{\mbox{\boldmath $#1$}}
-\newcommand{\shell}[1]{\mbox{$#1$}}
-\renewcommand{\vec}[1]{\mbox{\bf {#1}}}
-\newcommand{\ReallySmallSpacing}{\renewcommand{\baselinestretch}{.6}\Large\normalsize}
-\newcommand{\SmallSpacing}{\renewcommand{\baselinestretch}{1.1}\Large\normalsize}
-\def\tm{\leavevmode\hbox{$\rm {}^{TM}$}}
-
-\newenvironment{mitemize}{
-\begin{itemize}
-  \setlength{\itemsep}{1pt}
-  \setlength{\parskip}{0pt}
-  \setlength{\parsep}{0pt}
-}{\end{itemize}}
-
-
-\setlength{\oddsidemargin}{-.25 truein}
-\setlength{\evensidemargin}{0truein}
-\setlength{\topmargin}{-0.2truein}
-\setlength{\textwidth}{7 truein}
-\setlength{\textheight}{8.5 truein}
-\setlength{\parindent}{0 truein}
-\setlength{\parskip}{0.10truein}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\pagestyle{fancy}
-\lhead{}
-\chead{The {\tt doRedis} Package}
-\rhead{}
-\lfoot{}
-\cfoot{}
-\rfoot{\thepage}
-\renewcommand{\headrulewidth}{1pt}
-\renewcommand{\footrulewidth}{1pt}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \title{Elastic computing with R and Redis}
 \author{Bryan W. Lewis \\ 
 blewis@illposed.net}
@@ -90,11 +13,6 @@ blewis@illposed.net}
 \SweaveOpts{concordance=TRUE}
 
 \maketitle
-\begin{textblock}{3}(0,1)
-\resizebox{0.5\textwidth}{!}{\rotatebox{0}{\includegraphics{elastic}}}
-\end{textblock}
-
-\thispagestyle{empty}
 
 \section{Introduction}
 
@@ -173,9 +91,7 @@ leaving the particular choice of implementation up to users at run-time.
 Redis is an extremely popular open source networked key/value database, and
 operating system-specific packages are available for all major operating
 systems, including Windows.
-
-For more information see:
-\htmladdnormallink{http://redis.io/download}{http://redis.io/download}.
+For more information see: {\tt{https://redis.io/download}}.
 
 The Redis server is completely configured by the file \verb+redis.conf+.  It's
 important to make sure that the \verb+timeout+ setting is set to \verb+0+ in
@@ -199,16 +115,18 @@ The simple example below is one version of a Monte Carlo
 approximation of $\pi$. Variations on this example are often used to
 illustrate parallel programming ideas. 
 
+{\small{
 <<eval=FALSE>>=
 library("doRedis")
 registerDoRedis("RJOBS")
 startLocalWorkers(n=2, queue="RJOBS")
 foreach(icount(10), .combine=sum,
           .multicombine=TRUE, .inorder=FALSE) %dopar%
-          4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000
+          4 * sum((runif(1e6) ^ 2 + runif(1e6) ^ 2) < 1) / 1e7
 
 # [1] 3.144212
 @
+}}
 
 \begin{center}
 \resizebox{0.5\textwidth}{!}{\rotatebox{0}{\includegraphics{circle}}}
@@ -253,12 +171,12 @@ the number of workers may change over time (unlike most other parallel back
 ends for {\tt foreach}). The {\tt getDoParWorkers} function returns the current
 number of workers in the pool, but the number returned should only be
 considered to be an estimate of the actual number of available workers.
-
 The next lines actually run the Monte Carlo code:
 
-\noindent \verb+foreach(icount(10), .combine=sum, .multicombine=TRUE, .inorder=FALSE) %dopar%+
-\\
-$\phantom{xxxxxx}$\verb_4 * sum((runif(1000000) ^ 2 + runif(1000000) ^ 2) < 1) / 10000000_
+{\small{
+\noindent \verb+foreach(icount(10), .combine=sum, .multicombine=TRUE, .inorder=FALSE)+
+\\ \phantom{xxxxxxxxxxxx}\verb_%dopar%4 * sum((runif(1e6) ^ 2 + runif(1e6) ^ 2) < 1) / 1e7_
+}}
 
 \noindent
 This parallel loop consists of 10 iterations (tasks in this example) using the 
@@ -292,6 +210,7 @@ slow computations down--the default value is usually reasonable.)
 The following code listing presents a contrived but self-contained example of
 fault tolerance.
 
+{\small{
 <<eval=FALSE>>=
 require("doRedis")
 registerDoRedis("RJOBS", ftinterval=5, chunkSize=2)
@@ -305,6 +224,7 @@ x <- foreach(j=1:4, .combine=sum) %dopar%
 
 removeQueue("RJOBS")
 @
+}}
 
 The example starts up four local worker processes and submits two tasks to the
 work queue ``jobs.'' (There are four loop iterations--\verb+j=1,2,3,4+,
@@ -340,6 +260,7 @@ The bootstrap resampling replicates will be divided into {\tt chunks} tasks for
 processing by {\tt foreach}.  The example also illustrates the use of a custom
 combine function in the {\tt foreach} loop.
 
+{\small{
 <<eval=FALSE>>=
 bootForEach <- function (data, statistic, R, sim="ordinary",
                  stype="i", strata=rep(1, n), L=NULL, m=0,
@@ -385,6 +306,7 @@ bootForEach <- function (data, statistic, R, sim="ordinary",
  }
 }
 @
+}}
 
 
 \section{Technical Details}
@@ -474,7 +396,7 @@ described in detail below.
 
 The name of the work queue illustrated in Figure 2 is ``myjobs.'' The
 corresponding Redis key is also named ``myjobs'' and it's a Redis list value type
-(that is, a queue).  Such a queue can be set up, for example, with
+(that is, a queue).  Such a queue can be set up, for example, with\\
 \verb+registerDoRedis(queue="myjobs")+.
 
 Removal of the ``jobs.live'' key serves as a signal that the work queue has
@@ -578,11 +500,12 @@ seed initialization function. Such a function could be used, for example, with
 the {\tt SPRNG} library or with the \verb+doRNG+ package for \verb+foreach+,
 or for manual experimentation.
 
-The user-defined random seed initialization function must be called {\tt
-set.seed.worker}, take one argument and must be exported to the workers
+The user-defined random seed initialization function must be called \\
+{\tt set.seed.worker}, take one argument and must be exported to the workers
 explicitly in the {\tt foreach} loop. The example shown  below
 illustrates a simple user-defined seed function.
 
+{\small{
 <<eval=FALSE>>=
 startLocalWorkers(n=5, queue="jobs")
 registerDoRedis("jobs")
@@ -597,6 +520,7 @@ foreach(j=1:5, .combine="c", .export="set.seed.worker") %dopar% runif(1)
 
 #[1] 0.2115148 0.2115148 0.2115148 0.2115148 0.2115148
 @
+}}
 
 
 \subsection{Known Problems and Limitations}
@@ -631,6 +555,7 @@ For the purposes of illustration, the example matrix is tiny and we break it
 up into only two chunks. But the idea extends directly to very large
 problems.
 
+{\small{
 <<eval=FALSE>>=
 registerDoRedis("jobs")
 
@@ -643,9 +568,9 @@ A <- matrix(rnorm(100), nrow=10)   # (Imagine that A is really big.)
 A1 <- A[1:5,]      # First five rows
 A2 <- A[6:10,]     # Last five rows
 
-# Let's explicitly assign these sub-matrices as Redis values. Manually breaking
-# up the data like this helps avoid putting too much data in the R environment
-# exported by foreach.
+# Let's explicitly assign these sub-matrices as Redis values.
+# Manually breaking up the data like this helps avoid putting
+# too much data in the R environment exported by foreach.
 
 redisSet("A1", A1)
 redisSet("A2", A2)
@@ -659,6 +584,7 @@ print(ans)
 
 # [1] 6.216482 4.672254
 @
+}}
 
 The point of the example above is that the workers explicitly
 download just their portion of the data inside the \verb+foreach+ loop. This
@@ -716,10 +642,11 @@ shown below) or by using the special \verb+setProgress()+,
 \verb+setChunkSize()+, \verb+setFtinterval+, and \verb+setStream+ functions.
 Additionally, the package defines two special functions to explicitly set
 variable exports and packages:
-\verb+setExport()+ and \verb+setPackages()+.
+\verb+setExport()+ and\\
+\verb+setPackages()+.
 
 Thus,
-\begin{verbatim}
+\small{\begin{verbatim}
 foreach(j=1:10, .options.redis = list(chunksize=5))
 \end{verbatim}
 is equivalent to
@@ -727,6 +654,7 @@ is equivalent to
 setChunkSize(5)
 foreach(j=1:10)
 \end{verbatim}
+}
 
 The package provides the extra \verb+set*+ functions to facilitate working with
 R packages that use \verb+foreach+ internally. In such cases it might not

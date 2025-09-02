@@ -3,12 +3,6 @@
 % \VignettePackage{doRedis}
 \documentclass[10pt]{article}
 \usepackage[pdftex]{graphicx}
-\usepackage[
-     colorlinks=true,
-     linkcolor=blue,
-     citecolor=blue,
-     urlcolor=blue]
-     {hyperref}
 \usepackage{Sweave}
 
 

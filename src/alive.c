@@ -197,7 +197,7 @@ msg (int sock, char *cmd, char *response)
 
 
 void
-thread_exit ()
+thread_exit (void)
 {
 #ifdef Win32
   ExitThread ((DWORD) (0));
@@ -274,7 +274,7 @@ ok (void *x)
 
 /* OK to call delOK repeatedly */
 SEXP
-delOK ()
+delOK (void)
 {
   if (go == 0)
     return (R_NilValue);
